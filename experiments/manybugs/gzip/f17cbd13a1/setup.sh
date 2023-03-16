@@ -43,8 +43,8 @@ CC=wllvm CXX=wllvm++ make CFLAGS="-g -O0 -static" -j32
 cd $dir_name
 
 ## fix the test harness and the configuration script
-sed -i "s#/root/mountpoint-genprog/genprog-many-bugs/gzip-bug-2009-09-26-a1d3d4019d-f17cbd13a1#/data/manybugs/gzip/f17cbd13a1#g" test.sh
-sed -i "s#/data/manybugs/gzip/f17cbd13a1/limit#timeout 5#g" test.sh
+sed -i "s#/root/mountpoint-genprog/genprog-many-bugs/gzip-bug-2009-09-26-a1d3d4019d-f17cbd13a1#/root/projects/CPR/data/manybugs/gzip/f17cbd13a1#g" test.sh
+sed -i "s#/root/projects/CPR/data/manybugs/gzip/f17cbd13a1/limit#timeout 5#g" test.sh
 sed -i "s#/usr/bin/perl#perl#g" test.sh
 sed -i "s#cd gzip#cd src#g" test.sh
 
@@ -65,7 +65,7 @@ sed -i '662i \\t\tklee_assert(ifd == 0);' src/gzip.c
 
 ## Compile instrumentation and test driver.
 cd src
-make CXX=$CPR_CXX CC=$CPR_CC CFLAGS="-lcpr_proxy -L/CPR/lib -L/klee/build/lib  -lkleeRuntest -I/klee/source/include -g -O0" -j32
+make CXX=$CPR_CXX CC=$CPR_CC CFLAGS="-lcpr_proxy -L/root/projects/CPR/lib -L/root/projects/uni-klee/build/lib  -lkleeRuntest -I/root/projects/uni-klee/include -g -O0" -j32
 extract-bc gzip
 
 ## Copy remaining files to run CPR.
@@ -82,29 +82,29 @@ cp -rf test-input-files $dir_name
 #
 # gzip -dc in - in < in > out
 #
-# cd /data/manybugs/gzip/f17cbd13a1/src/
-# klee --posix-runtime --libc=uclibc --link-llvm-lib=/CPR/lib/libcpr_runtime.bca --write-smt2s gzip.bc -dc /data/manybugs/gzip/f17cbd13a1/test-input-files/in - /data/manybugs/gzip/f17cbd13a1/test-input-files/in < /data/manybugs/gzip/f17cbd13a1/test-input-files/in > out
+# cd /root/projects/CPR/data/manybugs/gzip/f17cbd13a1/src/
+# klee --posix-runtime --libc=uclibc --link-llvm-lib=/root/projects/CPR/lib/libcpr_runtime.bca --write-smt2s gzip.bc -dc /root/projects/CPR/data/manybugs/gzip/f17cbd13a1/test-input-files/in - /root/projects/CPR/data/manybugs/gzip/f17cbd13a1/test-input-files/in < /root/projects/CPR/data/manybugs/gzip/f17cbd13a1/test-input-files/in > out
 #
-# cd /data/manybugs/gzip/f17cbd13a1/test-input-files
-# gen-bout --sym-file "/data/manybugs/gzip/f17cbd13a1/test-input-files/in"
-# cd /data/manybugs/gzip/f17cbd13a1/src
+# cd /root/projects/CPR/data/manybugs/gzip/f17cbd13a1/test-input-files
+# gen-bout --sym-file "/root/projects/CPR/data/manybugs/gzip/f17cbd13a1/test-input-files/in"
+# cd /root/projects/CPR/data/manybugs/gzip/f17cbd13a1/src
 #
-# klee --posix-runtime --libc=uclibc --link-llvm-lib=/CPR/lib/libcpr_runtime.bca --write-smt2s --seed-out=/data/manybugs/gzip/f17cbd13a1/test-input-files/file.bout --allow-seed-extension --resolve-path --named-seed-matching gzip.bc -dc A --sym-files 1 3312 - A --sym-files 1 3312  < A --sym-files 1 3312
+# klee --posix-runtime --libc=uclibc --link-llvm-lib=/root/projects/CPR/lib/libcpr_runtime.bca --write-smt2s --seed-out=/root/projects/CPR/data/manybugs/gzip/f17cbd13a1/test-input-files/file.bout --allow-seed-extension --resolve-path --named-seed-matching gzip.bc -dc A --sym-files 1 3312 - A --sym-files 1 3312  < A --sym-files 1 3312
 #
 #
-# klee --posix-runtime --libc=uclibc --link-llvm-lib=/CPR/lib/libcpr_runtime.bca --write-smt2s --seed-out=/data/manybugs/gzip/f17cbd13a1/test-input-files/file.bout --allow-seed-extension --resolve-path --named-seed-matching gzip.bc -dc A --sym-files 1 3312 - B --sym-files 1 3312  < C --sym-files 1 3312
+# klee --posix-runtime --libc=uclibc --link-llvm-lib=/root/projects/CPR/lib/libcpr_runtime.bca --write-smt2s --seed-out=/root/projects/CPR/data/manybugs/gzip/f17cbd13a1/test-input-files/file.bout --allow-seed-extension --resolve-path --named-seed-matching gzip.bc -dc A --sym-files 1 3312 - B --sym-files 1 3312  < C --sym-files 1 3312
 #
-# klee --posix-runtime --libc=uclibc --link-llvm-lib=/CPR/lib/libcpr_runtime.bca --write-smt2s --seed-out=/data/manybugs/gzip/f17cbd13a1/test-input-files/file.bout --allow-seed-extension --resolve-path --named-seed-matching gzip.bc -dc A --sym-files 1 3312 - /data/manybugs/gzip/f17cbd13a1/test-input-files/in < /data/manybugs/gzip/f17cbd13a1/test-input-files/in
+# klee --posix-runtime --libc=uclibc --link-llvm-lib=/root/projects/CPR/lib/libcpr_runtime.bca --write-smt2s --seed-out=/root/projects/CPR/data/manybugs/gzip/f17cbd13a1/test-input-files/file.bout --allow-seed-extension --resolve-path --named-seed-matching gzip.bc -dc A --sym-files 1 3312 - /root/projects/CPR/data/manybugs/gzip/f17cbd13a1/test-input-files/in < /root/projects/CPR/data/manybugs/gzip/f17cbd13a1/test-input-files/in
 #
-# klee --posix-runtime --libc=uclibc --link-llvm-lib=/CPR/lib/libcpr_runtime.bca --write-smt2s --seed-out=/data/manybugs/gzip/f17cbd13a1/test-input-files/file.bout --allow-seed-extension --resolve-path --named-seed-matching gzip.bc -dc /data/manybugs/gzip/f17cbd13a1/test-input-files/in - A --sym-files 1 3312 < /data/manybugs/gzip/f17cbd13a1/test-input-files/in
+# klee --posix-runtime --libc=uclibc --link-llvm-lib=/root/projects/CPR/lib/libcpr_runtime.bca --write-smt2s --seed-out=/root/projects/CPR/data/manybugs/gzip/f17cbd13a1/test-input-files/file.bout --allow-seed-extension --resolve-path --named-seed-matching gzip.bc -dc /root/projects/CPR/data/manybugs/gzip/f17cbd13a1/test-input-files/in - A --sym-files 1 3312 < /root/projects/CPR/data/manybugs/gzip/f17cbd13a1/test-input-files/in
 #
-# klee --posix-runtime --libc=uclibc --link-llvm-lib=/CPR/lib/libcpr_runtime.bca --write-smt2s --seed-out=/data/manybugs/gzip/f17cbd13a1/test-input-files/file.bout --allow-seed-extension --resolve-path --named-seed-matching gzip.bc -dc A --sym-files 1 3312 - B --sym-files 1 3312 < /data/manybugs/gzip/f17cbd13a1/test-input-files/in
+# klee --posix-runtime --libc=uclibc --link-llvm-lib=/root/projects/CPR/lib/libcpr_runtime.bca --write-smt2s --seed-out=/root/projects/CPR/data/manybugs/gzip/f17cbd13a1/test-input-files/file.bout --allow-seed-extension --resolve-path --named-seed-matching gzip.bc -dc A --sym-files 1 3312 - B --sym-files 1 3312 < /root/projects/CPR/data/manybugs/gzip/f17cbd13a1/test-input-files/in
 #
-# klee --posix-runtime --libc=uclibc --link-llvm-lib=/CPR/lib/libcpr_runtime.bca --write-smt2s --seed-out=/data/manybugs/gzip/f17cbd13a1/test-input-files/file.bout --allow-seed-extension --resolve-path --named-seed-matching gzip.bc -dc /data/manybugs/gzip/f17cbd13a1/test-input-files/in - /data/manybugs/gzip/f17cbd13a1/test-input-files/in < A --sym-files 1 3312
+# klee --posix-runtime --libc=uclibc --link-llvm-lib=/root/projects/CPR/lib/libcpr_runtime.bca --write-smt2s --seed-out=/root/projects/CPR/data/manybugs/gzip/f17cbd13a1/test-input-files/file.bout --allow-seed-extension --resolve-path --named-seed-matching gzip.bc -dc /root/projects/CPR/data/manybugs/gzip/f17cbd13a1/test-input-files/in - /root/projects/CPR/data/manybugs/gzip/f17cbd13a1/test-input-files/in < A --sym-files 1 3312
 #
-# klee --posix-runtime --libc=uclibc --link-llvm-lib=/CPR/lib/libcpr_runtime.bca --write-smt2s --seed-out=/data/manybugs/gzip/f17cbd13a1/test-input-files/file.bout --allow-seed-extension --resolve-path --named-seed-matching gzip.bc -dc A --sym-files 1 3312 - < /data/manybugs/gzip/f17cbd13a1/test-input-files/in
+# klee --posix-runtime --libc=uclibc --link-llvm-lib=/root/projects/CPR/lib/libcpr_runtime.bca --write-smt2s --seed-out=/root/projects/CPR/data/manybugs/gzip/f17cbd13a1/test-input-files/file.bout --allow-seed-extension --resolve-path --named-seed-matching gzip.bc -dc A --sym-files 1 3312 - < /root/projects/CPR/data/manybugs/gzip/f17cbd13a1/test-input-files/in
 #
-# klee --posix-runtime --libc=uclibc --link-llvm-lib=/CPR/lib/libcpr_runtime.bca --write-smt2s --seed-out=/data/manybugs/gzip/f17cbd13a1/test-input-files/file.bout --allow-seed-extension --resolve-path --named-seed-matching gzip.bc -dc A --sym-files 1 3312 - A < /data/manybugs/gzip/f17cbd13a1/test-input-files/in
+# klee --posix-runtime --libc=uclibc --link-llvm-lib=/root/projects/CPR/lib/libcpr_runtime.bca --write-smt2s --seed-out=/root/projects/CPR/data/manybugs/gzip/f17cbd13a1/test-input-files/file.bout --allow-seed-extension --resolve-path --named-seed-matching gzip.bc -dc A --sym-files 1 3312 - A < /root/projects/CPR/data/manybugs/gzip/f17cbd13a1/test-input-files/in
 #
 #
 # ./gzip -dc in - < in

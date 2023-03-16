@@ -28,7 +28,7 @@ git add libtiff/tif_ojpeg.c libtiff/tif_jpeg.c
 git commit -m 'remove longjmp calls'
 
 
-make CFLAGS="-lcpr_proxy -L/CPR/lib" -j32
+make CFLAGS="-lcpr_proxy -L/root/projects/CPR/lib" -j32
 
 sed -i '2470i CPR_OUTPUT("obs", "i32", es);' tools/tiff2ps.c
 sed -i '2441i if(__cpr_choice("L1634", "bool", (int[]){es, breaklen}, (char*[]){"x", "y"}, 2, (int*[]){}, (char*[]){}, 0)) return;' tools/tiff2ps.c

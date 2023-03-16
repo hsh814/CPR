@@ -52,7 +52,7 @@ CFLAGS="$cflags"
 CXXFLAGS="$cflags"
 
 
-FFMPEG_DEPS_PATH=/data/extractfix/ffmpeg/ffmpeg-deps/libs/
+FFMPEG_DEPS_PATH=/root/projects/CPR/data/extractfix/ffmpeg/ffmpeg-deps/libs/
 LIB_FUZZING_ENGINE=/llvm-6/llvm/compiler-rt/lib/fuzzer/libFuzzer.a
 
 PKG_CONFIG_PATH="$FFMPEG_DEPS_PATH/lib/pkgconfig" CFLAGS="-I$FFMPEG_DEPS_PATH/include $CFLAGS" ./configure \
@@ -85,7 +85,7 @@ make -j32 > /dev/null
 subject=tools/target_dec_cavs_fuzzer
 make ${subject}
 cp ${subject} ./
-KLEE_CFLAGS="-L/CPR/lib -lcpr_runtime -L/klee/build/lib  -L/klee/build/lib  -lkleeRuntest -lkleeBasic -lhook  -L${dir_name}/deps/"
+KLEE_CFLAGS="-L/root/projects/CPR/lib -lcpr_runtime -L/root/projects/uni-klee/build/lib  -L/root/projects/uni-klee/build/lib  -lkleeRuntest -lkleeBasic -lhook  -L${dir_name}/deps/"
 PROJECT_CFALGS="-g -std=c++11 ${LIB_FUZZING_ENGINE} -Llibavcodec -Llibavdevice -Llibavfilter -Llibavformat -Llibavresample -Llibavutil -Llibpostproc -Llibswscale -Llibswresample -L${FFMPEG_DEPS_PATH}  -Wl,--as-needed -Wl,-z,noexecstack -Wl,--warn-common -Wl,-rpath-link=libpostproc:libswresample:libswscale:libavfilter:libavdevice:libavformat:libavcodec:libavutil:libavresample -Qunused-arguments   libavdevice/libavdevice.a libavfilter/libavfilter.a libavformat/libavformat.a libavcodec/libavcodec.a libpostproc/libpostproc.a libswresample/libswresample.a libswscale/libswscale.a libavutil/libavutil.a -lavdevice -lavfilter -lavformat -lavcodec -lpostproc -lswresample -lswscale -lavutil -lass -lm -lharfbuzz -lfontconfig -lexpat -lfreetype -lexpat -lfribidi -lfreetype -lz -lpng12 -lz -lm -lva -lva-drm -lva-x11 -lxcb -lXau -lXdmcp -lxcb -lXau -lXdmcp -lxcb-xfixes -lxcb-render -lxcb-shape -lxcb -lXau -lXdmcp -lxcb-shape -lxcb -lXau -lXdmcp -L ${FFMPEG_DEPS_PATH}   -lstdc++ -lm -lrt -ldl -lnuma -L${FFMPEG_DEPS_PATH} -lvpx -lm -lpthread -L${FFMPEG_DEPS_PATH} -lvpx -lm -lpthread -L${FFMPEG_DEPS_PATH} -lvpx -lm -lpthread -L${FFMPEG_DEPS_PATH} -lvpx -lm -lpthread -lvorbisenc -lvorbis -logg -ltheoraenc -ltheoradec -logg -L${FFMPEG_DEPS_PATH} -lopus -lm -L${FFMPEG_DEPS_PATH} -lopus -lm -lmp3lame -lfreetype -lz -lpng12 -lz -lm -L${FFMPEG_DEPS_PATH} -lfdk-aac -lm -lass -lm -lharfbuzz -lfontconfig -lexpat -lfreetype -lexpat -lfribidi -lfreetype -lz -lpng12 -lz -lm -lm -llzma -lz"
 make ${subject}
 wllvm -ggdb3 -Wall -W -o tools/target_dec_cavs_fuzzer tools/target_dec_cavs_fuzzer.o afl_driver.o ${PROJECT_CFALGS} ${KLEE_CFLAGS} -Wl,-rpath

@@ -46,7 +46,7 @@ CC=wllvm CXX=wllvm++ ./configure --disable-shared --enable-static --disable-fft 
 CC=wllvm CXX=wllvm++ ./configure --disable-shared --disable-cxx --disable-fast-install --enable-static;
 sed -i 's/no-dependencies ansi2knr/no-dependencies/g' Makefile;
 make -e fib_table.h;make -e mp_bases.h;
-CC=clang CXX=clang++ make CFLAGS="-g -O0 -static -I/klee/source/include -L/klee/build/lib -lkleeRuntest" -j32
+CC=clang CXX=clang++ make CFLAGS="-g -O0 -static -I/root/projects/uni-klee/include -L/root/projects/uni-klee/build/lib -lkleeRuntest" -j32
 
 
 cp ../diffs/mpn/generic/powm.c-13420 mpn/generic/powm.c
@@ -65,11 +65,11 @@ sed -i '45i CPR_OUTPUT("obs", "i32", vp - rp == 1 || up - rp == 1);' mpn/generic
 cp $current_dir/t-jac.c tests/mpz/t-jac.c
 sed -i 's/wllvm++/\/CPR\/tools\/cpr-cxx/g' mpn/Makefile
 sed -i 's/wllvm/\/CPR\/tools\/cpr-cc/g' mpn/Makefile
-CC=$CPR_CC CXX=$CPR_CXX make CFLAGS="-g -O0 -static -I/klee/source/include -L/klee/build/lib -lkleeRuntest" -j32
+CC=$CPR_CC CXX=$CPR_CXX make CFLAGS="-g -O0 -static -I/root/projects/uni-klee/include -L/root/projects/uni-klee/build/lib -lkleeRuntest" -j32
 cd tests/mpz
 sed -i 's/wllvm++/\/CPR\/tools\/cpr-cxx/g' Makefile
 sed -i 's/wllvm/\/CPR\/tools\/cpr-cc/g' Makefile
-CC=$CPR_CC CXX=$CPR_CXX make CFLAGS="-g -O0 -static -I/klee/source/include -L/klee/build/lib -lkleeRuntest" t-jac
+CC=$CPR_CC CXX=$CPR_CXX make CFLAGS="-g -O0 -static -I/root/projects/uni-klee/include -L/root/projects/uni-klee/build/lib -lkleeRuntest" t-jac
 
 cd $current_dir
 cp repair.conf $dir_name

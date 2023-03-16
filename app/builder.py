@@ -11,7 +11,7 @@ CC = "$CPR_CC"
 CXX = "$CPR_CXX"
 C_FLAGS = "-g -O0  -static -e"
 CXX_FLAGS = "-g -O0 -static -e"
-LD_FLAGS = "-L/CPR/lib -lcpr_runtime  -lkleeRuntest"
+LD_FLAGS = "-L/root/projects/CPR/lib -lcpr_runtime  -lkleeRuntest"
 
 
 def config_project(project_path, is_llvm, custom_config_command=None):
@@ -232,8 +232,8 @@ def remove_fsanitize(build_command):
 #     CC = "wllvm"
 #     CXX = "wllvm++"
 #     CXX_FLAGS = "'-g -O0 -static -DNDEBUG '"
-#     C_FLAGS = "'-g -O0 -static  -L/klee/build/lib -lkleeRuntest'"
-#     LD_FLAGS = "'-L/klee/build/lib -lkleeRuntest'"
+#     C_FLAGS = "'-g -O0 -static  -L/root/projects/uni-klee/build/lib -lkleeRuntest'"
+#     LD_FLAGS = "'-L/root/projects/uni-klee/build/lib -lkleeRuntest'"
 #
 #     if os.path.exists(source_directory + "/" + "aclocal.m4"):
 #         pre_config_command = "cd " + source_directory + ";"
@@ -334,7 +334,7 @@ def build_llvm(project_path):
     C_FLAGS = "'-g -O0 -static'"
     config_project(project_path)
     CXX_FLAGS = "'-g -O0 -static -DNDEBUG '"
-    C_FLAGS = "'-g -O0 -static  -L/klee/build/lib -lkleeRuntest'"
+    C_FLAGS = "'-g -O0 -static  -L/root/projects/uni-klee/build/lib -lkleeRuntest'"
     build_project(project_path)
 
 

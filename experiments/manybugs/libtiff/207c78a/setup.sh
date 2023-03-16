@@ -43,8 +43,8 @@ CC=wllvm CXX=wllvm++ make CFLAGS="-march=x86-64" -j32
 cd $dir_name
 
 # fix the test harness and the configuration script
-sed -i "s#/root/mountpoint-genprog/genprog-many-bugs/libtiff-bug-2006-02-23-b2ce5d8-207c78a#/data/manybugs/libtiff/207c78a#g" test.sh
-sed -i "s#/data/manybugs/libtiff/207c78a/src/limit#timeout 5#g" test.sh
+sed -i "s#/root/mountpoint-genprog/genprog-many-bugs/libtiff-bug-2006-02-23-b2ce5d8-207c78a#/root/projects/CPR/data/manybugs/libtiff/207c78a#g" test.sh
+sed -i "s#/root/projects/CPR/data/manybugs/libtiff/207c78a/src/limit#timeout 5#g" test.sh
 sed -i "s#/usr/bin/perl#perl#g" test.sh
 sed -i "s#cd libtiff#cd src#g" test.sh
 
@@ -110,13 +110,13 @@ cd src
 #sed -i '346d' src/libtiff/tif_dirwrite.c
 #
 #cd src
-#make CXX=$CPR_CXX CC=$CPR_CC CFLAGS="-lcpr_proxy -L/CPR/lib -L/klee/build/lib  -lkleeRuntest -I/klee/source/include" -j32
+#make CXX=$CPR_CXX CC=$CPR_CC CFLAGS="-lcpr_proxy -L/root/projects/CPR/lib -L/root/projects/uni-klee/build/lib  -lkleeRuntest -I/root/projects/uni-klee/include" -j32
 #cd ./test
-#make CXX=$CPR_CXX CC=$CPR_CC CFLAGS="-lcpr_proxy -L/CPR/lib -L/klee/build/lib  -lkleeRuntest -I/klee/source/include" -j32 short_tag.log
-#make CXX=$CPR_CXX CC=$CPR_CC CFLAGS="-lcpr_proxy -L/CPR/lib -L/klee/build/lib  -lkleeRuntest -I/klee/source/include" -j32 long_tag.log
+#make CXX=$CPR_CXX CC=$CPR_CC CFLAGS="-lcpr_proxy -L/root/projects/CPR/lib -L/root/projects/uni-klee/build/lib  -lkleeRuntest -I/root/projects/uni-klee/include" -j32 short_tag.log
+#make CXX=$CPR_CXX CC=$CPR_CC CFLAGS="-lcpr_proxy -L/root/projects/CPR/lib -L/root/projects/uni-klee/build/lib  -lkleeRuntest -I/root/projects/uni-klee/include" -j32 long_tag.log
 #extract-bc short_tag
 #extract-bc long_tag
-##klee --posix-runtime --libc=uclibc -link-llvm-lib=/CPR/lib/libcpr_runtime.bca -write-smt2s short_tag.bc
+##klee --posix-runtime --libc=uclibc -link-llvm-lib=/root/projects/CPR/lib/libcpr_runtime.bca -write-smt2s short_tag.bc
 #
 #cd $current_dir
 #cp repair.conf $dir_name
@@ -155,7 +155,7 @@ cd src
 ##git commit -m 'remove longjmp calls'
 #
 #
-##make CFLAGS="-lcpr_proxy -L/CPR/lib -g" -j32
+##make CFLAGS="-lcpr_proxy -L/root/projects/CPR/lib -g" -j32
 ##sed -i '358i }' tools/gif2tiff.c
 ##sed -i '353i { CPR_OUTPUT("obs", "i32", count);\n if (count < 0) klee_abort();\n' tools/gif2tiff.c
 ##sed -i '352d' tools/gif2tiff.c

@@ -37,11 +37,11 @@ chown -R root $dir_name
 cd $dir_name
 
 # fix the test harness and the configuration script
-sed -i "s#/root/mountpoint-genprog/genprog-many-bugs/lighttpd-bug-1913-1914#/data/manybugs/lighttpd/1914/#g" test.sh
-sed -i "s#/data/manybugs/lighttpd/1914/src/limit#timeout 5#g" test.sh
+sed -i "s#/root/mountpoint-genprog/genprog-many-bugs/lighttpd-bug-1913-1914#/root/projects/CPR/data/manybugs/lighttpd/1914/#g" test.sh
+sed -i "s#/root/projects/CPR/data/manybugs/lighttpd/1914/src/limit#timeout 5#g" test.sh
 sed -i "s#/usr/bin/perl#perl#g" test.sh
 sed -i 's#lt-\.\*#lt-\.\* \&\> /dev/null#g' test.sh
-sed -i 's#cd lighttpd/tests#pushd /data/manybugs/lighttpd/1914/src/tests#g' test.sh
+sed -i 's#cd lighttpd/tests#pushd /root/projects/CPR/data/manybugs/lighttpd/1914/src/tests#g' test.sh
 sed -i 's#cd ../../#popd#g' test.sh
 
 # fix an obnoxious bug in tests/core-request.t
@@ -54,7 +54,7 @@ ln -s expire symlinked
 ln -s index.html index.xhtml
 
 # fix broken test file
-cp $current_dir/mod-cgi.t /data/manybugs/lighttpd/1914/src/tests/mod-cgi.t
+cp $current_dir/mod-cgi.t /root/projects/CPR/data/manybugs/lighttpd/1914/src/tests/mod-cgi.t
 
 # compile program
 cd $dir_name/src
@@ -74,7 +74,7 @@ CC=wllvm CXX=wllvm++ make CFLAGS="-march=x86-64" -j32
 #git add libtiff/tif_ojpeg.c libtiff/tif_jpeg.c
 #git commit -m 'remove longjmp calls'
 
-make CFLAGS="-lcpr_proxy -L/CPR/lib -g" -j32
+make CFLAGS="-lcpr_proxy -L/root/projects/CPR/lib -g" -j32
 # Patch
 #sed -i '748i if (con->request.content_length > 0) {' mod_cgi.c
 # Trident

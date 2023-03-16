@@ -43,8 +43,8 @@ CC=wllvm CXX=wllvm++ make CFLAGS="-march=x86-64" -j32
 cd $dir_name
 
 # fix the test harness and the configuration script
-sed -i "s#/root/mountpoint-genprog/genprog-many-bugs/libtiff-bug-2006-03-03-eec4c06-ee65c74#/data/manybugs/libtiff/ee65c74#g" test.sh
-sed -i "s#/data/manybugs/libtiff/ee65c74/src/limit#timeout 5#g" test.sh
+sed -i "s#/root/mountpoint-genprog/genprog-many-bugs/libtiff-bug-2006-03-03-eec4c06-ee65c74#/root/projects/CPR/data/manybugs/libtiff/ee65c74#g" test.sh
+sed -i "s#/root/projects/CPR/data/manybugs/libtiff/ee65c74/src/limit#timeout 5#g" test.sh
 sed -i "s#/usr/bin/perl#perl#g" test.sh
 sed -i "s#cd libtiff#cd src#g" test.sh
 
@@ -83,10 +83,10 @@ sed -i '131i \\tklee_assert(tif > 0);' src/test/long_tag.c
 
 ## Compile instrumentation and test driver.
 cd src
-make CXX=$CPR_CXX CC=$CPR_CC CFLAGS="-lcpr_proxy -L/CPR/lib -L/klee/build/lib  -lkleeRuntest -I/klee/source/include -g -O0" -j32
+make CXX=$CPR_CXX CC=$CPR_CC CFLAGS="-lcpr_proxy -L/root/projects/CPR/lib -L/root/projects/uni-klee/build/lib  -lkleeRuntest -I/root/projects/uni-klee/include -g -O0" -j32
 cd ./test
 make clean
-make CXX=$CPR_CXX CC=$CPR_CC CFLAGS="-lcpr_proxy -L/CPR/lib -L/klee/build/lib  -lkleeRuntest -I/klee/source/include -g -O0" -j32 long_tag.log
+make CXX=$CPR_CXX CC=$CPR_CC CFLAGS="-lcpr_proxy -L/root/projects/CPR/lib -L/root/projects/uni-klee/build/lib  -lkleeRuntest -I/root/projects/uni-klee/include -g -O0" -j32 long_tag.log
 extract-bc long_tag
 
 # Copy remaining files to run CPR.
@@ -102,7 +102,7 @@ cp -rf seed-dir $dir_name
 cd $dir_name
 #cp test-input-files/long_test.tiff src/test/
 #cd src/test/
-#gen-bout --sym-file "/data/manybugs/libtiff/0a36d7f/src/test/long_test.tiff"
+#gen-bout --sym-file "/root/projects/CPR/data/manybugs/libtiff/0a36d7f/src/test/long_test.tiff"
 
-#klee --posix-runtime --libc=uclibc --link-llvm-lib=/CPR/lib/libcpr_runtime.bca --write-smt2s long_tag.bc long_test.tiff
-#klee --posix-runtime --libc=uclibc --link-llvm-lib=/CPR/lib/libcpr_runtime.bca --write-smt2s --seed-out=file.bout --allow-seed-extension --named-seed-matching long_tag.bc A --sym-files 1 156
+#klee --posix-runtime --libc=uclibc --link-llvm-lib=/root/projects/CPR/lib/libcpr_runtime.bca --write-smt2s long_tag.bc long_test.tiff
+#klee --posix-runtime --libc=uclibc --link-llvm-lib=/root/projects/CPR/lib/libcpr_runtime.bca --write-smt2s --seed-out=file.bout --allow-seed-extension --named-seed-matching long_tag.bc A --sym-files 1 156

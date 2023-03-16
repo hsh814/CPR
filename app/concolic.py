@@ -380,7 +380,7 @@ def run_concolic_execution(program, argument_list, second_var_list, print_output
 #             argument = values.CONF_PATH_POC
 #         input_argument += " " + str(argument)
 #
-#     klee_command = "/klee/build-origin/bin/klee " \
+#     klee_command = "/root/projects/uni-klee/build-origin/bin/klee " \
 #                    "--posix-runtime " \
 #                    "--libc=uclibc " \
 #                    "--write-smt2s " \

@@ -33,4 +33,4 @@ sed -i 's/fabs/fabs_cpr/g' ./ext/gd/libgd/gd_rotate.c
 sed -i 's/fabs/fabs_cpr/g' ./ext/sqlite3/libsqlite/sqlite3.c
 sed -i 's/fabs/fabs_cpr/g' ./ext/standard/math.c
 
-make CXX=clang++ CC=clang LDFLAGS="-lcpr_proxy -L/CPR/lib -L/klee/build/lib -lkleeRuntest" CFLAGS="-g -O0 -static"  sapi/cli/php
+make CXX=clang++ CC=clang LDFLAGS="-lcpr_proxy -L/root/projects/CPR/lib -L/root/projects/uni-klee/build/lib -lkleeRuntest" CFLAGS="-g -O0 -static"  sapi/cli/php
