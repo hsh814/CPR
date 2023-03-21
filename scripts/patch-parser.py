@@ -1,0 +1,129 @@
+#!/usr/bin/env python3
+import sys
+import os
+import re
+from typing import List, Set, Dict, Tuple
+import json
+
+def formula_to_code(formula: str, concrete_range: list, vars: List[str]) -> List[str]:
+  variable_names = set(re.findall(r'\b([a-zA-Z_]\w*)\b', formula))
+  code = ""
+  for i in range(len(vars)):
+    code += f"  int {vars[i]} = rvals[{i}];\n"
+  result = list()
+  if len(concrete_range) == 0:
+    code += f"  result = {formula};\n"
+    result.append(code)
+    return result
+  for i in concrete_range:
+    tmp = f"{code}  int constant_a = {i};\n"
+    tmp += f"  result = {formula};\n"
+    result.append(tmp)
+  return result
+
+def to_concrete_patch(patch: dict, meta: dict) -> dict:
+  num = patch["num"]
+  lid = patch["lid"]
+  formula = patch["patch"]
+  result = { "num": num, "lid": lid, "patch": formula }
+  concrete_range = list()
+  if "Partition" in patch:
+    for part in patch["Partition"]:
+      if "Range" in part:
+        range_str = part["Range"]
+        start, con, end = range_str.split("<=")
+        for i in range(int(start), int(end) + 1):
+          concrete_range.append(i)
+  code = formula_to_code(formula, concrete_range, meta["vars"])
+  result["codes"] = code
+  return result
+
+def apply_patch_to_file(filename, code):
+  with open(filename, "r") as f:
+    lines = f.readlines()
+  contents = list()
+  for line in lines:
+    if "// REPLACE" in line:
+      contents.append(code)
+    else:
+      contents.append(line)
+  with open(filename, "w") as f:
+    f.writelines(contents)
+
+def save_to_file(dir: str, patches: list):
+  patch_no = 0
+  for patch in patches:
+    codes = patch["codes"]
+    for i in range(len(codes)):
+      patch_id = f"{patch_no}-{i}"
+      outdir = os.path.join(dir, patch_id)
+      os.makedirs(outdir, exist_ok=True)
+      os.system(f"cp /root/projects/CPR/lib/uni_klee_runtime.c {outdir}")
+      os.system(f"cp /root/projects/CPR/lib/uni_klee_runtime.h {outdir}")
+      apply_patch_to_file(outdir + "/uni_klee_runtime.c", codes[i])
+
+def main(args: List[str]):
+  if len(args) != 2:
+    print("Usage: patch-parser.py <patch-dir>")
+    sys.exit(1)
+  patch_dir = args[1]
+  with open(os.path.join(patch_dir, "meta-data.json"), "r") as f:
+    meta_data = json.load(f)
+  for meta in meta_data:
+    bug_id = meta["bug_id"]
+    benchmark = meta["benchmark"]
+    subject = meta["subject"]
+    outdir = os.path.join(patch_dir, benchmark, subject, bug_id)
+    if "vars" not in meta:
+      continue
+    vars = meta["vars"]
+    patch_file = os.path.join(outdir, "results", "output", "patch-set-ranked")
+    if not os.path.exists(patch_file):
+      print(f"Patch file does not exist: {patch_file}")
+      continue
+    with open(patch_file, "r") as f:
+      lines = f.readlines()
+    patch_num = 0
+    patch_list = list()
+    pattern = r'^L?\d+'
+    patch = None
+    partition_indent = 0
+    partition = None
+    for line in lines:
+      indent = len(line) - len(line.lstrip())
+      line = line.strip()
+      if line.startswith("Patch #"):
+        patch_num = int(line.split("#")[1])
+        patch = dict()
+        patch_list.append(patch)
+        patch["num"] = patch_num
+      elif bool(re.search(pattern, line)):
+        patch["patch"] = line.split(":")[1].strip()
+        patch["lid"] = line.split(":")[0].strip()
+      elif line.startswith("Partition: "):
+        partition_indent = indent
+        if "Partition" not in patch:
+          patch["Partition"] = list()
+        partition = dict()
+        patch["Partition"].append(partition)
+        partition["id"] = int(line.split(":")[1].strip())
+      elif indent > partition_indent:
+        key, val = line.split(":")
+        partition[key.strip()] = val.strip()
+      else:
+        key, val = line.split(":")
+        patch[key.strip()] = val.strip()
+    with open(f"{outdir}/abs-patches.json", "w") as f:
+      print(f"Writing to {outdir}/abs-patches.json")
+      json.dump(patch_list, f, indent=2)
+    final_patch_list = list()
+    for patch in patch_list:
+      concrete_patches = to_concrete_patch(patch, meta)
+      final_patch_list.append(concrete_patches)
+    with open(f"{outdir}/concrete-patches.json", "w") as f:
+      print(f"Writing to {outdir}/concrete-patches.json")
+      json.dump(final_patch_list, f, indent=2)
+    save_to_file(outdir, final_patch_list)
+
+if __name__ == "__main__":
+  main(sys.argv)

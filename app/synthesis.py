@@ -26,7 +26,7 @@ import multiprocessing as mp
 from threading import Lock
 from app import values
 logger = logging.getLogger(__name__)
-Formula = Union[pysmt.fnode.FNode]
+Formula = Union[pysmt.fnode.FNode, str]
 
 pool = mp.Pool(mp.cpu_count())
 synthesis_result_list = []

@@ -1,0 +1,124 @@
+[
+  {
+    "num": 1,
+    "patch": "(constant_a != col_sep_length)",
+    "lid": "L290",
+    "Partition": [
+      {
+        "id": 1,
+        "Constant": "const_a",
+        "Range": "3 <= const_a <= 3",
+        "Dimension": "1"
+      }
+    ],
+    "Patch Count": "1",
+    "Path Coverage": "5",
+    "Is Under-approximating": "False",
+    "Is Over-approximating": "False"
+  },
+  {
+    "num": 2,
+    "patch": "(col_sep_length != col_sep_length)",
+    "lid": "L290",
+    "Partition": [
+      {
+        "id": 1
+      }
+    ],
+    "Patch Count": "1",
+    "Path Coverage": "5",
+    "Is Under-approximating": "False",
+    "Is Over-approximating": "False"
+  },
+  {
+    "num": 3,
+    "patch": "(constant_a <= col_sep_length)",
+    "lid": "L290",
+    "Partition": [
+      {
+        "id": 1,
+        "Constant": "const_a",
+        "Range": "4 <= const_a <= 10",
+        "Dimension": "7"
+      }
+    ],
+    "Patch Count": "7",
+    "Path Coverage": "5",
+    "Is Under-approximating": "False",
+    "Is Over-approximating": "False"
+  },
+  {
+    "num": 4,
+    "patch": "(constant_a < col_sep_length)",
+    "lid": "L290",
+    "Partition": [
+      {
+        "id": 1,
+        "Constant": "const_a",
+        "Range": "3 <= const_a <= 10",
+        "Dimension": "8"
+      }
+    ],
+    "Patch Count": "8",
+    "Path Coverage": "5",
+    "Is Under-approximating": "False",
+    "Is Over-approximating": "False"
+  },
+  {
+    "num": 5,
+    "patch": "(col_sep_length <= constant_a)",
+    "lid": "L290",
+    "Partition": [
+      {
+        "id": 1,
+        "Constant": "const_a",
+        "Range": "-10 <= const_a <= 2",
+        "Dimension": "13"
+      }
+    ],
+    "Patch Count": "13",
+    "Path Coverage": "5",
+    "Is Under-approximating": "False",
+    "Is Over-approximating": "False"
+  },
+  {
+    "num": 6,
+    "patch": "(col_sep_length < constant_a)",
+    "lid": "L290",
+    "Partition": [
+      {
+        "id": 1,
+        "Constant": "const_a",
+        "Range": "-10 <= const_a <= 3",
+        "Dimension": "14"
+      }
+    ],
+    "Patch Count": "14",
+    "Path Coverage": "5",
+    "Is Under-approximating": "False",
+    "Is Over-approximating": "False"
+  },
+  {
+    "num": 7,
+    "patch": "(constant_a == col_sep_length)",
+    "lid": "L290",
+    "Partition": [
+      {
+        "id": 1,
+        "Constant": "const_a",
+        "Range": "-10 <= const_a <= 2",
+        "Dimension": "13"
+      },
+      {
+        "id": 2,
+        "Constant": "const_a",
+        "Range": "4 <= const_a <= 10",
+        "Dimension": "7"
+      }
+    ],
+    "Patch Count": "20",
+    "Path Coverage": "5",
+    "Is Under-approximating": "False",
+    "Is Over-approximating": "False"
+  }
+]

@@ -12,10 +12,10 @@ import app.generator
 from app import emitter, values, reader, utilities, definitions, generator, oracle, parallel, \
     extractor, smt2, distance, configuration
 import numpy
-
+import shutil
 
 logger = logging.getLogger(__name__)
-Formula = Union[pysmt.fnode.FNode]
+# Formula = Union[pysmt.fnode.FNode]
 File_Log_Path = "/tmp/log_sym_path"
 
 
@@ -231,6 +231,13 @@ def select_new_input(patch_list=None):
     return input_arg_list, input_var_list, patch_list, argument_list, poc_path, bin_path
 
 
+def get_file_no(dir: str, file: str) -> int:
+    file_list = os.listdir(dir)
+    n = 0
+    while f"{file}-{n}" in file_list:
+        n += 1
+    return n
+
 def run_concolic_execution(program, argument_list, second_var_list, print_output=False, klee_out_dir=None):
     """
     This function will execute the program in concolic mode using the generated ktest file
@@ -272,6 +279,8 @@ def run_concolic_execution(program, argument_list, second_var_list, print_output
     ktest_path, return_code = generator.generate_ktest(argument_list, second_var_list)
     ktest_log_file = "/tmp/ktest.log"
     ktest_command = "ktest-tool " + ktest_path + " > " + ktest_log_file
+    ktest_log_no = get_file_no(definitions.DIRECTORY_OUTPUT, "ktest.log")
+    shutil.copy(ktest_log_file, definitions.DIRECTORY_OUTPUT + "/ktest.log-" + str(ktest_log_no))
     utilities.execute_command(ktest_command)
     bit_length_list = reader.read_bit_length(ktest_log_file)
     if values.LIST_BIT_LENGTH:
@@ -310,6 +319,8 @@ def run_concolic_execution(program, argument_list, second_var_list, print_output
     klee_command += "--posix-runtime " \
                     "--libc=uclibc " \
                     "--write-smt2s " \
+                    "--write-kqueries " \
+                    "--print-path " \
                     "-allow-seed-extension " \
                     "-named-seed-matching " \
                     "--log-trace " \
@@ -446,6 +457,7 @@ def run_concrete_execution(program, argument_list, print_output=False, klee_out_
                     "--libc=uclibc " \
                     "--search=dfs " \
                     "--write-smt2s " \
+                    "--write-kqueries " \
                     "--external-calls=all " \
                     "--log-trace " \
                     "--max-forks {0} ".format(values.DEFAULT_MAX_FORK) \
