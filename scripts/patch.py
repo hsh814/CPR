@@ -51,8 +51,8 @@ def apply_patch_to_file(filename, code):
     f.writelines(contents)
 
 def save_to_file(dir: str, patches: list):
-  patch_no = 0
   for patch in patches:
+    patch_no = patch["num"]
     codes = patch["codes"]
     for i in range(len(codes)):
       patch_id = f"{patch_no}-{i}"
@@ -62,17 +62,33 @@ def save_to_file(dir: str, patches: list):
       os.system(f"cp /root/projects/CPR/lib/uni_klee_runtime.h {outdir}")
       apply_patch_to_file(outdir + "/uni_klee_runtime.c", codes[i])
 
+def compile(dir: str):
+  KLEE_INCLUDE_PATH = "/root/projects/uni-klee/include"
+  cmd = f"wllvm -g -fPIC -O0 -c -o uni_klee_runtime.o uni_klee_runtime.c -I{KLEE_INCLUDE_PATH}"
+  os.system(f"cd {dir} && {cmd}")
+  cmd = "llvm-ar rcs libuni_klee_runtime.a uni_klee_runtime.o"
+  os.system(f"cd {dir} && {cmd}")
+  cmd = "extract-bc libuni_klee_runtime.a"
+  os.system(f"cd {dir} && {cmd}")
+
 def main(args: List[str]):
-  if len(args) != 2:
-    print("Usage: patch-parser.py <patch-dir>")
+  if len(args) != 3:
+    print("Usage: patch.py <opt> <patch-dir>")
     sys.exit(1)
-  patch_dir = args[1]
+  opt = args[1]
+  patch_dir = args[2]
   with open(os.path.join(patch_dir, "meta-data.json"), "r") as f:
     meta_data = json.load(f)
   for meta in meta_data:
     bug_id = meta["bug_id"]
     benchmark = meta["benchmark"]
     subject = meta["subject"]
+    concrete_dir = os.path.join(patch_dir, "concrete", benchmark, subject, bug_id)
+    if opt == "compile":
+      for dir in os.listdir(concrete_dir):
+        if os.path.isdir(os.path.join(concrete_dir, dir)):
+          compile(os.path.join(concrete_dir, dir))
+      continue
     outdir = os.path.join(patch_dir, benchmark, subject, bug_id)
     if "vars" not in meta:
       continue
@@ -123,7 +139,7 @@ def main(args: List[str]):
     with open(f"{outdir}/concrete-patches.json", "w") as f:
       print(f"Writing to {outdir}/concrete-patches.json")
       json.dump(final_patch_list, f, indent=2)
-    save_to_file(outdir, final_patch_list)
+    save_to_file(concrete_dir, final_patch_list)
 
 if __name__ == "__main__":
   main(sys.argv)

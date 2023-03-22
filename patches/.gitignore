@@ -8,3 +8,5 @@ output
 result
 *.DS_Store
 error-log
+concrete/
+!concrete.tar.gz
