@@ -4,6 +4,7 @@ import os
 import re
 from typing import List, Set, Dict, Tuple
 import json
+import multiprocessing as mp
 
 def formula_to_code(formula: str, concrete_range: list, vars: List[str]) -> List[str]:
   variable_names = set(re.findall(r'\b([a-zA-Z_]\w*)\b', formula))
@@ -62,14 +63,23 @@ def save_to_file(dir: str, patches: list):
       os.system(f"cp /root/projects/CPR/lib/uni_klee_runtime.h {outdir}")
       apply_patch_to_file(outdir + "/uni_klee_runtime.c", codes[i])
 
+def lazy_compile(dir: str, cmd: str, file_a: str, file_b: str):
+  if os.path.exists(file_b):
+    if os.path.getmtime(file_a) <= os.path.getmtime(file_b):
+      return
+  cwd = os.getcwd()
+  os.chdir(dir)
+  os.system(f"{cmd}")
+  os.chdir(cwd)
+
 def compile(dir: str):
   KLEE_INCLUDE_PATH = "/root/projects/uni-klee/include"
   cmd = f"wllvm -g -fPIC -O0 -c -o uni_klee_runtime.o uni_klee_runtime.c -I{KLEE_INCLUDE_PATH}"
-  os.system(f"cd {dir} && {cmd}")
+  lazy_compile(dir, cmd, "uni_klee_runtime.c", "uni_klee_runtime.o")
   cmd = "llvm-ar rcs libuni_klee_runtime.a uni_klee_runtime.o"
-  os.system(f"cd {dir} && {cmd}")
+  lazy_compile(dir, cmd, "uni_klee_runtime.o", "libuni_klee_runtime.a")
   cmd = "extract-bc libuni_klee_runtime.a"
-  os.system(f"cd {dir} && {cmd}")
+  lazy_compile(dir, cmd, "libuni_klee_runtime.a", "libuni_klee_runtime.bc")
 
 def main(args: List[str]):
   if len(args) != 3:
@@ -77,6 +87,10 @@ def main(args: List[str]):
     sys.exit(1)
   opt = args[1]
   patch_dir = args[2]
+  pool = mp.Pool(mp.cpu_count() * 2 // 3)
+  if opt == "single":
+    compile(patch_dir)
+    sys.exit(0)
   with open(os.path.join(patch_dir, "meta-data.json"), "r") as f:
     meta_data = json.load(f)
   for meta in meta_data:
@@ -85,9 +99,10 @@ def main(args: List[str]):
     subject = meta["subject"]
     concrete_dir = os.path.join(patch_dir, "concrete", benchmark, subject, bug_id)
     if opt == "compile":
-      for dir in os.listdir(concrete_dir):
-        if os.path.isdir(os.path.join(concrete_dir, dir)):
-          compile(os.path.join(concrete_dir, dir))
+      if os.path.exists(concrete_dir):
+        for dir in os.listdir(concrete_dir):
+          if os.path.isdir(os.path.join(concrete_dir, dir)):
+            pool.apply_async(compile, args=(os.path.join(concrete_dir, dir),))
       continue
     outdir = os.path.join(patch_dir, benchmark, subject, bug_id)
     if "vars" not in meta:
@@ -140,6 +155,9 @@ def main(args: List[str]):
       print(f"Writing to {outdir}/concrete-patches.json")
       json.dump(final_patch_list, f, indent=2)
     save_to_file(concrete_dir, final_patch_list)
+  if opt == "compile":
+    pool.close()
+    pool.join()
 
 if __name__ == "__main__":
   main(sys.argv)
