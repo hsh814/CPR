@@ -64,11 +64,12 @@ def save_to_file(dir: str, patches: list):
       apply_patch_to_file(outdir + "/uni_klee_runtime.c", codes[i])
 
 def lazy_compile(dir: str, cmd: str, file_a: str, file_b: str):
-  if os.path.exists(file_b):
-    if os.path.getmtime(file_a) <= os.path.getmtime(file_b):
-      return
   cwd = os.getcwd()
   os.chdir(dir)
+  if os.path.exists(file_b):
+    if os.path.getmtime(file_a) <= os.path.getmtime(file_b):
+      os.chdir(cwd)
+      return
   os.system(f"{cmd}")
   os.chdir(cwd)
 
@@ -79,7 +80,7 @@ def compile(dir: str):
   cmd = "llvm-ar rcs libuni_klee_runtime.a uni_klee_runtime.o"
   lazy_compile(dir, cmd, "uni_klee_runtime.o", "libuni_klee_runtime.a")
   cmd = "extract-bc libuni_klee_runtime.a"
-  lazy_compile(dir, cmd, "libuni_klee_runtime.a", "libuni_klee_runtime.bc")
+  lazy_compile(dir, cmd, "libuni_klee_runtime.a", "libuni_klee_runtime.bca")
 
 def main(args: List[str]):
   if len(args) != 3:

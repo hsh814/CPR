@@ -4,9 +4,10 @@
 *.bca
 *.so
 .idea
-app/__pycache__/
+*/__pycache__/
 logs
 output
+out
 venv
 data
 *.DS_Store

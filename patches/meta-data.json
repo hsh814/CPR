@@ -7,7 +7,16 @@
     "vars": [
       "x",
       "y"
-    ]
+    ],
+    "buggy": {
+      "code": "1",
+      "id": "buggy"
+    },
+    "correct": {
+      "code": "(x > y)",
+      "id": "2-0"
+    },
+    "target": "readSeparateTilesIntoBuffer"
   },
   {
     "id": 2,
@@ -48,7 +57,9 @@
     "vars": [
       "x",
       "y"
-    ]
+    ],
+    "target": "TIFFNumberOfStrips",
+    "snapshot": "snapshot-ret-2.json"
   },
   {
     "id": 6,
@@ -139,7 +150,16 @@
     "vars": [
       "x",
       "y"
-    ]
+    ],
+    "buggy": {
+      "code": "(0)",
+      "id": "buggy"
+    },
+    "correct": {
+      "code": "(x<0)",
+      "id": "12-10"
+    },
+    "target": "xmlStrncat"
   },
   {
     "id": 15,
@@ -150,7 +170,16 @@
       "x",
       "y",
       "z"
-    ]
+    ],
+    "buggy": {
+      "code": "(1)",
+      "id": "buggy"
+    },
+    "correct": {
+      "code": "(x>=y)",
+      "id": "10-0"
+    },
+    "target": "xmlParseEndTag2"
   },
   {
     "id": 16,
@@ -161,7 +190,16 @@
       "x",
       "y",
       "z"
-    ]
+    ],
+    "buggy": {
+      "code": "(0)",
+      "id": "buggy"
+    },
+    "correct": {
+      "code": "(y>(x-z))",
+      "id": "18-0"
+    },
+    "target": "htmlParseNameComplex"
   },
   {
     "id": 17,
@@ -171,7 +209,16 @@
     "vars": [
       "x",
       "y"
-    ]
+    ],
+    "buggy": {
+      "code": "(1)",
+      "id": "buggy"
+    },
+    "correct": {
+      "code": "(x>0)",
+      "id": "?"
+    },
+    "target": "xmlParseAttValueComplex"
   },
   {
     "id": 18,
@@ -181,7 +228,19 @@
     "vars": [
       "x",
       "y"
-    ]
+    ],
+    "buggy": {
+      "code": "0",
+      "id": "buggy"
+    },
+    "correct": {
+      "code": "(x != y)",
+      "id": "1-0",
+      "ids": [
+        "1-0", "5-0"
+      ]
+    },
+    "target": "xmlDumpElementContent"
   },
   {
     "id": 19,
