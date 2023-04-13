@@ -6,6 +6,9 @@ from typing import List, Set, Dict, Tuple
 import json
 import multiprocessing as mp
 
+UNI_KLEE_RUNTIME = ""
+UNI_KLEE_RUNTIME_H = ""
+
 def formula_to_code(formula: str, concrete_range: list, vars: List[str]) -> List[str]:
   variable_names = set(re.findall(r'\b([a-zA-Z_]\w*)\b', formula))
   code = ""
@@ -39,17 +42,21 @@ def to_concrete_patch(patch: dict, meta: dict) -> dict:
   result["codes"] = code
   return result
 
-def apply_patch_to_file(filename, code):
-  with open(filename, "r") as f:
-    lines = f.readlines()
+def apply_patch_to_file(outdir, code):
+  lines = UNI_KLEE_RUNTIME.splitlines()
+  os.system(f"rm -rf {outdir}")
+  os.makedirs(outdir, exist_ok=True)
   contents = list()
+  print(lines)
   for line in lines:
     if "// REPLACE" in line:
       contents.append(code)
     else:
-      contents.append(line)
-  with open(filename, "w") as f:
+      contents.append(line + "\n")
+  with open(os.path.join(outdir, "uni_klee_runtime.c"), "w") as f:
     f.writelines(contents)
+  with open(os.path.join(outdir, "uni_klee_runtime.h"), "w") as f:
+    f.write(UNI_KLEE_RUNTIME_H)
 
 def save_to_file(dir: str, patches: list):
   for patch in patches:
@@ -59,9 +66,7 @@ def save_to_file(dir: str, patches: list):
       patch_id = f"{patch_no}-{i}"
       outdir = os.path.join(dir, patch_id)
       os.makedirs(outdir, exist_ok=True)
-      os.system(f"cp /root/projects/CPR/lib/uni_klee_runtime.c {outdir}")
-      os.system(f"cp /root/projects/CPR/lib/uni_klee_runtime.h {outdir}")
-      apply_patch_to_file(outdir + "/uni_klee_runtime.c", codes[i])
+      apply_patch_to_file(outdir, codes[i])
 
 def lazy_compile(dir: str, cmd: str, file_a: str, file_b: str):
   cwd = os.getcwd()
@@ -86,7 +91,23 @@ def main(args: List[str]):
   if len(args) != 3:
     print("Usage: patch.py <opt> <patch-dir>")
     sys.exit(1)
+  opt_map = {
+    "single": "Compile a single patch",
+    "compile": "Compile all patches",
+    "concrete": "Generate concrete patches",
+    "buggy": "Generate buggy patches from meta",
+  }
   opt = args[1]
+  if opt not in opt_map:
+    print("Invalid option")
+    for k, v in opt_map.items():
+      print(f"  {k}: {v}")
+    sys.exit(1)
+  global UNI_KLEE_RUNTIME, UNI_KLEE_RUNTIME_H
+  with open("/root/projects/CPR/lib/uni_klee_runtime.c", "r") as f:
+    UNI_KLEE_RUNTIME = f.read()
+  with open("/root/projects/CPR/lib/uni_klee_runtime.h", "r") as f:
+    UNI_KLEE_RUNTIME_H = f.read()
   patch_dir = args[2]
   pool = mp.Pool(mp.cpu_count() * 2 // 3)
   if opt == "single":
@@ -109,6 +130,17 @@ def main(args: List[str]):
     if "vars" not in meta:
       continue
     vars = meta["vars"]
+    if "buggy" in meta:
+      buggy_dir = os.path.join(concrete_dir, "buggy")
+      os.system(f"cp /root/projects/CPR/lib/uni_klee_runtime.c {buggy_dir}")
+      os.system(f"cp /root/projects/CPR/lib/uni_klee_runtime.h {buggy_dir}")
+      concrete = formula_to_code(meta["buggy"]["code"], [], vars)
+      print(f"Bug: {bug_id}")
+      print(concrete)
+      apply_patch_to_file(buggy_dir, concrete[0])
+      compile(buggy_dir)
+      if opt == "buggy":
+        continue
     patch_file = os.path.join(outdir, "results", "output", "patch-set-ranked")
     if not os.path.exists(patch_file):
       print(f"Patch file does not exist: {patch_file}")

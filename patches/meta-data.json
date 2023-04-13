@@ -9,7 +9,7 @@
       "y"
     ],
     "buggy": {
-      "code": "1",
+      "code": "(1)",
       "id": "buggy"
     },
     "correct": {
@@ -26,7 +26,16 @@
     "vars": [
       "x",
       "y"
-    ]
+    ],
+    "buggy": {
+      "code": "(1)",
+      "id": "buggy"
+    },
+    "correct": {
+      "code": "(x < y)",
+      "id": "3-0"
+    },
+    "target": "setImage1"
   },
   {
     "id": 3,
@@ -36,7 +45,16 @@
     "vars": [
       "x",
       "y"
-    ]
+    ],
+    "buggy": {
+      "code": "(1)",
+      "id": "buggy"
+    },
+    "correct": {
+      "code": "(x >= 0)",
+      "id": "11-0"
+    },
+    "target": "readextension"
   },
   {
     "id": 4,
@@ -47,7 +65,16 @@
       "x",
       "y",
       "z"
-    ]
+    ],
+    "buggy": {
+      "code": "(0)",
+      "id": "buggy-start"
+    },
+    "correct": {
+      "code": "(y > x)",
+      "id": "2-0"
+    },
+    "target": "PixarLogDecode"
   },
   {
     "id": 5,
@@ -58,6 +85,14 @@
       "x",
       "y"
     ],
+    "buggy": {
+      "code": "(0)",
+      "id": "buggy"
+    },
+    "correct": {
+      "code": "(x > 0)",
+      "id": ""
+    },
     "target": "TIFFNumberOfStrips",
     "snapshot": "snapshot-ret-2.json"
   },
@@ -69,7 +104,16 @@
     "vars": [
       "x",
       "y"
-    ]
+    ],
+    "buggy": {
+      "code": "(0)",
+      "id": "buggy"
+    },
+    "correct": {
+      "code": "(x <= 0)",
+      "id": ""
+    },
+    "target": "PSDataColorContig"
   },
   {
     "id": 7,
@@ -79,7 +123,16 @@
     "vars": [
       "x",
       "y"
-    ]
+    ],
+    "buggy": {
+      "code": "(x >= 4)",
+      "id": "buggy"
+    },
+    "correct": {
+      "code": "(x > 4)",
+      "id": ""
+    },
+    "target": "t2p_readwrite_pdf_image_tile"
   },
   {
     "id": 8,
@@ -89,7 +142,17 @@
     "vars": [
       "x",
       "y"
-    ]
+    ],
+    "buggy": {
+      "code": "(0)",
+      "id": "buggy"
+    },
+    "correct": {
+      "code": "(x > 16)",
+      "id": ""
+    },
+    "target": "JPEGSetupEncode"
+
   },
   {
     "id": 9,
@@ -99,7 +162,16 @@
     "vars": [
       "x",
       "y"
-    ]
+    ],
+    "buggy": {
+      "code": "(0)",
+      "id": "buggy"
+    },
+    "correct": {
+      "code": "(x == 0)",
+      "id": ""
+    },
+    "target": "cvtRaster"
   },
   {
     "id": 10,
@@ -109,7 +181,16 @@
     "vars": [
       "x",
       "y"
-    ]
+    ],
+    "buggy": {
+      "code": "(0)",
+      "id": "buggy"
+    },
+    "correct": {
+      "code": "(y == 0)",
+      "id": ""
+    },
+    "target": "JPEGSetupEncode"
   },
   {
     "id": 11,
@@ -119,7 +200,16 @@
     "vars": [
       "x",
       "y"
-    ]
+    ],
+    "buggy": {
+      "code": "(0)",
+      "id": "buggy"
+    },
+    "correct": {
+      "code": "(x == 0)",
+      "id": ""
+    },
+    "target": "OJPEGDecodeRaw"
   },
   {
     "id": 12,
