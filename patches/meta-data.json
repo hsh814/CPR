@@ -68,7 +68,7 @@
     ],
     "buggy": {
       "code": "(0)",
-      "id": "buggy-start"
+      "id": "buggy"
     },
     "correct": {
       "code": "(y > x)",
@@ -91,7 +91,7 @@
     },
     "correct": {
       "code": "(x > 0)",
-      "id": ""
+      "id": "11-10"
     },
     "target": "TIFFNumberOfStrips",
     "snapshot": "snapshot-ret-2.json"
@@ -130,7 +130,7 @@
     },
     "correct": {
       "code": "(x > 4)",
-      "id": ""
+      "id": "6-0"
     },
     "target": "t2p_readwrite_pdf_image_tile"
   },
@@ -149,7 +149,7 @@
     },
     "correct": {
       "code": "(x > 16)",
-      "id": ""
+      "id": "2-26"
     },
     "target": "JPEGSetupEncode"
 
@@ -169,7 +169,7 @@
     },
     "correct": {
       "code": "(x == 0)",
-      "id": ""
+      "id": "1-0"
     },
     "target": "cvtRaster"
   },
@@ -187,8 +187,8 @@
       "id": "buggy"
     },
     "correct": {
-      "code": "(y == 0)",
-      "id": ""
+      "code": "(x == 0)",
+      "id": "1-0"
     },
     "target": "JPEGSetupEncode"
   },
@@ -207,7 +207,7 @@
     },
     "correct": {
       "code": "(x == 0)",
-      "id": ""
+      "id": "1-0"
     },
     "target": "OJPEGDecodeRaw"
   },

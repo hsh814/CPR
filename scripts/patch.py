@@ -97,6 +97,7 @@ def main(args: List[str]):
     "concrete": "Generate concrete patches",
     "buggy": "Generate buggy patches from meta",
   }
+  root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
   opt = args[1]
   if opt not in opt_map:
     print("Invalid option")
@@ -104,9 +105,9 @@ def main(args: List[str]):
       print(f"  {k}: {v}")
     sys.exit(1)
   global UNI_KLEE_RUNTIME, UNI_KLEE_RUNTIME_H
-  with open("/root/projects/CPR/lib/uni_klee_runtime.c", "r") as f:
+  with open(os.path.join(root_dir, "lib", "uni_klee_runtime.c"), "r") as f:
     UNI_KLEE_RUNTIME = f.read()
-  with open("/root/projects/CPR/lib/uni_klee_runtime.h", "r") as f:
+  with open(os.path.join(root_dir, "lib", "uni_klee_runtime.h"), "r") as f:
     UNI_KLEE_RUNTIME_H = f.read()
   patch_dir = args[2]
   pool = mp.Pool(mp.cpu_count() * 2 // 3)
