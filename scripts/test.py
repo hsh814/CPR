@@ -3,6 +3,7 @@ import os
 import sys
 from typing import List, Set, Dict, Tuple
 import json
+import subprocess
 
 import patch
 
@@ -53,14 +54,18 @@ def find_num(dir: str, name: str) -> int:
   return result
 
 def execute(cmd: str, dir: str) -> int:
-  cwd = os.getcwd()
-  os.chdir(dir)
   print(f"Change directory to {dir}")
   print(f"Executing: {cmd}")
-  exitcode = os.system(cmd)
-  os.chdir(cwd)
-  print(f"Exit code: {exitcode}")
-  return exitcode
+  proc = subprocess.run(cmd, shell=True, cwd=dir)
+  print(f"Exit code: {proc.returncode}")
+  return proc.returncode
+
+def init(data_dir: str, src_dir: str, bin: str) -> None:
+  build_cmd = f"CC=cpr-cc CXX=cpr-cxx make LDFLAGS=\"-L/root/projects/CPR/lib -lcpr_runtime -lkleeRuntest\" CFLAGS=\"-lcpr_proxy -L/root/projects/CPR/lib -g\" -j 32"
+  cwd = os.path.join(data_dir, src_dir)
+  execute(build_cmd, cwd)
+  execute(f"extract-bc {bin}", cwd)
+  execute(f"cp {bin}.bc {data_dir}", cwd)
 
 def run(root_dir: str, bug_info: dict, patchid: str, outdir: str, cmd: str, additional: dict):
   bid = bug_info["bug_id"]
@@ -96,20 +101,21 @@ def run(root_dir: str, bug_info: dict, patchid: str, outdir: str, cmd: str, addi
   snapshot_dir = os.path.join(output_dir, "snapshot")
   uni_out_dir = os.path.join(output_dir, f"uni-out-{no}")
   SNAPSHOT_DEFAULT_OPTS = f"--output-dir={snapshot_dir} --write-smt2s --libc=uclibc --allocate-determ --posix-runtime --external-calls=all --target-function={target_function}"
-  UNI_KLEE_DEFAULT_OPTS = f"--output-dir={uni_out_dir} --write-smt2s --write-kqueries --libc=uclibc --allocate-determ --posix-runtime --external-calls=all --no-exit-on-error --dump-snapshot --log-trace --simplify-sym-indices --make-lazy --start-from-snapshot --target-function={target_function} --snapshot={snapshot_dir}/{snapshot_file}"
+  UNI_KLEE_DEFAULT_OPTS = f"--output-dir={uni_out_dir} --write-smt2s --write-kqueries --libc=uclibc --allocate-determ --posix-runtime --external-calls=all --no-exit-on-error --dump-snapshot --log-trace --simplify-sym-indices --make-lazy --target-function={target_function} --snapshot={snapshot_dir}/{snapshot_file}"
+  if cmd != "fork":
+    UNI_KLEE_DEFAULT_OPTS += " --start-from-snapshot"
   link_opts = f"--link-llvm-lib={patch_file}"
   if "klee_flags" in conf:
     link_opts += f" {conf['klee_flags']}"
   data_dir = os.path.join(root_dir, "data", subdir)
-
-  if not os.path.exists(os.path.join(data_dir, target)):
-    execute("extract-bc " + conf["binary_path"], os.path.join(data_dir, conf["src_directory"]))
+  if cmd == "init" or not os.path.exists(os.path.join(data_dir, target)):
+    init(data_dir, conf["src_directory"], conf["binary_path"])
 
   if cmd == "snapshot":
     os.system(f"rm -rf {snapshot_dir}")
   if not os.path.exists(snapshot_dir):
     execute(f"uni-klee {link_opts} {SNAPSHOT_DEFAULT_OPTS} {test_cmd}", data_dir)
-  if cmd in ["run", "all"]:
+  if cmd in ["run", "all", "fork"]:
     execute(f"uni-klee {link_opts} {UNI_KLEE_DEFAULT_OPTS} {test_cmd}", data_dir)
   elif cmd in ["cmp"]:
     new_patch_id = additional["patch"]
@@ -145,6 +151,12 @@ def main(args: List[str]):
   print(f"outdir: {outdir}")
   with open(f"{patches}/meta-data.json", "r") as f:
     data = json.load(f)
+  if cmd == "batch":
+    for bug_info in data:
+      if "buggy" not in bug_info:
+        continue
+      additional = {"patch": bug_info["correct"]["id"]}
+      run(root_dir, bug_info, "buggy", outdir, "cmp", additional)
   if ":" in query:
     parsed = query.rsplit(":", 1)
   else:
@@ -154,13 +166,11 @@ def main(args: List[str]):
     patchid = "buggy"
   else:
     patchid = parsed[1]
-  if len(parsed) < 2:
-    print(f"Invalid query: {query}: should be 'bugid:patchid'")
-    sys.exit(1)
   bug_info = select_from_meta(data, bugid)
   if bug_info is None:
-    print(f"Cannot find patch for {bugid}")
+    print(f"Cannot find patch for {query} - {bugid}")
     sys.exit(1)
+  print(f"query: {query} => bugid {bugid}, patchid {patchid}")
   run(root_dir, bug_info, patchid, outdir, cmd, additional)
 
 
