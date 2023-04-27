@@ -86,6 +86,8 @@ def compile(dir: str):
   lazy_compile(dir, cmd, "uni_klee_runtime.o", "libuni_klee_runtime.a")
   cmd = "extract-bc libuni_klee_runtime.a"
   lazy_compile(dir, cmd, "libuni_klee_runtime.a", "libuni_klee_runtime.bca")
+  cmd = "wllvm -fPIC -shared -o libcpr_runtime.so uni_klee_runtime.o"
+  lazy_compile(dir, cmd, "uni_klee_runtime.o", "libcpr_runtime.so")
 
 def main(args: List[str]):
   if len(args) != 3:

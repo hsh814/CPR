@@ -230,7 +230,16 @@
     "vars": [
       "x",
       "y"
-    ]
+    ],
+    "buggy": {
+      "code": "(0)",
+      "id": "buggy"
+    },
+    "correct": {
+      "code": "(x == 0)",
+      "id": ""
+    },
+    "target": "quantize_ord_dither"
   },
   {
     "id": 14,
@@ -340,7 +349,16 @@
     "vars": [
       "x",
       "t"
-    ]
+    ],
+    "buggy": {
+      "code": "(0)",
+      "id": "buggy"
+    },
+    "correct": {
+      "code": "(t >= x)",
+      "id": "2-0"
+    },
+    "target": "get_8bit_row"
   },
   {
     "id": 20,
@@ -350,7 +368,16 @@
     "vars": [
       "x",
       "y"
-    ]
+    ],
+    "buggy": {
+      "code": "(1)",
+      "id": "buggy"
+    },
+    "correct": {
+      "code": "(x == 0)",
+      "id": "10-10"
+    },
+    "target": "jinit_write_bmp"
   },
   {
     "id": 21,

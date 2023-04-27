@@ -9,4 +9,6 @@ result
 *.DS_Store
 error-log
 concrete/
+*/*/*/src
+*/*/*/patched
 !concrete.tar.gz

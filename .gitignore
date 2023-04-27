@@ -13,4 +13,5 @@ data
 *.DS_Store
 .devcontainer
 *.tar.gz
+.vscode/
 scripts/tmp

@@ -53,10 +53,12 @@ def find_num(dir: str, name: str) -> int:
       break
   return result
 
-def execute(cmd: str, dir: str) -> int:
+def execute(cmd: str, dir: str, env: dict = None) -> int:
   print(f"Change directory to {dir}")
   print(f"Executing: {cmd}")
-  proc = subprocess.run(cmd, shell=True, cwd=dir)
+  if env is None:
+    env = os.environ
+  proc = subprocess.run(cmd, shell=True, cwd=dir, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
   print(f"Exit code: {proc.returncode}")
   return proc.returncode
 
@@ -90,13 +92,6 @@ def run(root_dir: str, bug_info: dict, patchid: str, outdir: str, cmd: str, addi
       print(f"Cannot find {file}")
       sys.exit(1)
   conf = read_conf_file(repair_conf_file)
-  poc_path = "exploit"
-  if "poc_path" in conf:
-    poc_path = conf["poc_path"]
-  target = os.path.join(conf["src_directory"], conf["binary_path"] + ".bc")
-  test_cmd = f"{target} "
-  if "test_input_list" in conf:
-    test_cmd += conf['test_input_list'].replace("$POC", poc_path)
   no = find_num(output_dir, "uni-out")
   snapshot_dir = os.path.join(output_dir, "snapshot")
   uni_out_dir = os.path.join(output_dir, f"uni-out-{no}")
@@ -107,10 +102,18 @@ def run(root_dir: str, bug_info: dict, patchid: str, outdir: str, cmd: str, addi
   link_opts = f"--link-llvm-lib={patch_file}"
   if "klee_flags" in conf:
     link_opts += f" {conf['klee_flags']}"
-  data_dir = os.path.join(root_dir, "data", subdir)
-  if cmd == "init" or not os.path.exists(os.path.join(data_dir, target)):
-    init(data_dir, conf["src_directory"], conf["binary_path"])
-
+  data_dir = os.path.join(patches, subdir, "patched")
+  bin_file = os.path.basename(conf["binary_path"])
+  # data_dir = os.path.join(root_dir, "data", subdir)
+  # if cmd == "init" or not os.path.exists(os.path.join(data_dir, target)):
+  #   init(data_dir, conf["src_directory"], conf["binary_path"])
+  poc_path = "exploit"
+  if "poc_path" in conf:
+    poc_path = os.path.basename(conf["poc_path"])
+  target = os.path.join(bin_file + ".bc")
+  test_cmd = f"{target} "
+  if "test_input_list" in conf:
+    test_cmd += conf['test_input_list'].replace("$POC", poc_path)
   if cmd == "snapshot":
     os.system(f"rm -rf {snapshot_dir}")
   if not os.path.exists(snapshot_dir):
@@ -130,6 +133,48 @@ def run(root_dir: str, bug_info: dict, patchid: str, outdir: str, cmd: str, addi
     new_uni_out_dir = os.path.join(new_output_dir, f"uni-out-{new_no}")
     NEW_UNI_KLEE_DEFAULT_OPTS = f"--make-lazy --output-dir={new_uni_out_dir} --start-from-snapshot --write-smt2s --write-kqueries --libc=uclibc --allocate-determ --posix-runtime --external-calls=all --no-exit-on-error --dump-snapshot --log-trace --simplify-sym-indices --target-function={target_function} --snapshot={snapshot_dir}/{snapshot_file}"
     execute(f"uni-klee {new_link_opts} {NEW_UNI_KLEE_DEFAULT_OPTS} {test_cmd}", data_dir)
+
+def filter_patch(root_dir: str, bug_info: dict):
+  bid = bug_info["bug_id"]
+  benchmark = bug_info["benchmark"]
+  subject = bug_info["subject"]
+  subdir = os.path.join(benchmark, subject, bid)
+  patches = os.path.join(root_dir, "patches")
+  data_dir = os.path.join(patches, subdir, "patched")
+  repair_conf_file = os.path.join(patches, subdir, "repair.conf")
+  file_check = [repair_conf_file]
+  for file in file_check:
+    if not os.path.exists(file):
+      print(f"Cannot find {file}")
+      sys.exit(1)
+  conf = read_conf_file(repair_conf_file)
+  bin_file = os.path.basename(conf["binary_path"])
+  failed_patches = list()
+  success_patches = list()
+  for patchid in os.listdir(os.path.join(patches, "concrete", subdir)):
+    patch_dir = os.path.join(patches, "concrete", subdir, patchid)
+    if os.path.isdir(patch_dir):
+      env = os.environ.copy()
+      env["LD_LIBRARY_PATH"] = f"{patch_dir}:{os.path.join(root_dir, 'lib')}"
+      print(f"Testing patch {env['LD_LIBRARY_PATH']}")
+      poc_path = "exploit"
+      if "poc_path" in conf:
+        poc_path = os.path.basename(conf["poc_path"])
+      cmd = f"./{bin_file} "
+      if "test_input_list" in conf:
+        cmd += conf['test_input_list'].replace("$POC", poc_path)
+      res = execute(cmd, data_dir, env=env)
+      if res != 0:
+        print(f"Patch {patchid} failed!!!")
+        failed_patches.append(patchid)
+      else:
+        print(f"Patch {patchid} succeeded")
+        success_patches.append(patchid)
+  print(f"Failed patches: {failed_patches}")
+  print(f"Success patches: {success_patches}")
+  obj = { "failed": failed_patches, "success": success_patches }
+  with open(os.path.join(data_dir, "patch_result.json"), "w") as f:
+    json.dump(obj, f, indent=2)
 
 def main(args: List[str]):
   root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -171,7 +216,10 @@ def main(args: List[str]):
     print(f"Cannot find patch for {query} - {bugid}")
     sys.exit(1)
   print(f"query: {query} => bugid {bugid}, patchid {patchid}")
-  run(root_dir, bug_info, patchid, outdir, cmd, additional)
+  if cmd == "filter":
+    filter_patch(root_dir, bug_info)
+  else:
+    run(root_dir, bug_info, patchid, outdir, cmd, additional)
 
 
 if __name__ == "__main__":
