@@ -176,10 +176,35 @@ def filter_patch(root_dir: str, bug_info: dict):
   with open(os.path.join(data_dir, "patch_result.json"), "w") as f:
     json.dump(obj, f, indent=2)
 
+def batch_cmp(root_dir: str, bug_info: dict, out_dir: str):
+  bid = bug_info["bug_id"]
+  benchmark = bug_info["benchmark"]
+  subject = bug_info["subject"]
+  subdir = os.path.join(benchmark, subject, bid)
+  patches = os.path.join(root_dir, "patches")
+  data_dir = os.path.join(patches, subdir, "patched")
+  repair_conf_file = os.path.join(patches, subdir, "repair.conf")
+  file_check = [repair_conf_file]
+  for file in file_check:
+    if not os.path.exists(file):
+      print(f"Cannot find {file}")
+      sys.exit(1)
+  conf = read_conf_file(repair_conf_file)
+  bin_file = os.path.basename(conf["binary_path"])
+  with open(os.path.join(data_dir, "patch_result.json")) as f:
+    patch_result = json.load(f)
+  failed_patches = patch_result["failed"]
+  success_patches = patch_result["success"]
+  for succ in success_patches:
+    run(root_dir, bug_info, "buggy", out_dir, "cmp", {"patch": succ})
+
+
 def main(args: List[str]):
   root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
   if len(args) < 2:
     print(f"Usage: {args[0]} <cmd> <query>")
+    print("cmd: run, cmp, snapshot, batch, filter")
+    print("query: <bugid>:<patchid>")
     print("Ex) test.py run 5321:buggy")
     sys.exit(1)
   cmd = args[1]
@@ -197,11 +222,13 @@ def main(args: List[str]):
   with open(f"{patches}/meta-data.json", "r") as f:
     data = json.load(f)
   if cmd == "batch":
-    for bug_info in data:
-      if "buggy" not in bug_info:
-        continue
-      additional = {"patch": bug_info["correct"]["id"]}
-      run(root_dir, bug_info, "buggy", outdir, "cmp", additional)
+    for meta in data:
+      if query == meta["subject"]:
+        bug_info = meta
+        print(f"Running batch for {bug_info['subject']}/{bug_info['bug_id']}")
+        filter_patch(root_dir, bug_info)
+        batch_cmp(root_dir, bug_info, outdir)
+    sys.exit(0)
   if ":" in query:
     parsed = query.rsplit(":", 1)
   else:
@@ -216,6 +243,13 @@ def main(args: List[str]):
     print(f"Cannot find patch for {query} - {bugid}")
     sys.exit(1)
   print(f"query: {query} => bugid {bugid}, patchid {patchid}")
+  if cmd == "batch":
+    batch_cmp(root_dir, bug_info, outdir)
+    # for bug_info in data:
+    #   if "buggy" not in bug_info:
+    #     continue
+    #   additional = {"patch": bug_info["correct"]["id"]}
+    #   run(root_dir, bug_info, "buggy", outdir, "cmp", additional)
   if cmd == "filter":
     filter_patch(root_dir, bug_info)
   else:
