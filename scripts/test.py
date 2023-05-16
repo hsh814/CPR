@@ -62,12 +62,10 @@ def execute(cmd: str, dir: str, env: dict = None) -> int:
   print(f"Exit code: {proc.returncode}")
   return proc.returncode
 
-def init(data_dir: str, src_dir: str, bin: str) -> None:
-  build_cmd = f"CC=cpr-cc CXX=cpr-cxx make LDFLAGS=\"-L/root/projects/CPR/lib -lcpr_runtime -lkleeRuntest\" CFLAGS=\"-lcpr_proxy -L/root/projects/CPR/lib -g\" -j 32"
-  cwd = os.path.join(data_dir, src_dir)
-  execute(build_cmd, cwd)
-  execute(f"extract-bc {bin}", cwd)
-  execute(f"cp {bin}.bc {data_dir}", cwd)
+def init(root_dir: str, bug_info: dict, reset: bool = False) -> None:
+  bug_dir = os.path.join(root_dir, "patches", bug_info["benchmark"], bug_info["subject"], bug_info["bug_id"])
+  if reset or not os.path.exists(os.path.join(bug_dir, "patched")):
+    execute("./init.sh", bug_dir)
 
 def run(root_dir: str, bug_info: dict, patchid: str, outdir: str, cmd: str, additional: dict):
   bid = bug_info["bug_id"]
@@ -95,7 +93,7 @@ def run(root_dir: str, bug_info: dict, patchid: str, outdir: str, cmd: str, addi
   no = find_num(output_dir, "uni-out")
   snapshot_dir = os.path.join(output_dir, "snapshot")
   uni_out_dir = os.path.join(output_dir, f"uni-out-{no}")
-  SNAPSHOT_DEFAULT_OPTS = f"--output-dir={snapshot_dir} --write-smt2s --libc=uclibc --allocate-determ --posix-runtime --external-calls=all --target-function={target_function}"
+  SNAPSHOT_DEFAULT_OPTS = f"--output-dir={snapshot_dir} --write-smt2s --libc=uclibc --allocate-determ --posix-runtime --external-calls=all --log-trace --target-function={target_function}"
   UNI_KLEE_DEFAULT_OPTS = f"--output-dir={uni_out_dir} --write-smt2s --write-kqueries --libc=uclibc --allocate-determ --posix-runtime --external-calls=all --no-exit-on-error --dump-snapshot --log-trace --simplify-sym-indices --make-lazy --target-function={target_function} --snapshot={snapshot_dir}/{snapshot_file}"
   if cmd != "fork":
     UNI_KLEE_DEFAULT_OPTS += " --start-from-snapshot"
@@ -131,7 +129,7 @@ def run(root_dir: str, bug_info: dict, patchid: str, outdir: str, cmd: str, addi
     new_no = find_num(new_output_dir, "uni-out")
     new_snapshot_dir = os.path.join(new_output_dir, "snapshot")
     new_uni_out_dir = os.path.join(new_output_dir, f"uni-out-{new_no}")
-    NEW_UNI_KLEE_DEFAULT_OPTS = f"--make-lazy --output-dir={new_uni_out_dir} --start-from-snapshot --write-smt2s --write-kqueries --libc=uclibc --allocate-determ --posix-runtime --external-calls=all --no-exit-on-error --dump-snapshot --log-trace --simplify-sym-indices --target-function={target_function} --snapshot={snapshot_dir}/{snapshot_file}"
+    NEW_UNI_KLEE_DEFAULT_OPTS = f"--make-lazy --make-all-symbolic --output-dir={new_uni_out_dir} --start-from-snapshot --write-smt2s --write-kqueries --libc=uclibc --allocate-determ --posix-runtime --external-calls=all --no-exit-on-error --dump-snapshot --log-trace --simplify-sym-indices --target-function={target_function} --snapshot={snapshot_dir}/{snapshot_file}"
     execute(f"uni-klee {new_link_opts} {NEW_UNI_KLEE_DEFAULT_OPTS} {test_cmd}", data_dir)
 
 def filter_patch(root_dir: str, bug_info: dict):
@@ -197,15 +195,20 @@ def batch_cmp(root_dir: str, bug_info: dict, out_dir: str):
   success_patches = patch_result["success"]
   for succ in success_patches:
     run(root_dir, bug_info, "buggy", out_dir, "cmp", {"patch": succ})
+  for fail in failed_patches:
+    run(root_dir, bug_info, "buggy", out_dir, "cmp", {"patch": fail})
 
 
 def main(args: List[str]):
   root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-  if len(args) < 2:
+  os.chdir(root_dir)
+  if len(args) < 3:
     print(f"Usage: {args[0]} <cmd> <query>")
     print("cmd: run, cmp, snapshot, batch, filter")
     print("query: <bugid>:<patchid>")
     print("Ex) test.py run 5321:buggy")
+    print("Ex) test.py cmp 5321:buggy 1-0")
+    print("Ex) test.py snapshot 5321:buggy")
     sys.exit(1)
   cmd = args[1]
   query = args[2]
@@ -225,6 +228,7 @@ def main(args: List[str]):
     for meta in data:
       if query == meta["subject"]:
         bug_info = meta
+        init(root_dir, bug_info)
         print(f"Running batch for {bug_info['subject']}/{bug_info['bug_id']}")
         filter_patch(root_dir, bug_info)
         batch_cmp(root_dir, bug_info, outdir)

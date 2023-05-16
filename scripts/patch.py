@@ -25,6 +25,81 @@ def formula_to_code(formula: str, concrete_range: list, vars: List[str]) -> List
     result.append(tmp)
   return result
 
+def get_basics(vars: List[str]) -> str:
+  code = ""
+  for i in range(len(vars)):
+    code += f"  int {vars[i]} = rvals[{i}];\n"
+  code += "  int constant_a;\n"
+  return code
+
+def get_concrete(formula: str, concrete_range: list) -> List[str]:
+  result = list()
+  if len(concrete_range) == 0:
+    code = f"    result = {formula};\n"
+    result.append(code)
+  for i in concrete_range:
+    tmp = f"    constant_a = {i};\n"
+    tmp += f"    result = {formula};\n"
+    result.append(tmp)
+  return result
+
+def write_meta_program(meta_program: list, conc_dir: str):
+  os.makedirs(conc_dir, exist_ok=True)
+  base_code = meta_program["base"]
+  patches = meta_program["patches"]
+  lines = UNI_KLEE_RUNTIME.splitlines()
+  codes = list()
+  flag = True
+  for patch in patches:
+    codes.append(f"  // Patch {patch['name']} # {patch['id']}\n")
+    if flag:
+      codes.append(f"  if (patch_id == {patch['id']}) {{\n")
+      flag = False
+    else:
+      codes.append(f"  else if (patch_id == {patch['id']}) {{\n")
+    codes.append(patch['code'])
+    codes.append("  }\n")
+  contents = list()
+  for line in lines:
+    if "// REPLACE" in line:
+      contents.append(base_code)
+      contents.extend(codes)
+    else:
+      contents.append(line + "\n")
+  with open(f"{conc_dir}/uni_klee_runtime.c", "w") as f:
+    f.writelines(contents)
+  with open(f"{conc_dir}/uni_klee_runtime.h", "w") as f:
+    f.write(UNI_KLEE_RUNTIME_H)
+  compile(conc_dir)
+
+def to_meta_program(patch_list: list, meta: dict) -> dict:
+  base_code = get_basics(meta["vars"])
+  patches = list()
+  id = 1
+  meta_program = { "base": base_code, "patches": patches }
+  if "buggy" in meta:
+    formula = meta["buggy"]["code"]
+    obj = { "name": "buggy", "id": 0, "num": 0, "local_id": 0, "code": f"    result = {formula};\n" }
+  for patch in patch_list:
+    concrete_range = list()
+    if "Partition" in patch:
+      for part in patch["Partition"]:
+        if "Range" in part:
+          range_str = part["Range"]
+          start, con, end = range_str.split("<=")
+          for i in range(int(start), int(end) + 1):
+            concrete_range.append(i)
+    concretes = get_concrete(patch["patch"], concrete_range)
+    local_id = 0
+    for conc in concretes:
+      obj = { "name": f"{patch['num']}-{local_id}", "id": id, "num": patch["num"], 
+             "local_id": local_id, "code": conc }
+      id += 1
+      local_id += 1
+      patches.append(obj)
+  return meta_program
+
+
 def to_concrete_patch(patch: dict, meta: dict) -> dict:
   num = patch["num"]
   lid = patch["lid"]
@@ -74,7 +149,9 @@ def lazy_compile(dir: str, cmd: str, file_a: str, file_b: str):
   if os.path.exists(file_b):
     if os.path.getmtime(file_a) <= os.path.getmtime(file_b):
       os.chdir(cwd)
+      print(f"Skip {cmd}")
       return
+  print(f"Run {cmd}")
   os.system(f"{cmd}")
   os.chdir(cwd)
 
@@ -98,6 +175,7 @@ def main(args: List[str]):
     "compile": "Compile all patches",
     "concrete": "Generate concrete patches",
     "buggy": "Generate buggy patches from meta",
+    "meta": "Generate patches as meta program",
   }
   root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
   opt = args[1]
@@ -184,12 +262,19 @@ def main(args: List[str]):
       print(f"Writing to {outdir}/abs-patches.json")
       json.dump(patch_list, f, indent=2)
     final_patch_list = list()
+    if opt == "meta":
+      meta_program = to_meta_program(patch_list, meta)
+      write_meta_program(meta_program, os.path.join(outdir, "concrete"))
+      with open(f"{outdir}/meta-program.json", "w") as f:
+        print(f"Writing to {outdir}/meta-program.json")
+        json.dump(meta_program, f, indent=2)
+      continue
     for patch in patch_list:
       concrete_patches = to_concrete_patch(patch, meta)
       final_patch_list.append(concrete_patches)
     with open(f"{outdir}/concrete-patches.json", "w") as f:
       print(f"Writing to {outdir}/concrete-patches.json")
-      json.dump(final_patch_list, f, indent=2)
+      json.dump(final_patch_list, f, indent=2)    
     save_to_file(concrete_dir, final_patch_list)
   if opt == "compile":
     pool.close()
