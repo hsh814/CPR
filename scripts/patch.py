@@ -80,6 +80,7 @@ def to_meta_program(patch_list: list, meta: dict) -> dict:
   if "buggy" in meta:
     formula = meta["buggy"]["code"]
     obj = { "name": "buggy", "id": 0, "num": 0, "local_id": 0, "code": f"    result = {formula};\n" }
+    patches.append(obj)
   for patch in patch_list:
     concrete_range = list()
     if "Partition" in patch:
@@ -97,6 +98,10 @@ def to_meta_program(patch_list: list, meta: dict) -> dict:
       id += 1
       local_id += 1
       patches.append(obj)
+  if "correct" in meta:
+    formula = meta["correct"]["code"]
+    obj = { "name": "correct", "id": id + 1, "num": 0, "local_id": 1, "code": f"    result = {formula};\n" }
+    patches.append(obj)
   return meta_program
 
 
