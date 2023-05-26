@@ -53,10 +53,10 @@ def write_meta_program(meta_program: list, conc_dir: str):
   for patch in patches:
     codes.append(f"  // Patch {patch['name']} # {patch['id']}\n")
     if flag:
-      codes.append(f"  if (patch_id == {patch['id']}) {{\n")
+      codes.append(f"  if (uni_klee_patch_id == {patch['id']}) {{\n")
       flag = False
     else:
-      codes.append(f"  else if (patch_id == {patch['id']}) {{\n")
+      codes.append(f"  else if (uni_klee_patch_id == {patch['id']}) {{\n")
     codes.append(patch['code'])
     codes.append("  }\n")
   contents = list()

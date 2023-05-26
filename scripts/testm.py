@@ -94,7 +94,7 @@ def run(root_dir: str, bug_info: dict, patchid: str, outdir: str, cmd: str, addi
   meta_program_json = os.path.join(patches, subdir, "meta-program.json")
   if not os.path.exists(meta_program_json):
     print(f"Cannot find {meta_program_json}")
-    sys.exit(1)
+    return
   patch_ids = get_meta_program(meta_program_json, patchid.split(","))
   patch_dir = os.path.join(patches, subdir, "concrete")
   patch.compile(patch_dir)
@@ -104,13 +104,13 @@ def run(root_dir: str, bug_info: dict, patchid: str, outdir: str, cmd: str, addi
   for file in file_check:
     if not os.path.exists(file):
       print(f"Cannot find {file}")
-      sys.exit(1)
+      return
   conf = read_conf_file(repair_conf_file)
   no = find_num(output_dir, "uni-m-out")
   snapshot_dir = os.path.join(output_dir, "snapshot")
   uni_out_dir = os.path.join(output_dir, f"uni-m-out-{no}")
-  SNAPSHOT_DEFAULT_OPTS = f"--patch-id={patch_ids} --output-dir={snapshot_dir} --write-smt2s --libc=uclibc --allocate-determ --posix-runtime --external-calls=all --log-trace --target-function={target_function}"
-  UNI_KLEE_DEFAULT_OPTS = f"--patch-id={patch_ids} --output-dir={uni_out_dir} --write-smt2s --write-kqueries --libc=uclibc --allocate-determ --posix-runtime --external-calls=all --no-exit-on-error --dump-snapshot --log-trace --simplify-sym-indices --make-lazy --target-function={target_function} --snapshot={snapshot_dir}/{snapshot_file}"
+  SNAPSHOT_DEFAULT_OPTS = f"--patch-id={patch_ids} --output-dir={snapshot_dir} --dump-states-on-halt=0 --write-smt2s --libc=uclibc --allocate-determ --posix-runtime --external-calls=all --log-trace --target-function={target_function}"
+  UNI_KLEE_DEFAULT_OPTS = f"--patch-id={patch_ids} --output-dir={uni_out_dir} --dump-states-on-halt=0 --write-smt2s --write-kqueries --libc=uclibc --allocate-determ --posix-runtime --external-calls=all --no-exit-on-error --dump-snapshot --log-trace --simplify-sym-indices --make-lazy --target-function={target_function} --snapshot={snapshot_dir}/{snapshot_file}"
   if cmd != "fork":
     UNI_KLEE_DEFAULT_OPTS += " --start-from-snapshot"
   link_opts = f"--link-llvm-lib={patch_file}"
@@ -142,7 +142,7 @@ def run(root_dir: str, bug_info: dict, patchid: str, outdir: str, cmd: str, addi
     new_no = find_num(new_output_dir, "uni-cmp-out")
     new_snapshot_dir = os.path.join(new_output_dir, "snapshot")
     new_uni_out_dir = os.path.join(new_output_dir, f"uni-cmp-out-{new_no}")
-    NEW_UNI_KLEE_DEFAULT_OPTS = f"--patch-id={patch_ids} {link_opts} --make-lazy --make-all-symbolic --output-dir={new_uni_out_dir} --start-from-snapshot --write-smt2s --write-kqueries --libc=uclibc --allocate-determ --posix-runtime --external-calls=all --no-exit-on-error --dump-snapshot --log-trace --simplify-sym-indices --target-function={target_function} --snapshot={snapshot_dir}/{snapshot_file}"
+    NEW_UNI_KLEE_DEFAULT_OPTS = f"--patch-id={patch_ids} {link_opts} --make-lazy --make-all-symbolic --dump-states-on-halt=0 --output-dir={new_uni_out_dir} --start-from-snapshot --write-smt2s --write-kqueries --libc=uclibc --allocate-determ --posix-runtime --external-calls=all --no-exit-on-error --dump-snapshot --log-trace --simplify-sym-indices --target-function={target_function} --snapshot={snapshot_dir}/{snapshot_file}"
     execute(f"uni-klee {NEW_UNI_KLEE_DEFAULT_OPTS} {test_cmd}", data_dir)
 
 def filter_patch(root_dir: str, bug_info: dict):
@@ -231,6 +231,8 @@ def main(args: List[str]):
     data = json.load(f)
   if cmd == "batch":
     for meta in data:
+      if meta["benchmark"] != "extractfix":
+        continue
       if query == meta["subject"]:
         bug_info = meta
         init(root_dir, bug_info)
