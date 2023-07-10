@@ -13,7 +13,7 @@
       "id": "buggy"
     },
     "correct": {
-      "code": "(x > y)",
+      "code": "(x < y)",
       "id": "2-0"
     },
     "target": "readSeparateTilesIntoBuffer"
