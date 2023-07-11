@@ -258,7 +258,8 @@
       "code": "(x<0)",
       "id": "12-10"
     },
-    "target": "xmlStrncat"
+    "target": "xmlStrncat",
+    "snapshot": "snapshot-0-r0-c0-p0.ret.json"
   },
   {
     "id": 15,
@@ -339,7 +340,8 @@
         "1-0", "3-0"
       ]
     },
-    "target": "xmlDumpElementContent"
+    "target": "xmlDumpElementContent",
+    "snapshot": "snapshot-0-r2-c0-p0.ret.json"
   },
   {
     "id": 19,

@@ -172,12 +172,12 @@ class Config:
   def parser(argv: List[str]) -> 'Config':
     parser = argparse.ArgumentParser(description="Test script for uni-klee")
     parser.add_argument("cmd", help="Command to execute", choices=["run", "cmp", "fork", "snapshot", "batch", "filter"])
-    parser.add_argument("query", help="Query to execute")
+    parser.add_argument("query", help="Query for bugid and patch ids: <bugid>[:<patchid>] # ex) 5321:1,2,3")
     # parser.add_argument("-a", "--additional", help="Additional arguments", default="")
     parser.add_argument("-d", "--debug", help="Debug mode", action="store_true")
     parser.add_argument("-o", "--outdir", help="Output directory", default="")
     parser.add_argument("-p", "--outdir-prefix", help="Output directory prefix", default="uni-m-out")
-    parser.add_argument("-s", "--snapshot", help="Force to create snapshot", default="buggy")
+    parser.add_argument("-s", "--snapshot", help="Patches for snapshot", default="buggy")
     args = parser.parse_args(argv[1:])
     conf = Config(args.cmd, args.query, args.debug)
     conf.init(args.snapshot)
@@ -239,6 +239,14 @@ class Runner:
       proc = subprocess.run(cmd, shell=True, cwd=dir, env=env)
     else:
       proc = subprocess.run(cmd, shell=True, cwd=dir, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if proc.returncode != 0:
+      print("!!!!! Error !!!!")
+      print(proc.stderr.decode("utf-8"))
+      with open(os.path.join(self.config.conf_files.out_dir, "error.log"), "w") as f:
+        f.write(proc.stderr.decode("utf-8"))
+        f.write("\n###############\n")
+        f.write(proc.stdout.decode("utf-8"))
+      print(f"Save error log to {self.config.conf_files.out_dir}/error.log")
     print(f"Exit code: {proc.returncode}")
     return proc.returncode
   def execute_snapshot(self, cmd: str, dir: str, env: dict = None):
