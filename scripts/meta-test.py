@@ -46,14 +46,17 @@ class ConfigFiles:
       self.out_base_dir = self.work_dir
     else:
       self.out_base_dir = out_dir
+    os.makedirs(self.out_base_dir, exist_ok=True)
     no = self.find_num(self.out_base_dir, out_dir_prefix)
     self.out_dir = os.path.join(self.out_base_dir, f"{out_dir_prefix}-{no}")
     self.snapshot_dir = os.path.join(self.out_base_dir, "snapshot")
     if "snapshot" in bug_info:
+      print(f"Use snapshot {bug_info['snapshot']}")
       self.snapshot_file = os.path.join(self.snapshot_dir, bug_info["snapshot"])
     else:
+      print(f"Use snapshot {self.bid}-last.json ...")
       self.snapshot_file = os.path.join(self.snapshot_dir, "snapshot-last.json")
-  def find_num(dir: str, name: str) -> int:
+  def find_num(self, dir: str, name: str) -> int:
     result = 0
     dirs = os.listdir(dir)
     while True:
@@ -86,7 +89,7 @@ class ConfigFiles:
 class Config:
   cmd: str
   patch_ids: List[str]
-  addt_patch_ids: List[str]
+  snapshot_patch_ids: List[str]
   meta: dict
   bug_info: dict
   meta_program: dict
@@ -129,7 +132,7 @@ class Config:
         result.append(str(patch["id"]))
     return result
   
-  def parse_query(self, additional: str) -> Tuple[dict, list]:
+  def parse_query(self, snapshot_patch_ids: str) -> Tuple[dict, list]:
     parsed: List[str] = None
     if ":" in self.query:
       parsed = self.query.rsplit(":", 1)
@@ -147,16 +150,17 @@ class Config:
     if len(parsed) > 1:
       patchid = parsed[1]
     self.patch_ids = self.get_patch_ids(patchid.split(","))
-    if additional != "":
-      self.addt_patch_ids = self.get_patch_ids(additional.split(","))
+    if snapshot_patch_ids != "":
+      self.snapshot_patch_ids = self.get_patch_ids(snapshot_patch_ids.split(","))
     else:
-      self.addt_patch_ids = list()
+      self.snapshot_patch_ids = list()
     print(f"query: {self.query} => bugid {self.bug_info}, patchid {self.patch_ids}")
     
-  def init(self, additional: str):
+  def init(self, snapshot_patch_ids: str):
     self.meta = self.conf_files.read_meta_data()
-    self.parse_query(additional)
+    self.parse_query(snapshot_patch_ids)
     self.project_conf = self.conf_files.read_conf_file()
+    self.workdir = self.conf_files.work_dir
   
   def __init__(self, cmd: str, query: str, debug: bool):
     self.cmd = cmd
@@ -169,43 +173,48 @@ class Config:
     parser = argparse.ArgumentParser(description="Test script for uni-klee")
     parser.add_argument("cmd", help="Command to execute", choices=["run", "cmp", "fork", "snapshot", "batch", "filter"])
     parser.add_argument("query", help="Query to execute")
-    parser.add_argument("-a", "--additional", help="Additional arguments", default="")
+    # parser.add_argument("-a", "--additional", help="Additional arguments", default="")
     parser.add_argument("-d", "--debug", help="Debug mode", action="store_true")
     parser.add_argument("-o", "--outdir", help="Output directory", default="")
     parser.add_argument("-p", "--outdir-prefix", help="Output directory prefix", default="uni-m-out")
+    parser.add_argument("-s", "--snapshot", help="Force to create snapshot", default="buggy")
     args = parser.parse_args(argv[1:])
     conf = Config(args.cmd, args.query, args.debug)
-    conf.init(args.additional)
-    conf.conf_files.set_out_dir(args.outdir, args.outdir_prefix, conf.meta)
+    conf.init(args.snapshot)
+    conf.conf_files.set_out_dir(args.outdir, args.outdir_prefix, conf.bug_info)
     return conf
   
   def append_snapshot_cmd(self, cmd: List[str]):
     snapshot_dir = self.conf_files.snapshot_dir
-    patch_str = ",".join(self.patch_ids)
+    patch_str = ",".join(self.snapshot_patch_ids)
     cmd.append(f"--output-dir={snapshot_dir}")
     cmd.append(f"--patch-id={patch_str}")
   
-  def append_cmd(self, cmd: List[str]):
+  def append_cmd(self, cmd: List[str], patch_str: str, opts: List[str]):
     out_dir = self.conf_files.out_dir
-    patch_str = ",".join(self.patch_ids)
-    default_opts = ["--no-exit-on-error", "--simplify-sym-indices", "--make-lazy"]
+    default_opts = ["--no-exit-on-error", "--simplify-sym-indices", "--make-lazy", "--dump-snapshot"]
     cmd.extend(default_opts)
+    cmd.extend(opts)
     cmd.append(f"--output-dir={out_dir}")
     cmd.append(f"--patch-id={patch_str}")
+    cmd.append(f"--snapshot={self.conf_files.snapshot_file}")
   
   def get_cmd_opts(self, is_snapshot: bool) -> str:
-    target_function = self.bug_info["target_function"]
+    target_function = self.bug_info["target"]
     link_opt = f"--link-llvm-lib={self.conf_files.meta_patch_obj_file}"
     result = ["uni-klee", "--libc=uclibc", "--posix-runtime", "--external-calls=all",
               "--allocate-determ", "--write-smt2s", "--write-kqueries", "--log-trace",
               f"--target-function={target_function}", link_opt]
     if "klee_flags" in self.project_conf:
-      link_opt = f"--link-llvm-flags={self.project_conf['klee_flags']}"
+      link_opt = self.project_conf['klee_flags']
       result.append(link_opt)
     if is_snapshot:
       self.append_snapshot_cmd(result)
     else:
-      self.append_cmd(result)
+      add_opts = list()
+      if self.cmd == "cmp":
+        add_opts.append("--start-from-snapshot")
+      self.append_cmd(result, ",".join(self.patch_ids), add_opts)
     bin_file = os.path.basename(self.project_conf["binary_path"])
     target = bin_file + ".bc"
     result.append(target)
@@ -226,11 +235,25 @@ class Runner:
     print(f"Executing: {cmd}")
     if env is None:
       env = os.environ
-    proc = subprocess.run(cmd, shell=True, cwd=dir, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if self.config.debug:
+      proc = subprocess.run(cmd, shell=True, cwd=dir, env=env)
+    else:
+      proc = subprocess.run(cmd, shell=True, cwd=dir, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     print(f"Exit code: {proc.returncode}")
     return proc.returncode
+  def execute_snapshot(self, cmd: str, dir: str, env: dict = None):
+    if self.config.cmd == "snapshot":
+      self.execute("rm -rf " + self.config.conf_files.snapshot_dir, dir)
+    if not os.path.exists(self.config.conf_files.snapshot_file):
+      if self.config.debug:
+        print(f"snapshot file {self.config.conf_files.snapshot_file} does not exist")
+      self.execute(cmd, dir, env)
   def run(self):
-    pass
+    cmd = self.config.get_cmd_opts(True)
+    self.execute_snapshot(cmd, self.config.workdir)
+    if self.config.cmd != "snapshot":
+      cmd = self.config.get_cmd_opts(False)
+      self.execute(cmd, self.config.workdir)
 
 
 
