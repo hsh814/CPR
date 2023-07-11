@@ -6,6 +6,8 @@ import json
 import subprocess
 import argparse
 import patch
+import glob
+import re
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 class ConfigFiles:
@@ -22,6 +24,7 @@ class ConfigFiles:
   bid: str
   out_base_dir: str
   out_dir: str
+  out_dir_prefix: str
   snapshot_dir: str
   snapshot_file: str
   
@@ -40,6 +43,7 @@ class ConfigFiles:
     patch.compile(os.path.join(self.project_dir, "concrete"))
     self.meta_patch_obj_file = os.path.join(self.project_dir, "concrete", "libuni_klee_runtime.bca")
   def set_out_dir(self, out_dir: str, out_dir_prefix: str, bug_info: dict):
+    self.out_dir_prefix = out_dir_prefix
     if out_dir == "":
       self.out_base_dir = os.path.join(self.root_dir, "out", self.benchmark, self.subject, self.bid)
     elif out_dir == "out":
@@ -64,6 +68,15 @@ class ConfigFiles:
         result += 1
       else:
         break
+    return result
+  def find_all_nums(self, dir: str, name: str) -> List[Tuple[str, int]]:
+    result = list()
+    dirs = os.listdir(dir)
+    index = 0
+    for d in dirs:
+      if f"{name}-{index}" in dirs:
+        index += 1
+        result.append((d, index))
     return result
 
   def read_conf_file(self) -> dict:
@@ -99,6 +112,7 @@ class Config:
   workdir: str
   project_conf: dict
   conf_files: ConfigFiles
+  additional: str
   
   def get_bug_info(self, bugid: str) -> dict:
     def check_int(s: str) -> bool:
@@ -156,11 +170,12 @@ class Config:
       self.snapshot_patch_ids = list()
     print(f"query: {self.query} => bugid {self.bug_info}, patchid {self.patch_ids}")
     
-  def init(self, snapshot_patch_ids: str):
+  def init(self, snapshot_patch_ids: str, additional: str):
     self.meta = self.conf_files.read_meta_data()
     self.parse_query(snapshot_patch_ids)
     self.project_conf = self.conf_files.read_conf_file()
     self.workdir = self.conf_files.work_dir
+    self.additional = additional
   
   def __init__(self, cmd: str, query: str, debug: bool):
     self.cmd = cmd
@@ -171,16 +186,16 @@ class Config:
   @staticmethod  
   def parser(argv: List[str]) -> 'Config':
     parser = argparse.ArgumentParser(description="Test script for uni-klee")
-    parser.add_argument("cmd", help="Command to execute", choices=["run", "cmp", "fork", "snapshot", "batch", "filter"])
+    parser.add_argument("cmd", help="Command to execute", choices=["run", "cmp", "fork", "snapshot", "batch", "filter", "analyze"])
     parser.add_argument("query", help="Query for bugid and patch ids: <bugid>[:<patchid>] # ex) 5321:1,2,3")
-    # parser.add_argument("-a", "--additional", help="Additional arguments", default="")
+    parser.add_argument("-a", "--additional", help="Additional arguments", default="")
     parser.add_argument("-d", "--debug", help="Debug mode", action="store_true")
     parser.add_argument("-o", "--outdir", help="Output directory", default="")
     parser.add_argument("-p", "--outdir-prefix", help="Output directory prefix", default="uni-m-out")
     parser.add_argument("-s", "--snapshot", help="Patches for snapshot", default="buggy")
     args = parser.parse_args(argv[1:])
     conf = Config(args.cmd, args.query, args.debug)
-    conf.init(args.snapshot)
+    conf.init(args.snapshot, args.additional)
     conf.conf_files.set_out_dir(args.outdir, args.outdir_prefix, conf.bug_info)
     return conf
   
@@ -257,13 +272,67 @@ class Runner:
         print(f"snapshot file {self.config.conf_files.snapshot_file} does not exist")
       self.execute(cmd, dir, env)
   def run(self):
+    if self.config.cmd == "analyze":
+      analyzer = Analyzer(self.config)
+      analyzer.analyze()
+      return
     cmd = self.config.get_cmd_opts(True)
     self.execute_snapshot(cmd, self.config.workdir)
     if self.config.cmd != "snapshot":
       cmd = self.config.get_cmd_opts(False)
       self.execute(cmd, self.config.workdir)
+      analyzer = Analyzer(self.config)
+      analyzer.analyze()
 
-
+class Analyzer:
+  config: Config
+  dir: str
+  def __init__(self, conf: Config):
+    self.config = conf
+  def sort_key(self, filename: str):
+    # Extract the number from the filename using regular expression
+    match = re.search(r'snapshot-(\d+)', filename)
+    if match:
+        return int(match.group(1))
+    else:
+        # For filenames without numbers, assign a higher number
+        return float('inf')
+  def collect_snapshot_names(self) -> List[Tuple[str, int]]:
+    snapshot_files = glob.glob(os.path.join(self.dir, "snapshot-*.json"))
+    snapshot_files = sorted(snapshot_files, key=self.sort_key)
+    result = list()
+    for i in range(len(snapshot_files)):
+      result.append((snapshot_files[i], i))
+    return result
+  def print_list(self, l: List[Tuple[str, int]]):
+    for item, index in l:
+      print(f"{index}) {item}")
+  def interactive_select(self, l: List[Tuple[str, int]]) -> Tuple[str, int]:
+    print("Select from here: ")
+    self.print_list(l)
+    default = l[-1][1]
+    while True:
+      tmp = input(f"Select(default: {default}): ").strip()
+      res = default
+      if tmp != "":
+        res = int(tmp)
+      for item, index in l:
+        if res == index:
+          return (item, index)
+  def analyze(self):
+    self.dir = self.config.conf_files.out_dir
+    if not os.path.exists(self.dir):
+      print(f"{self.dir} does not exist")
+      if self.config.additional != "":
+        self.dir = self.config.additional
+        print(f"Use {self.dir} instead")
+      else:
+        out_dirs = self.config.conf_files.find_all_nums(self.config.conf_files.out_base_dir, self.config.conf_files.out_dir_prefix)
+        out_dir = self.interactive_select(out_dirs)[0]
+        self.dir = os.path.join(self.config.conf_files.out_base_dir, out_dir)
+    snapshot_files = self.collect_snapshot_names()
+    print(f"Snapshot files:")
+    self.print_list(snapshot_files)    
 
 def main(args: List[str]):
   root_dir = ROOT_DIR
