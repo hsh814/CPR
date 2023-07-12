@@ -139,11 +139,12 @@ class Config:
   def get_patch_ids(self, patch_ids: list) -> List[str]:
     self.meta_program = self.conf_files.read_meta_program()
     result = list()
-    for patch in self.meta_program["patches"]:
-      if str(patch["id"]) in patch_ids:
-        result.append(str(patch["id"]))
-      elif patch["name"] in patch_ids:
-        result.append(str(patch["id"]))
+    for patch_id in patch_ids:
+      for patch in self.meta_program["patches"]:
+        if str(patch["id"]) == patch_id:
+          result.append(str(patch["id"]))
+        elif patch["name"] == patch_id:
+          result.append(str(patch["id"]))
     return result
   
   def parse_query(self, snapshot_patch_ids: str) -> Tuple[dict, list]:
@@ -302,7 +303,7 @@ class Analyzer:
     snapshot_files = sorted(snapshot_files, key=self.sort_key)
     result = list()
     for i in range(len(snapshot_files)):
-      result.append((snapshot_files[i], i))
+      result.append((os.path.basename(snapshot_files[i]), i))
     return result
   def print_list(self, l: List[Tuple[str, int]]):
     for item, index in l:
