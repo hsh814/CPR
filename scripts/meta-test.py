@@ -27,6 +27,7 @@ class ConfigFiles:
   out_dir_prefix: str
   snapshot_dir: str
   snapshot_file: str
+  snapshot_prefix: str
   
   def __init__(self):
     self.root_dir = ROOT_DIR
@@ -42,8 +43,9 @@ class ConfigFiles:
     self.meta_program = os.path.join(self.project_dir, "meta-program.json")
     patch.compile(os.path.join(self.project_dir, "concrete"))
     self.meta_patch_obj_file = os.path.join(self.project_dir, "concrete", "libuni_klee_runtime.bca")
-  def set_out_dir(self, out_dir: str, out_dir_prefix: str, bug_info: dict):
+  def set_out_dir(self, out_dir: str, out_dir_prefix: str, bug_info: dict, snapshot_prefix: str):
     self.out_dir_prefix = out_dir_prefix
+    self.snapshot_prefix = snapshot_prefix
     if out_dir == "":
       self.out_base_dir = os.path.join(self.root_dir, "out", self.benchmark, self.subject, self.bid)
     elif out_dir == "out":
@@ -53,7 +55,7 @@ class ConfigFiles:
     os.makedirs(self.out_base_dir, exist_ok=True)
     no = self.find_num(self.out_base_dir, out_dir_prefix)
     self.out_dir = os.path.join(self.out_base_dir, f"{out_dir_prefix}-{no}")
-    self.snapshot_dir = os.path.join(self.out_base_dir, "snapshot")
+    self.snapshot_dir = os.path.join(self.out_base_dir, self.snapshot_prefix)
     if "snapshot" in bug_info:
       print(f"Use snapshot {bug_info['snapshot']}")
       self.snapshot_file = os.path.join(self.snapshot_dir, bug_info["snapshot"])
@@ -193,11 +195,12 @@ class Config:
     parser.add_argument("-d", "--debug", help="Debug mode", action="store_true")
     parser.add_argument("-o", "--outdir", help="Output directory", default="")
     parser.add_argument("-p", "--outdir-prefix", help="Output directory prefix", default="uni-m-out")
-    parser.add_argument("-s", "--snapshot", help="Patches for snapshot", default="buggy")
+    parser.add_argument("-b", "--snapshot-base-patch", help="Patches for snapshot", default="buggy")
+    parser.add_argument("-s", "--snapshot-prefix", help="Snapshot directory prefix", default="snapshot")
     args = parser.parse_args(argv[1:])
     conf = Config(args.cmd, args.query, args.debug)
-    conf.init(args.snapshot, args.additional)
-    conf.conf_files.set_out_dir(args.outdir, args.outdir_prefix, conf.bug_info)
+    conf.init(args.snapshot_base_patch, args.additional)
+    conf.conf_files.set_out_dir(args.outdir, args.outdir_prefix, conf.bug_info, args.snapshot_prefix)
     return conf
   
   def append_snapshot_cmd(self, cmd: List[str]):
