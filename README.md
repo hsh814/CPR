@@ -1,3 +1,15 @@
+# CPR Benchmark
+## Setup
+```shell
+# python3 scripts/meta.py
+python3 scripts/patch.py meta patches
+```
+
+## Test
+```shell
+python3 scripts/meta-test.py run 5321 0,1,2,3,4
+```
+
 [![Docker Pulls](https://img.shields.io/docker/pulls/rshariffdeen/cpr.svg)](https://hub.docker.com/r/rshariffdeen/cpr) [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.4668317.svg)](https://doi.org/10.5281/zenodo.4668317)
 
 # CPR - CardioPulmonary Resuscitation

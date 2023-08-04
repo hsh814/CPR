@@ -115,6 +115,7 @@ class Config:
   project_conf: dict
   conf_files: ConfigFiles
   additional: str
+  sym_level: str
   
   def get_bug_info(self, bugid: str) -> dict:
     def check_int(s: str) -> bool:
@@ -180,10 +181,11 @@ class Config:
     self.workdir = self.conf_files.work_dir
     self.additional = additional
   
-  def __init__(self, cmd: str, query: str, debug: bool):
+  def __init__(self, cmd: str, query: str, debug: bool, sym_level: str):
     self.cmd = cmd
     self.query = query    
     self.debug = debug
+    self.sym_level = sym_level
     self.conf_files = ConfigFiles()
   
   @staticmethod  
@@ -197,8 +199,9 @@ class Config:
     parser.add_argument("-p", "--outdir-prefix", help="Output directory prefix", default="uni-m-out")
     parser.add_argument("-b", "--snapshot-base-patch", help="Patches for snapshot", default="buggy")
     parser.add_argument("-s", "--snapshot-prefix", help="Snapshot directory prefix", default="snapshot")
+    parser.add_argument("-l", "--sym-level", help="Symbolization level", default="low")
     args = parser.parse_args(argv[1:])
-    conf = Config(args.cmd, args.query, args.debug)
+    conf = Config(args.cmd, args.query, args.debug, args.sym_level)
     conf.init(args.snapshot_base_patch, args.additional)
     conf.conf_files.set_out_dir(args.outdir, args.outdir_prefix, conf.bug_info, args.snapshot_prefix)
     return conf
@@ -211,7 +214,7 @@ class Config:
   
   def append_cmd(self, cmd: List[str], patch_str: str, opts: List[str]):
     out_dir = self.conf_files.out_dir
-    default_opts = ["--no-exit-on-error", "--simplify-sym-indices", "--make-lazy", "--dump-snapshot"]
+    default_opts = ["--no-exit-on-error", "--simplify-sym-indices", f"--symbolization-level={self.sym_level}", "--dump-snapshot"]
     cmd.extend(default_opts)
     cmd.extend(opts)
     cmd.append(f"--output-dir={out_dir}")

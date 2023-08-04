@@ -44,6 +44,7 @@ def get_concrete(formula: str, concrete_range: list) -> List[str]:
   return result
 
 def write_meta_program(meta_program: list, conc_dir: str):
+  print(f"Writing meta program to {conc_dir}")
   os.makedirs(conc_dir, exist_ok=True)
   base_code = meta_program["base"]
   patches = meta_program["patches"]
@@ -176,6 +177,7 @@ def main(args: List[str]):
     print("Usage: patch.py <opt> <patch-dir>")
     sys.exit(1)
   opt_map = {
+    "init": "Initialize the patch directory",
     "single": "Compile a single patch",
     "compile": "Compile all patches",
     "concrete": "Generate concrete patches",
@@ -216,17 +218,33 @@ def main(args: List[str]):
     if "vars" not in meta:
       continue
     vars = meta["vars"]
-    if "buggy" in meta:
-      buggy_dir = os.path.join(concrete_dir, "buggy")
-      os.system(f"cp /root/projects/CPR/lib/uni_klee_runtime.c {buggy_dir}")
-      os.system(f"cp /root/projects/CPR/lib/uni_klee_runtime.h {buggy_dir}")
-      concrete = formula_to_code(meta["buggy"]["code"], [], vars)
-      print(f"Bug: {bug_id}")
-      print(concrete)
-      apply_patch_to_file(buggy_dir, concrete[0])
-      compile(buggy_dir)
-      if opt == "buggy":
-        continue
+    if opt == "init":
+      dir = os.getcwd()
+      os.chdir(outdir)
+      os.system("./init.sh")
+      os.chdir(dir)
+      continue
+    if opt == "meta":
+      if os.path.exists(f"{outdir}/meta-program.json"):
+        with open(f"{outdir}/abs-patches.json", "r") as f:
+          patch_list = json.load(f)
+          meta_program = to_meta_program(patch_list, meta)
+          write_meta_program(meta_program, os.path.join(outdir, "concrete"))
+          with open(f"{outdir}/meta-program.json", "w") as f:
+            print(f"Writing to {outdir}/meta-program.json")
+            json.dump(meta_program, f, indent=2)
+          continue
+    # if "buggy" in meta:
+    #   buggy_dir = os.path.join(concrete_dir, "buggy")
+    #   os.system(f"cp /root/projects/CPR/lib/uni_klee_runtime.c {buggy_dir}")
+    #   os.system(f"cp /root/projects/CPR/lib/uni_klee_runtime.h {buggy_dir}")
+    #   concrete = formula_to_code(meta["buggy"]["code"], [], vars)
+    #   print(f"Bug: {bug_id}")
+    #   print(concrete)
+    #   apply_patch_to_file(buggy_dir, concrete[0])
+    #   compile(buggy_dir)
+    #   if opt == "buggy":
+    #     continue
     patch_file = os.path.join(outdir, "results", "output", "patch-set-ranked")
     if not os.path.exists(patch_file):
       print(f"Patch file does not exist: {patch_file}")
