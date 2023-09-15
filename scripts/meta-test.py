@@ -9,6 +9,11 @@ import patch
 import glob
 import re
 
+import networkx as nx
+import difflib
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
+
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 class ConfigFiles:
   root_dir: str
@@ -71,14 +76,28 @@ class ConfigFiles:
       else:
         break
     return result
+  def sorting_key(self, item: str):
+      # Extract the numeric value at the end of the string using regular expression
+      match = re.search(r'(\d+)$', item)
+      if match:
+          # If a numeric value is found, return it for sorting
+          return int(match.group(1))
+      else:
+          # If no numeric value is found, treat as -1
+          return -1
   def find_all_nums(self, dir: str, name: str) -> List[Tuple[str, int]]:
     result = list()
     dirs = os.listdir(dir)
     index = 0
+    print(name)
+    print(dirs)
+    dirs.sort(key=self.sorting_key)
+    print(dirs)
     for d in dirs:
-      if f"{name}-{index}" in dirs:
-        index += 1
-        result.append((d, index))
+      if name not in d:
+        continue
+      index += 1
+      result.append((d, index))
     return result
 
   def read_conf_file(self) -> dict:
@@ -196,7 +215,7 @@ class Config:
     parser.add_argument("-a", "--additional", help="Additional arguments", default="")
     parser.add_argument("-d", "--debug", help="Debug mode", action="store_true")
     parser.add_argument("-o", "--outdir", help="Output directory", default="")
-    parser.add_argument("-p", "--outdir-prefix", help="Output directory prefix", default="uni-m-out")
+    parser.add_argument("-p", "--outdir-prefix", help="Output directory prefix(\"out\" for work dir)", default="uni-m-out")
     parser.add_argument("-b", "--snapshot-base-patch", help="Patches for snapshot", default="buggy")
     parser.add_argument("-s", "--snapshot-prefix", help="Snapshot directory prefix", default="snapshot")
     parser.add_argument("-l", "--sym-level", help="Symbolization level", default="low")
@@ -214,7 +233,7 @@ class Config:
   
   def append_cmd(self, cmd: List[str], patch_str: str, opts: List[str]):
     out_dir = self.conf_files.out_dir
-    default_opts = ["--no-exit-on-error", "--simplify-sym-indices", f"--symbolization-level={self.sym_level}", "--dump-snapshot"]
+    default_opts = ["--no-exit-on-error", "--simplify-sym-indices", f"--symbolize-level={self.sym_level}", "--dump-snapshot"]
     cmd.extend(default_opts)
     cmd.extend(opts)
     cmd.append(f"--output-dir={out_dir}")
@@ -314,18 +333,78 @@ class Analyzer:
   def print_list(self, l: List[Tuple[str, int]]):
     for item, index in l:
       print(f"{index}) {item}")
-  def interactive_select(self, l: List[Tuple[str, int]]) -> Tuple[str, int]:
+  def interactive_select(self, l: List[Tuple[str, int]], msg: str) -> Tuple[str, int]:
     print("Select from here: ")
     self.print_list(l)
     default = l[-1][1]
     while True:
-      tmp = input(f"Select(default: {default}): ").strip()
+      tmp = input(f"Select {msg}(default: {default}): ").strip()
       res = default
+      if tmp == "q":
+        return ("", -1)
       if tmp != "":
         res = int(tmp)
       for item, index in l:
         if res == index:
           return (item, index)
+  def compare_trace(self, trace_a: List[str], trace_b: List[str]):
+    diff = list(difflib.ndiff(trace_a, trace_b))
+    fig, ax = plt.subplots(figsize=(10, 40))
+    # Define chunk size and output directory
+    chunk_size = 200  # Number of lines to display in each chunk
+    output_directory = os.path.join(self.dir, "trace")  # Change this to your desired output directory
+    os.makedirs(output_directory, exist_ok=True)
+    # Generate and save PNG files for each chunk
+    print(f"Generate {len(diff)} diff.pdf in {output_directory}")
+    with PdfPages(os.path.join(output_directory, 'diff.pdf')) as pdf:
+      for i in range(0, len(diff), chunk_size):
+          ax.clear()
+          count = 0
+          end = min(i + chunk_size, len(diff))
+          for j, line in enumerate(diff[i:end]):
+              if line.startswith('-'):
+                count += 1
+                ax.annotate(line[2:], xy=(0, j/chunk_size), xytext=(0, j/chunk_size), textcoords='offset points', color='red')
+              elif line.startswith('+'):
+                count += 1
+                ax.annotate(line[2:], xy=(0, j/chunk_size), xytext=(0, j/chunk_size), textcoords='offset points', color='green')
+          ax.set_xlim(0, 1)
+          ax.set_ylim(0, 1)
+          output_filename = f"{output_directory}/diff_chunk_{i // chunk_size}.png"
+          if count > 0:
+            pdf.savefig(fig, dpi=300, bbox_inches='tight')
+          plt.close()
+  def compare_snapshots(self, snapshot_files: List[Tuple[str, int]]):
+    print(f"Snapshot files:")
+    while True:
+      snapshot_name_a, index = self.interactive_select(snapshot_files, "snapshot a")
+      if snapshot_name_a == "":
+        cmd = input("Extract snapshot?(y/n): ").strip()
+        if cmd == "y":
+          for snapshot_name, index in snapshot_files:
+            with open(os.path.join(self.dir, snapshot_name), "r") as f:
+              snapshot_a = json.load(f)
+              if not os.path.exists(os.path.join(self.dir, "trace", snapshot_name + ".trace")):
+                with open(os.path.join(self.dir, "trace", snapshot_name + ".trace"), "w") as tf:
+                  for line in snapshot_a["trace"]:
+                    tf.write(line)
+                    tf.write("\n")
+        print("Exit")
+        return
+      with open(os.path.join(self.dir, snapshot_name_a), "r") as f:
+        snapshot_a = json.load(f)
+      snapshot_name_b, index = self.interactive_select(snapshot_files, "snapshot b")
+      if snapshot_name_b == "" or snapshot_name_a == snapshot_name_b:
+        print("Exit")
+        return
+      with open(os.path.join(self.dir, snapshot_name_b), "r") as f:
+        snapshot_b = json.load(f)
+        
+      self.compare_trace(snapshot_a["trace"], snapshot_b["trace"])
+      cmd = input("Continue? (y/n): ").strip()
+      if cmd == "n":
+        print("Exit")
+        return
   def analyze(self):
     self.dir = self.config.conf_files.out_dir
     if not os.path.exists(self.dir):
@@ -335,11 +414,93 @@ class Analyzer:
         print(f"Use {self.dir} instead")
       else:
         out_dirs = self.config.conf_files.find_all_nums(self.config.conf_files.out_base_dir, self.config.conf_files.out_dir_prefix)
-        out_dir = self.interactive_select(out_dirs)[0]
+        out_dir = self.interactive_select(out_dirs, "dir")[0]
+        if out_dir == "":
+          print("Exit")
+          return
         self.dir = os.path.join(self.config.conf_files.out_base_dir, out_dir)
     snapshot_files = self.collect_snapshot_names()
-    print(f"Snapshot files:")
-    self.print_list(snapshot_files)    
+    ra = RegressionAnalysis(self.dir)
+    for snapshot_name, index in snapshot_files:
+      with open(os.path.join(self.dir, snapshot_name), "r") as f:
+        snapshot = json.load(f)
+        ra.add_trace(snapshot["regressionTrace"], snapshot_name)
+    ra.analyze()    
+    # self.compare_snapshots(snapshot_files)
+      
+
+class RegressionAnalysis:
+  result_dir: str
+  trace_groups: dict
+  def __init__(self, result_dir: str):
+    self.result_dir = result_dir
+    self.trace_groups = dict()
+  def add_trace(self, trace: list, name: str):
+    key = tuple(trace)
+    if key not in self.trace_groups:
+      self.trace_groups[key] = [name]
+    else:
+      self.trace_groups[key].append(name)
+  def get_state_id(self, name: str) -> str:
+    # Extract the number from the filename using regular expression
+    match = re.search(r'snapshot-(\d+)', name)
+    if match:
+        return match.group(1)
+    else:
+        # For filenames without numbers, assign a higher number
+        return "-1"
+  def analyze(self):
+    grouped_traces = list(self.trace_groups.values())
+    group_labels = [self.get_state_id(traces[0]) for traces in grouped_traces]
+    plt.figure(figsize=(10, 20))
+    plt.bar(range(len(grouped_traces)), [len(traces) for traces in grouped_traces])
+    plt.xticks(range(len(grouped_traces)), group_labels, rotation=45)
+    plt.xlabel('Trace Groups')
+    plt.ylabel('Count')
+    plt.title('Visualization of Trace Groups')
+    plt.savefig(os.path.join(self.result_dir, "trace_groups.png"))
+    with open(os.path.join(self.result_dir, "trace_groups.csv"), "w") as f:
+      group_id = 0
+      f.write("group_id,state_id,trace\n")
+      for group in self.trace_groups:
+        group_id += 1
+        names = self.trace_groups[group]
+        for name in names:
+          f.write(f"{group_id},{self.get_state_id(name)},")
+          f.write(",".join(map(str, group)))
+          f.write("\n")
+    # Create a graph
+    plt.clf()
+    G = nx.Graph()
+    for key, names in self.trace_groups.items():
+      G.add_node(self.get_state_id(names[0]), traces=key)
+    for node1 in G.nodes():
+      for node2 in G.nodes():
+        if node1 != node2 and not G.has_edge(node1, node2):
+          group1 = G.nodes[node1]['traces']
+          group2 = G.nodes[node2]['traces']
+          # similarity = self.jaccard_similarity(group1, group2)
+          G.add_edge(node1, node2)
+    # Draw the graph
+    pos = nx.spring_layout(G, seed=42)
+    edge_labels = nx.get_edge_attributes(G, 'weight')
+    nx.draw(G, pos, with_labels=True, node_size=500, node_color='skyblue')
+    nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels)
+    plt.title('Similarity Graph of Trace Groups')
+    plt.savefig(os.path.join(self.result_dir, "trace_groups_graph.png"))
+    
+  def hamming_distance(self, vector1: list, vector2: list):
+    # Check if the vectors have the same length
+    
+    # Calculate the Hamming distance
+    distance = 0
+    for bit1, bit2 in zip(vector1, vector2):
+      if bit1 != bit2:
+        distance += 1
+    return distance
+
+    
+      
 
 def main(args: List[str]):
   root_dir = ROOT_DIR
