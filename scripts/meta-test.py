@@ -249,6 +249,8 @@ class Config:
     if "klee_flags" in self.project_conf:
       link_opt = self.project_conf['klee_flags']
       result.append(link_opt)
+    if self.additional != "":
+      result.extend(self.additional.split(" "))
     if is_snapshot:
       self.append_snapshot_cmd(result)
     else:
@@ -409,16 +411,12 @@ class Analyzer:
     self.dir = self.config.conf_files.out_dir
     if not os.path.exists(self.dir):
       print(f"{self.dir} does not exist")
-      if self.config.additional != "":
-        self.dir = self.config.additional
-        print(f"Use {self.dir} instead")
-      else:
-        out_dirs = self.config.conf_files.find_all_nums(self.config.conf_files.out_base_dir, self.config.conf_files.out_dir_prefix)
-        out_dir = self.interactive_select(out_dirs, "dir")[0]
-        if out_dir == "":
-          print("Exit")
-          return
-        self.dir = os.path.join(self.config.conf_files.out_base_dir, out_dir)
+      out_dirs = self.config.conf_files.find_all_nums(self.config.conf_files.out_base_dir, self.config.conf_files.out_dir_prefix)
+      out_dir = self.interactive_select(out_dirs, "dir")[0]
+      if out_dir == "":
+        print("Exit")
+        return
+      self.dir = os.path.join(self.config.conf_files.out_base_dir, out_dir)
     snapshot_files = self.collect_snapshot_names()
     ra = RegressionAnalysis(self.dir)
     for snapshot_name, index in snapshot_files:
