@@ -52,9 +52,9 @@ class ConfigFiles:
     self.out_dir_prefix = out_dir_prefix
     self.snapshot_prefix = snapshot_prefix
     if out_dir == "":
-      self.out_base_dir = os.path.join(self.root_dir, "out", self.benchmark, self.subject, self.bid)
-    elif out_dir == "out":
       self.out_base_dir = self.work_dir
+    elif out_dir == "out":
+      self.out_base_dir = os.path.join(self.root_dir, "out", self.benchmark, self.subject, self.bid)
     else:
       self.out_base_dir = out_dir
     os.makedirs(self.out_base_dir, exist_ok=True)
@@ -215,7 +215,7 @@ class Config:
     parser.add_argument("-a", "--additional", help="Additional arguments", default="")
     parser.add_argument("-d", "--debug", help="Debug mode", action="store_true")
     parser.add_argument("-o", "--outdir", help="Output directory", default="")
-    parser.add_argument("-p", "--outdir-prefix", help="Output directory prefix(\"out\" for work dir)", default="uni-m-out")
+    parser.add_argument("-p", "--outdir-prefix", help="Output directory prefix(\"out\" for out dir)", default="uni-m-out")
     parser.add_argument("-b", "--snapshot-base-patch", help="Patches for snapshot", default="buggy")
     parser.add_argument("-s", "--snapshot-prefix", help="Snapshot directory prefix", default="snapshot")
     parser.add_argument("-l", "--sym-level", help="Symbolization level", default="low")
@@ -233,7 +233,7 @@ class Config:
   
   def append_cmd(self, cmd: List[str], patch_str: str, opts: List[str]):
     out_dir = self.conf_files.out_dir
-    default_opts = ["--no-exit-on-error", "--simplify-sym-indices", f"--symbolize-level={self.sym_level}", "--dump-snapshot"]
+    default_opts = ["--no-exit-on-error", "--simplify-sym-indices", f"--symbolize-level={self.sym_level}", "--dump-snapshot", "--max-memory=0"]
     cmd.extend(default_opts)
     cmd.extend(opts)
     cmd.append(f"--output-dir={out_dir}")
