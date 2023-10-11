@@ -1,5 +1,6 @@
 #! /usr/bin/env python3
 import os
+import time
 import sys
 from typing import List, Set, Dict, Tuple
 import json
@@ -673,13 +674,54 @@ class TableGenerator:
             for data in data_list:
                 writer.writerow(data)
                 md.write(f"| {data['id']} | {data['patch']} | {data['ret']} | {data['base_exit']} | {data['exit']} | {data['regression']} |\n")
-            md.write("\n")
-      
-    
+            md.write("\n")   
+
+def acquire_lock(lock_file: str) -> int:
+  timeout = 10  # Maximum time (in seconds) to wait for the lock
+  interval = 0.1  # Time (in seconds) between attempts
+
+  start_time = time.time()
+  while True:
+    try:
+      # Try to create a lock file (this will fail if the file already exists)
+      lock_fd = os.open(lock_file, os.O_CREAT | os.O_EXCL | os.O_RDWR)
+      return lock_fd
+    except FileExistsError:
+      if time.time() - start_time > timeout:
+        return None  # Lock not acquired within the timeout
+      time.sleep(interval)
+
+def release_lock(lock_file: str, lock_fd: int):
+  os.close(lock_fd)
+  os.remove(lock_file)
+
+def log(args: List[str]):
+  if len(args) < 2:
+    return
+  cmd = args[1]
+  log_file = "logs/.meta-test/log"
+  lock_file = "logs/.meta-test/lock"
+  if cmd == "help":
+    if os.path.exists(log_file):
+      with open(log_file, "r") as f:
+        lines = f.readlines()
+        # print last 10 lines
+        for line in lines[-10:]:
+          print(line.strip())
+  os.makedirs("logs/.meta-test", exist_ok=True)
+  lock = acquire_lock(lock_file)
+  try:
+    with open(log_file, "a") as f:
+      f.write(" ".join(args) + "\n")
+  except:
+    print("Cannot write log")
+  finally:
+    release_lock(lock_file, lock)
 
 def main(args: List[str]):
   root_dir = ROOT_DIR
   os.chdir(root_dir)
+  log(args)
   conf = Config.parser(args)
   runner = Runner(conf)
   runner.run()
