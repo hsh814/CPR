@@ -3,6 +3,7 @@ import os
 import sys
 from typing import List, Set, Dict, Tuple
 import json
+import csv
 import subprocess
 import argparse
 import patch
@@ -135,6 +136,7 @@ class Config:
   conf_files: ConfigFiles
   additional: str
   sym_level: str
+  max_fork: str
   
   def get_bug_info(self, bugid: str) -> dict:
     def check_int(s: str) -> bool:
@@ -200,11 +202,12 @@ class Config:
     self.workdir = self.conf_files.work_dir
     self.additional = additional
   
-  def __init__(self, cmd: str, query: str, debug: bool, sym_level: str):
+  def __init__(self, cmd: str, query: str, debug: bool, sym_level: str, max_fork: str):
     self.cmd = cmd
     self.query = query    
     self.debug = debug
     self.sym_level = sym_level
+    self.max_fork = max_fork
     self.conf_files = ConfigFiles()
   
   @staticmethod  
@@ -218,9 +221,10 @@ class Config:
     parser.add_argument("-p", "--outdir-prefix", help="Output directory prefix(\"out\" for out dir)", default="uni-m-out")
     parser.add_argument("-b", "--snapshot-base-patch", help="Patches for snapshot", default="buggy")
     parser.add_argument("-s", "--snapshot-prefix", help="Snapshot directory prefix", default="snapshot")
-    parser.add_argument("-l", "--sym-level", help="Symbolization level", default="low")
+    parser.add_argument("-l", "--sym-level", help="Symbolization level", default="medium")
+    parser.add_argument("-f", "--max-fork", help="Max fork", default="64,64,4")
     args = parser.parse_args(argv[1:])
-    conf = Config(args.cmd, args.query, args.debug, args.sym_level)
+    conf = Config(args.cmd, args.query, args.debug, args.sym_level, args.max_fork)
     conf.init(args.snapshot_base_patch, args.additional)
     conf.conf_files.set_out_dir(args.outdir, args.outdir_prefix, conf.bug_info, args.snapshot_prefix)
     return conf
@@ -233,7 +237,9 @@ class Config:
   
   def append_cmd(self, cmd: List[str], patch_str: str, opts: List[str]):
     out_dir = self.conf_files.out_dir
-    default_opts = ["--no-exit-on-error", "--simplify-sym-indices", f"--symbolize-level={self.sym_level}", "--dump-snapshot", "--max-memory=0"]
+    default_opts = ["--no-exit-on-error", "--simplify-sym-indices", 
+                    f"--symbolize-level={self.sym_level}", f"--max-forks-per-phases={self.max_fork}", 
+                    "--dump-snapshot", "--max-memory=0"]
     cmd.extend(default_opts)
     cmd.extend(opts)
     cmd.append(f"--output-dir={out_dir}")
@@ -311,6 +317,97 @@ class Runner:
       self.execute(cmd, self.config.workdir)
       analyzer = Analyzer(self.config)
       analyzer.analyze()
+
+class DataLogParser:
+  dir: str
+  fork_map: Dict[int, List[int]]
+  meta_data: Dict[int, Dict[str, int]]
+  def __init__(self, dir: str):
+    self.dir = dir
+    self.fork_map = dict()
+    self.meta_data = dict()
+  def parse_dict(self, line: str) -> dict:
+    result = dict()
+    for item in line.split(","):
+      item = item.strip()
+      if len(item) == 0:
+        continue
+      key, value = item.split(":", 1)
+      result[key.strip()] = value.strip()
+    return result
+  def add_meta_data(self, line: str):
+    # metadata_pattern = r"\[meta-data\] \[state (\d+)\] \[crashId: (\d+), patchId: (\d+), stateType: (\w+), isCrash: (\w+), actuallyCrashed: (\d+), exitLoc: ([^,]+), exit: ([^\]]+)\]"
+    metadata_pattern = r"\[meta-data\] \[state (\d+)\] \[()\]"
+    match = re.match(metadata_pattern, line)
+    if match:
+      state = int(match.group(1))
+      data = self.parse_dict(match.group(2))
+      crash_id = int(data["crashId"])
+      patch_id = int(data["patchId"])
+      state_type = data["stateType"]
+      is_crash = data["isCrash"] == "true"
+      actually_crashed = data["acutallyCrashed"] == "true"
+      exit_loc = data["exitLoc"]
+      exit_code = data["exit"]
+      if state not in self.meta_data:
+        self.meta_data[state] = dict()
+      result = self.meta_data[state]
+      result["state"] = state
+      result["crashId"] = crash_id
+      result["patchId"] = patch_id
+      result["stateType"] = state_type
+      result["isCrash"] = is_crash
+      result["actuallyCrashed"] = actually_crashed
+      result["exitLoc"] = exit_loc
+      result["exit"] = exit_code
+  def add_fork(self, line: str):
+    fork_pattern = r"\[fork\] \[state (\d+)\] -> \[state (\d+)\]"
+    match = re.match(fork_pattern, line)
+    if match:
+      source_state = int(match.group(1))
+      target_state = int(match.group(2))
+      if source_state not in self.fork_map:
+        self.fork_map[source_state] = list()
+      self.fork_map[source_state].append(target_state)
+  def add_regression(self, line: str):
+    reg_pattern = r"\[regression\] \[state (\d+)\] (\[\])"
+    match = re.match(reg_pattern, line)
+    if match:
+      state = int(match.group(1))
+      reg = match.group(2)
+      print(reg)
+      self.meta_data[state]["regressionTrace"] = reg
+  def read_data_log(self, name: str) -> dict:
+    with open(os.path.join(self.dir, name), "r") as f:
+      for line in f.readlines():
+        line = line.strip()
+        if line.startswith("[fork]"):
+          self.add_meta_data(line)
+        elif line.startswith("[meta-data]"):
+          self.add_meta_data(line)
+        elif line.startswith("[regression]"):
+          self.add_regression(line)
+  def cluster(self) -> Dict[int, list]:
+    cluster_by_crash_id = dict()
+    for state, data in self.meta_data.items():
+      crash_id = data["crashId"]
+      if crash_id not in cluster_by_crash_id:
+        cluster_by_crash_id[crash_id] = list()
+      cluster_by_crash_id[crash_id].append(data)
+    return cluster_by_crash_id
+  def generate_table(self, cluster: Dict[int, list]):
+    with open(os.path.join(self.dir, "table.md"), "w") as md:
+      for base, data_list in cluster.items():
+        md.write(f"## Crash ID: {base}\n")
+        md.write("| id | patchId | stateType | isCrash | actuallyCrashed | regression | exitLoc | exit |\n")
+        md.write("| -- | ------- | --------- | ------- | --------------- | ---------- | ------- | ---- |\n")
+        for data in data_list:
+          md.write(f"| {data['state']} | {data['patchId']} | {data['stateType']} | {data['isCrash']} | {data['actuallyCrashed']} | {data['regressionTrace']} | {data['exitLoc']} | {data['exit']} |\n")
+  def generate(self):
+    self.read_data_log("data.log")
+    self.generate_table(self.cluster())
+    
+        
 
 class Analyzer:
   config: Config
@@ -417,13 +514,18 @@ class Analyzer:
         print("Exit")
         return
       self.dir = os.path.join(self.config.conf_files.out_base_dir, out_dir)
-    snapshot_files = self.collect_snapshot_names()
-    ra = RegressionAnalysis(self.dir)
-    for snapshot_name, index in snapshot_files:
-      with open(os.path.join(self.dir, snapshot_name), "r") as f:
-        snapshot = json.load(f)
-        ra.add_trace(snapshot["regressionTrace"], snapshot_name)
-    ra.analyze()    
+    dp = DataLogParser(self.dir)
+    dp.generate()
+    # Removed because of the performance issue
+    # snapshot_files = self.collect_snapshot_names()
+    # tg = TableGenerator(self.dir, [name for name, index in snapshot_files])
+    # tg.generate()
+    # ra = RegressionAnalysis(self.dir)
+    # for snapshot_name, index in snapshot_files:
+    #   with open(os.path.join(self.dir, snapshot_name), "r") as f:
+    #     snapshot = json.load(f)
+    #     ra.add_trace(snapshot["regressionTrace"], snapshot_name)
+    # ra.analyze()    
     # self.compare_snapshots(snapshot_files)
       
 
@@ -498,7 +600,71 @@ class RegressionAnalysis:
     return distance
 
     
+class TableGenerator:
+  result_dir: str
+  state_names: list
+  def __init__(self, result_dir: str, state_names: list):
+    self.result_dir = result_dir
+    self.state_names = state_names
+  def parse_name(self, name: str) -> Dict[str, str]:
+    # name = "snapshot-8-r0-c5c-p0.overshift.err.json"
+    name = name.removeprefix("snapshot-")
+    name = name.replace(".json", "")
+    tokens = name.split("-")
+    if len(tokens) < 4:
+      return None
+    result = dict()
+    result["id"] = tokens[0]
+    result["ret"] = tokens[1].replace("r", "")
+    result["base_exit"] = tokens[2][0] == "e"
+    result["base"] = tokens[2].replace("c", "").replace("e", "")
+    result["exit"] = tokens[3][-1] == "e"
+    result["patch"] = tokens[3].split(".")[0].replace("p", "")
+    return result
+  def get_regression(self, name: str) -> str:
+    with open(os.path.join(self.result_dir, name), "r") as f:
+      lines = f.readlines()
+      for index in range(len(lines)):
+        line = lines[index].strip()
+        if line.startswith('"regressionTrace"'):
+          tmp = line.split(":", 1)
+          if len(tmp) > 1 and tmp[1].strip() != "":
+            return json.loads(tmp[1].strip(","))
+          content = ""
+          jline = index + 1
+          while not line.startswith('],'):
+            line = lines[jline].strip()
+            content += line
+            jline += 1
+          return json.loads(content.strip(","))
+    return None
+  def generate(self):
+    fileds = ["id", "patch", "ret", "base_exit", "base", "exit", "regression"]
+    csv_file = os.path.join(self.result_dir, "table.csv")
+    markdown_file = os.path.join(self.result_dir, "table.md")
+    with open(csv_file, "w") as f, open(markdown_file, "w") as md:
+        writer = csv.DictWriter(f, fieldnames=fileds)
+        writer.writeheader()
+        data_by_base = {}
+        for name in self.state_names:
+            data = self.parse_name(name)
+            if data is None:
+                continue
+            data["regression"] = self.get_regression(name)
+            base = data["base"]
+            if base not in data_by_base:
+                data_by_base[base] = []
+            data_by_base[base].append(data)
+        for base, data_list in data_by_base.items():
+            md.write(f"## {base}\n\n")
+            md.write("| id | patch | ret | base_exit | exit | regression |\n")
+            md.write("| -- | ----- | --- | --------- | ---- | ---------- |\n")
+            for data in data_list:
+                writer.writerow(data)
+                md.write(f"| {data['id']} | {data['patch']} | {data['ret']} | {data['base_exit']} | {data['exit']} | {data['regression']} |\n")
+            md.write("\n")
       
+    
 
 def main(args: List[str]):
   root_dir = ROOT_DIR
