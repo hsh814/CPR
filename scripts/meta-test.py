@@ -701,13 +701,14 @@ def log(args: List[str]):
   cmd = args[1]
   log_file = "logs/.meta-test/log"
   lock_file = "logs/.meta-test/lock"
-  if cmd == "help":
+  if cmd == "log":
     if os.path.exists(log_file):
       with open(log_file, "r") as f:
         lines = f.readlines()
         # print last 10 lines
         for line in lines[-10:]:
           print(line.strip())
+    exit(0)
   os.makedirs("logs/.meta-test", exist_ok=True)
   lock = acquire_lock(lock_file)
   try:
