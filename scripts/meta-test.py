@@ -337,7 +337,7 @@ class DataLogParser:
     return result
   def add_meta_data(self, line: str):
     # metadata_pattern = r"\[meta-data\] \[state (\d+)\] \[crashId: (\d+), patchId: (\d+), stateType: (\w+), isCrash: (\w+), actuallyCrashed: (\d+), exitLoc: ([^,]+), exit: ([^\]]+)\]"
-    metadata_pattern = r"\[meta-data\] \[state (\d+)\] \[()\]"
+    metadata_pattern = r"\[meta-data\] \[state (\d+)\] \[([^\]]+)\]"
     match = re.match(metadata_pattern, line)
     if match:
       state = int(match.group(1))
@@ -346,7 +346,7 @@ class DataLogParser:
       patch_id = int(data["patchId"])
       state_type = data["stateType"]
       is_crash = data["isCrash"] == "true"
-      actually_crashed = data["acutallyCrashed"] == "true"
+      actually_crashed = data["actuallyCrashed"] == "true"
       exit_loc = data["exitLoc"]
       exit_code = data["exit"]
       if state not in self.meta_data:
@@ -360,6 +360,8 @@ class DataLogParser:
       result["actuallyCrashed"] = actually_crashed
       result["exitLoc"] = exit_loc
       result["exit"] = exit_code
+    else:
+      print(f"Unknown meta-data: {line}")
   def add_fork(self, line: str):
     fork_pattern = r"\[fork\] \[state (\d+)\] -> \[state (\d+)\]"
     match = re.match(fork_pattern, line)
@@ -370,23 +372,26 @@ class DataLogParser:
         self.fork_map[source_state] = list()
       self.fork_map[source_state].append(target_state)
   def add_regression(self, line: str):
-    reg_pattern = r"\[regression\] \[state (\d+)\] (\[\])"
+    reg_pattern = r"\[regression\] \[state (\d+)\] \[([^\]]+)\]"
     match = re.match(reg_pattern, line)
     if match:
       state = int(match.group(1))
       reg = match.group(2)
-      print(reg)
       self.meta_data[state]["regressionTrace"] = reg
+    else:
+      print(f"Unknown regression: {line}")
   def read_data_log(self, name: str) -> dict:
     with open(os.path.join(self.dir, name), "r") as f:
       for line in f.readlines():
         line = line.strip()
         if line.startswith("[fork]"):
-          self.add_meta_data(line)
+          self.add_fork(line)
         elif line.startswith("[meta-data]"):
           self.add_meta_data(line)
         elif line.startswith("[regression]"):
           self.add_regression(line)
+        else:
+          print(f"Unknown line: {line}")
   def cluster(self) -> Dict[int, list]:
     cluster_by_crash_id = dict()
     for state, data in self.meta_data.items():
@@ -397,12 +402,18 @@ class DataLogParser:
     return cluster_by_crash_id
   def generate_table(self, cluster: Dict[int, list]):
     with open(os.path.join(self.dir, "table.md"), "w") as md:
+      md.write("# Table\n")
+      md.write(f"| crashId | num |\n")
+      md.write(f"| ------- | --- |\n")
       for base, data_list in cluster.items():
-        md.write(f"## Crash ID: {base}\n")
+        md.write(f"| {base} | {len(data_list)} |\n")
+      for base, data_list in cluster.items():
+        md.write(f"## Crash ID: {base}, len {len(data_list)}\n")
         md.write("| id | patchId | stateType | isCrash | actuallyCrashed | regression | exitLoc | exit |\n")
         md.write("| -- | ------- | --------- | ------- | --------------- | ---------- | ------- | ---- |\n")
         for data in data_list:
-          md.write(f"| {data['state']} | {data['patchId']} | {data['stateType']} | {data['isCrash']} | {data['actuallyCrashed']} | {data['regressionTrace']} | {data['exitLoc']} | {data['exit']} |\n")
+          reg = data["regressionTrace"] if "regressionTrace" in data else ""
+          md.write(f"| {data['state']} | {data['patchId']} | {data['stateType']} | {data['isCrash']} | {data['actuallyCrashed']} | [{reg}] | {data['exitLoc']} | {data['exit']} |\n")
   def generate(self):
     self.read_data_log("data.log")
     self.generate_table(self.cluster())
