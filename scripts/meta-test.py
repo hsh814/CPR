@@ -373,7 +373,7 @@ class DataLogParser:
         self.fork_map[source_state] = list()
       self.fork_map[source_state].append(target_state)
   def add_regression(self, line: str):
-    reg_pattern = r"\[regression\] \[state (\d+)\] \[([^\]]+)\]"
+    reg_pattern = r"\[regression\] \[state (\d+)\] \[([^\]]*)\]"
     match = re.match(reg_pattern, line)
     if match:
       state = int(match.group(1))
@@ -381,6 +381,13 @@ class DataLogParser:
       self.meta_data[state]["regressionTrace"] = reg
     else:
       print(f"Unknown regression: {line}")
+  def add_stack_trace(self, line: str):
+    st_pattern = r"\[stack-trace\] \[state (\d+)\] \[([^\]]*)\]"
+    match = re.match(st_pattern, line)
+    if match:
+      state = int(match.group(1))
+      st = match.group(2)
+      self.meta_data[state]["stackTrace"] = st
   def read_data_log(self, name: str) -> dict:
     with open(os.path.join(self.dir, name), "r") as f:
       for line in f.readlines():
@@ -391,6 +398,8 @@ class DataLogParser:
           self.add_meta_data(line)
         elif line.startswith("[regression]"):
           self.add_regression(line)
+        elif line.startswith("[stack-trace]"):
+          self.add_stack_trace(line)
         else:
           print(f"Unknown line: {line}")
   def cluster(self) -> Dict[int, list]:
@@ -410,11 +419,12 @@ class DataLogParser:
         md.write(f"| {base} | {len(data_list)} |\n")
       for base, data_list in cluster.items():
         md.write(f"## Crash ID: {base}, len {len(data_list)}\n")
-        md.write("| id | patchId | stateType | isCrash | actuallyCrashed | regression | exitLoc | exit |\n")
-        md.write("| -- | ------- | --------- | ------- | --------------- | ---------- | ------- | ---- |\n")
+        md.write("| id | patchId | stateType | isCrash | actuallyCrashed | regression | exit | stackTrace |\n")
+        md.write("| -- | ------- | --------- | ------- | --------------- | ---------- | ---- | ---------- |\n")
         for data in data_list:
           reg = data["regressionTrace"] if "regressionTrace" in data else ""
-          md.write(f"| {data['state']} | {data['patchId']} | {data['stateType']} | {data['isCrash']} | {data['actuallyCrashed']} | [{reg}] | {data['exitLoc']} | {data['exit']} |\n")
+          st = data["stackTrace"] if "stackTrace" in data else ""
+          md.write(f"| {data['state']} | {data['patchId']} | {data['stateType']} | {data['isCrash']} | {data['actuallyCrashed']} | [{reg}] | {data['exit']} | {st} |\n")
   def generate(self):
     self.read_data_log("data.log")
     self.generate_table(self.cluster())
