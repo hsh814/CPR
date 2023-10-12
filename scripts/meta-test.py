@@ -10,6 +10,8 @@ import argparse
 import patch
 import glob
 import re
+import signal
+import random
 
 import networkx as nx
 import difflib
@@ -121,6 +123,9 @@ class ConfigFiles:
   def read_meta_program(self) -> dict:
     with open(self.meta_program, "r") as f:
       return json.load(f)
+  def get_lock(self) -> str:
+    return os.path.join(self.root_dir, "logs", ".meta-test", self.bid)
+
 
 class Config:
   cmd: str
@@ -138,6 +143,7 @@ class Config:
   additional: str
   sym_level: str
   max_fork: str
+  lock: str
   
   def get_bug_info(self, bugid: str) -> dict:
     def check_int(s: str) -> bool:
@@ -196,12 +202,13 @@ class Config:
       self.snapshot_patch_ids = list()
     print(f"query: {self.query} => bugid {self.bug_info}, patchid {self.patch_ids}")
     
-  def init(self, snapshot_patch_ids: str, additional: str):
+  def init(self, snapshot_patch_ids: str, additional: str, lock: str):
     self.meta = self.conf_files.read_meta_data()
     self.parse_query(snapshot_patch_ids)
     self.project_conf = self.conf_files.read_conf_file()
     self.workdir = self.conf_files.work_dir
     self.additional = additional
+    self.lock = lock
   
   def __init__(self, cmd: str, query: str, debug: bool, sym_level: str, max_fork: str):
     self.cmd = cmd
@@ -210,25 +217,6 @@ class Config:
     self.sym_level = sym_level
     self.max_fork = max_fork
     self.conf_files = ConfigFiles()
-  
-  @staticmethod  
-  def parser(argv: List[str]) -> 'Config':
-    parser = argparse.ArgumentParser(description="Test script for uni-klee")
-    parser.add_argument("cmd", help="Command to execute", choices=["run", "cmp", "fork", "snapshot", "batch", "filter", "analyze"])
-    parser.add_argument("query", help="Query for bugid and patch ids: <bugid>[:<patchid>] # ex) 5321:1,2,3")
-    parser.add_argument("-a", "--additional", help="Additional arguments", default="")
-    parser.add_argument("-d", "--debug", help="Debug mode", action="store_true")
-    parser.add_argument("-o", "--outdir", help="Output directory", default="")
-    parser.add_argument("-p", "--outdir-prefix", help="Output directory prefix(\"out\" for out dir)", default="uni-m-out")
-    parser.add_argument("-b", "--snapshot-base-patch", help="Patches for snapshot", default="buggy")
-    parser.add_argument("-s", "--snapshot-prefix", help="Snapshot directory prefix", default="snapshot")
-    parser.add_argument("-l", "--sym-level", help="Symbolization level", default="medium")
-    parser.add_argument("-f", "--max-fork", help="Max fork", default="64,64,4")
-    args = parser.parse_args(argv[1:])
-    conf = Config(args.cmd, args.query, args.debug, args.sym_level, args.max_fork)
-    conf.init(args.snapshot_base_patch, args.additional)
-    conf.conf_files.set_out_dir(args.outdir, args.outdir_prefix, conf.bug_info, args.snapshot_prefix)
-    return conf
   
   def append_snapshot_cmd(self, cmd: List[str]):
     snapshot_dir = self.conf_files.snapshot_dir
@@ -410,6 +398,10 @@ class DataLogParser:
         cluster_by_crash_id[crash_id] = list()
       cluster_by_crash_id[crash_id].append(data)
     return cluster_by_crash_id
+  def analyze_cluster(self, cluster: Dict[int, list]):
+    for crash_id, data_list in cluster.items():
+      print(f"Crash ID: {crash_id}, len {len(data_list)}")
+      base_state = data_list[0]
   def generate_table(self, cluster: Dict[int, list]):
     with open(os.path.join(self.dir, "table.md"), "w") as md:
       md.write("# Table\n")
@@ -686,7 +678,7 @@ class TableGenerator:
                 md.write(f"| {data['id']} | {data['patch']} | {data['ret']} | {data['base_exit']} | {data['exit']} | {data['regression']} |\n")
             md.write("\n")   
 
-def acquire_lock(lock_file: str) -> int:
+def acquire_lock(lock_file: str, lock_behavior: str) -> int:
   timeout = 10  # Maximum time (in seconds) to wait for the lock
   interval = 0.1  # Time (in seconds) between attempts
 
@@ -695,8 +687,23 @@ def acquire_lock(lock_file: str) -> int:
     try:
       # Try to create a lock file (this will fail if the file already exists)
       lock_fd = os.open(lock_file, os.O_CREAT | os.O_EXCL | os.O_RDWR)
+      os.write(lock_fd, str(os.getpid()).encode("utf-8"))
       return lock_fd
     except FileExistsError:
+      if lock_behavior == "w":
+        print("Lock file exists, waiting...")
+        # wait random time
+        time.sleep(random.random())
+        continue
+      elif lock_behavior == "i":
+        lock_behavior = input("Lock file exists, [w]ait or [f]orce kill?: ").lower()
+      elif lock_behavior == "f":
+        print("Force to kill the previous process and acquire the lock")
+        with open(lock_file, "r") as f:
+          pid = int(f.read())
+          os.kill(pid, signal.SIGKILL)
+        os.remove(lock_file)
+        continue
       if time.time() - start_time > timeout:
         return None  # Lock not acquired within the timeout
       time.sleep(interval)
@@ -720,7 +727,7 @@ def log(args: List[str]):
           print(line.strip())
     exit(0)
   os.makedirs("logs/.meta-test", exist_ok=True)
-  lock = acquire_lock(lock_file)
+  lock = acquire_lock(lock_file, "w")
   try:
     with open(log_file, "a") as f:
       f.write(" ".join(args) + "\n")
@@ -729,13 +736,39 @@ def log(args: List[str]):
   finally:
     release_lock(lock_file, lock)
 
+def arg_parser(argv: List[str]) -> Config:
+  parser = argparse.ArgumentParser(description="Test script for uni-klee")
+  parser.add_argument("cmd", help="Command to execute", choices=["run", "cmp", "fork", "snapshot", "batch", "filter", "analyze"])
+  parser.add_argument("query", help="Query for bugid and patch ids: <bugid>[:<patchid>] # ex) 5321:1,2,3")
+  parser.add_argument("-a", "--additional", help="Additional arguments", default="")
+  parser.add_argument("-d", "--debug", help="Debug mode", action="store_true")
+  parser.add_argument("-o", "--outdir", help="Output directory", default="")
+  parser.add_argument("-p", "--outdir-prefix", help="Output directory prefix(\"out\" for out dir)", default="uni-m-out")
+  parser.add_argument("-b", "--snapshot-base-patch", help="Patches for snapshot", default="buggy")
+  parser.add_argument("-s", "--snapshot-prefix", help="Snapshot directory prefix", default="snapshot")
+  parser.add_argument("-l", "--sym-level", help="Symbolization level", default="medium")
+  parser.add_argument("-f", "--max-fork", help="Max fork", default="64,64,4")
+  parser.add_argument("-k", "--lock", help="Handle lock behavior", default="i", choices=["i", "w", "f"])
+  args = parser.parse_args(argv[1:])
+  conf = Config(args.cmd, args.query, args.debug, args.sym_level, args.max_fork)
+  conf.init(args.snapshot_base_patch, args.additional, args.lock)
+  conf.conf_files.set_out_dir(args.outdir, args.outdir_prefix, conf.bug_info, args.snapshot_prefix)
+  return conf
+
 def main(args: List[str]):
   root_dir = ROOT_DIR
   os.chdir(root_dir)
   log(args)
-  conf = Config.parser(args)
-  runner = Runner(conf)
-  runner.run()
+  conf = arg_parser(args)
+  lock_file = conf.conf_files.get_lock()
+  lock = acquire_lock(lock_file, conf.lock)
+  try:
+    runner = Runner(conf)
+    runner.run()
+  except:
+    print("Error")
+  finally:
+    release_lock(lock_file, lock)
 
 if __name__ == "__main__":
   main(sys.argv)
