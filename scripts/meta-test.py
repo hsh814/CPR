@@ -18,10 +18,40 @@ import difflib
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 
-ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+FILE_LOC = os.path.abspath(__file__) if not os.path.islink(os.path.abspath(__file__)) else os.path.abspath(os.readlink(os.path.abspath(__file__)))
+
+ROOT_DIR = os.path.dirname(os.path.dirname(FILE_LOC)) 
+
+class GloablConfig:
+  root_dir: str
+  patch_dir: str
+  meta_data_file: str
+  meta_data: dict
+  def __init__(self):
+    self.root_dir = ROOT_DIR
+    self.patch_dir = os.path.join(self.root_dir, "patches")
+    self.meta_data_file = os.path.join(self.patch_dir, "meta-data.json")
+    with open(self.meta_data_file, "r") as f:
+      self.meta_data = json.load(f)
+  def get_meta_data_list(self) -> List[dict]:
+    return self.meta_data
+  def get_meta_data_info(self, id: str) -> dict:
+    for data in self.meta_data:
+      if str(data["id"]) == id:
+        conf_files = ConfigFiles()
+        conf_files.set(data)
+        result = dict()
+        result['conf'] = conf_files.read_conf_file()
+        result['meta-program'] = conf_files.read_meta_program()
+        return result
+    return dict()
+
+global_config = GloablConfig()
+
+
 class ConfigFiles:
   root_dir: str
-  meta_data: str
+  global_config: GloablConfig
   repair_conf: str
   meta_program: str
   patch_dir: str
@@ -40,7 +70,7 @@ class ConfigFiles:
   
   def __init__(self):
     self.root_dir = ROOT_DIR
-    self.meta_data = os.path.join(self.root_dir, "patches", "meta-data.json")
+    self.global_config = global_config
   def set(self, bug_info: dict):
     patches_dir = os.path.join(self.root_dir, "patches")
     self.bid = bug_info["bug_id"]
@@ -118,8 +148,7 @@ class ConfigFiles:
       result[key] = value
     return result
   def read_meta_data(self) -> dict:
-    with open(self.meta_data, "r") as f:
-      return json.load(f)
+    return self.global_config.meta_data
   def read_meta_program(self) -> dict:
     with open(self.meta_program, "r") as f:
       return json.load(f)
@@ -144,6 +173,7 @@ class Config:
   sym_level: str
   max_fork: str
   lock: str
+  rerun: bool
   
   def get_bug_info(self, bugid: str) -> dict:
     def check_int(s: str) -> bool:
@@ -202,11 +232,12 @@ class Config:
       self.snapshot_patch_ids = list()
     print(f"query: {self.query} => bugid {self.bug_info}, patchid {self.patch_ids}")
     
-  def init(self, snapshot_patch_ids: str, additional: str, lock: str):
+  def init(self, snapshot_patch_ids: str, rerun: bool, additional: str, lock: str):
     self.meta = self.conf_files.read_meta_data()
     self.parse_query(snapshot_patch_ids)
     self.project_conf = self.conf_files.read_conf_file()
     self.workdir = self.conf_files.work_dir
+    self.rerun = rerun
     self.additional = additional
     self.lock = lock
   
@@ -228,7 +259,7 @@ class Config:
     out_dir = self.conf_files.out_dir
     default_opts = ["--no-exit-on-error", "--simplify-sym-indices", 
                     f"--symbolize-level={self.sym_level}", f"--max-forks-per-phases={self.max_fork}", 
-                    "--dump-snapshot", "--max-memory=0"]
+                     "--max-memory=0"]
     cmd.extend(default_opts)
     cmd.extend(opts)
     cmd.append(f"--output-dir={out_dir}")
@@ -288,7 +319,7 @@ class Runner:
     print(f"Exit code: {proc.returncode}")
     return proc.returncode
   def execute_snapshot(self, cmd: str, dir: str, env: dict = None):
-    if self.config.cmd == "snapshot":
+    if self.config.cmd in ["rerun", "snapshot"]:
       self.execute("rm -rf " + self.config.conf_files.snapshot_dir, dir)
     if not os.path.exists(self.config.conf_files.snapshot_file):
       if self.config.debug:
@@ -360,6 +391,8 @@ class DataLogParser:
       if source_state not in self.fork_map:
         self.fork_map[source_state] = list()
       self.fork_map[source_state].append(target_state)
+  def add_fork_map(self, line: str):
+    fork_map = list()
   def add_regression(self, line: str):
     reg_pattern = r"\[regression\] \[state (\d+)\] \[([^\]]*)\]"
     match = re.match(reg_pattern, line)
@@ -369,6 +402,13 @@ class DataLogParser:
       self.meta_data[state]["regressionTrace"] = reg
     else:
       print(f"Unknown regression: {line}")
+  def add_lazy_trace(self, line: str):
+    reg_pattern = r"\[lazy-trace\] \[state (\d+)\] \[([^\]]*)\]"
+    match = re.match(reg_pattern, line)
+    if match:
+      state = int(match.group(1))
+      reg = match.group(2)
+      self.meta_data[state]["lazyTrace"] = reg
   def add_stack_trace(self, line: str):
     st_pattern = r"\[stack-trace\] \[state (\d+)\] \[([^\]]*)\]"
     match = re.match(st_pattern, line)
@@ -382,10 +422,16 @@ class DataLogParser:
         line = line.strip()
         if line.startswith("[fork]"):
           self.add_fork(line)
+        elif line.startswith("[fork-map]"):
+          self.add_fork_map(line)
         elif line.startswith("[meta-data]"):
           self.add_meta_data(line)
         elif line.startswith("[regression]"):
           self.add_regression(line)
+        elif line.startswith("[regression-trace]"):
+          pass
+        elif line.startswith("[lazy-trace]"):
+          self.add_lazy_trace(line)
         elif line.startswith("[stack-trace]"):
           self.add_stack_trace(line)
         else:
@@ -399,27 +445,43 @@ class DataLogParser:
       cluster_by_crash_id[crash_id].append(data)
     return cluster_by_crash_id
   def analyze_cluster(self, cluster: Dict[int, list]):
+    result: Dict[int, List[int]] = dict()
     for crash_id, data_list in cluster.items():
-      print(f"Crash ID: {crash_id}, len {len(data_list)}")
-      base_state = data_list[0]
+      removed = list()
+      result[crash_id] = removed
+      # get base state
+      base = data_list[0]
+      for data in data_list:
+        if data["stateType"] == 2:
+          base = data
+          break
+      if base["isCrash"]:
+        continue
+      for data in data_list:
+        if data["actuallyCrashed"]:
+          removed.append({"id": data["state"], "patch": data["patchId"]})
+    return result
   def generate_table(self, cluster: Dict[int, list]):
+    removed = self.analyze_cluster(cluster)
     with open(os.path.join(self.dir, "table.md"), "w") as md:
       md.write("# Table\n")
-      md.write(f"| crashId | num |\n")
-      md.write(f"| ------- | --- |\n")
+      md.write(f"| crashId | num | removed |\n")
+      md.write(f"| ------- | --- | ------- |\n")
       for base, data_list in cluster.items():
-        md.write(f"| {base} | {len(data_list)} |\n")
+        md.write(f"| {base} | {len(data_list)} | {removed[base]} |\n")
       for base, data_list in cluster.items():
         md.write(f"## Crash ID: {base}, len {len(data_list)}\n")
+        md.write(f"removed: {removed[base]}\n")
         md.write("| id | patchId | stateType | isCrash | actuallyCrashed | regression | exit | stackTrace |\n")
         md.write("| -- | ------- | --------- | ------- | --------------- | ---------- | ---- | ---------- |\n")
         for data in data_list:
-          reg = data["regressionTrace"] if "regressionTrace" in data else ""
+          reg = data["lazyTrace"] if "lazyTrace" in data else ""
           st = data["stackTrace"] if "stackTrace" in data else ""
           md.write(f"| {data['state']} | {data['patchId']} | {data['stateType']} | {data['isCrash']} | {data['actuallyCrashed']} | [{reg}] | {data['exit']} | {st} |\n")
   def generate(self):
     self.read_data_log("data.log")
     self.generate_table(self.cluster())
+    print(f"Saved table to {os.path.join(self.dir, 'table.md')}")
     
         
 
@@ -738,7 +800,7 @@ def log(args: List[str]):
 
 def arg_parser(argv: List[str]) -> Config:
   parser = argparse.ArgumentParser(description="Test script for uni-klee")
-  parser.add_argument("cmd", help="Command to execute", choices=["run", "cmp", "fork", "snapshot", "batch", "filter", "analyze"])
+  parser.add_argument("cmd", help="Command to execute", choices=["run", "rerun", "cmp", "fork", "snapshot", "batch", "filter", "analyze"])
   parser.add_argument("query", help="Query for bugid and patch ids: <bugid>[:<patchid>] # ex) 5321:1,2,3")
   parser.add_argument("-a", "--additional", help="Additional arguments", default="")
   parser.add_argument("-d", "--debug", help="Debug mode", action="store_true")
@@ -749,9 +811,10 @@ def arg_parser(argv: List[str]) -> Config:
   parser.add_argument("-l", "--sym-level", help="Symbolization level", default="medium")
   parser.add_argument("-f", "--max-fork", help="Max fork", default="64,64,4")
   parser.add_argument("-k", "--lock", help="Handle lock behavior", default="i", choices=["i", "w", "f"])
+  parser.add_argument("-r", "--rerun", help="Rerun last command with same option", action="store_true")
   args = parser.parse_args(argv[1:])
   conf = Config(args.cmd, args.query, args.debug, args.sym_level, args.max_fork)
-  conf.init(args.snapshot_base_patch, args.additional, args.lock)
+  conf.init(args.snapshot_base_patch, args.rerun, args.additional, args.lock)
   conf.conf_files.set_out_dir(args.outdir, args.outdir_prefix, conf.bug_info, args.snapshot_prefix)
   return conf
 
@@ -761,6 +824,10 @@ def main(args: List[str]):
   log(args)
   conf = arg_parser(args)
   lock_file = conf.conf_files.get_lock()
+  if conf.cmd == "analyze":
+    runner = Runner(conf)
+    runner.run()
+    exit(0)
   lock = acquire_lock(lock_file, conf.lock)
   try:
     runner = Runner(conf)
