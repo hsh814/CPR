@@ -13,6 +13,8 @@ import re
 import signal
 import random
 
+import graphviz
+
 import networkx as nx
 import difflib
 import matplotlib.pyplot as plt
@@ -152,6 +154,8 @@ class ConfigFiles:
   def read_meta_program(self) -> dict:
     with open(self.meta_program, "r") as f:
       return json.load(f)
+  def get_log_dir(self) -> str:
+    return os.path.join(self.root_dir, "logs", self.bid)
   def get_lock(self) -> str:
     return os.path.join(self.root_dir, "logs", ".meta-test", self.bid)
 
@@ -299,32 +303,30 @@ class Runner:
   config: Config
   def __init__(self, conf: Config):
     self.config = conf
-  def execute(self, cmd: str, dir: str, env: dict = None):
+  def execute(self, cmd: str, dir: str, log_prefix: str, env: dict = None):
     print(f"Change directory to {dir}")
     print(f"Executing: {cmd}")
     if env is None:
       env = os.environ
-    if self.config.debug:
-      proc = subprocess.run(cmd, shell=True, cwd=dir, env=env)
-    else:
-      proc = subprocess.run(cmd, shell=True, cwd=dir, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    if proc.returncode != 0:
-      print("!!!!! Error !!!!")
+    proc = subprocess.run(cmd, shell=True, cwd=dir, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if self.config.debug or proc.returncode != 0:
+      if proc.returncode != 0:
+        print("!!!!! Error !!!!")
       print(proc.stderr.decode("utf-8"))
-      with open(os.path.join(self.config.conf_files.out_dir, "error.log"), "w") as f:
+      os.makedirs(self.config.conf_files.get_log_dir(), exist_ok=True)
+      with open(os.path.join(self.config.conf_files.get_log_dir(), f"{log_prefix}.log"), "w") as f:
         f.write(proc.stderr.decode("utf-8"))
         f.write("\n###############\n")
         f.write(proc.stdout.decode("utf-8"))
-      print(f"Save error log to {self.config.conf_files.out_dir}/error.log")
-    print(f"Exit code: {proc.returncode}")
+      print(f"Save error log to {self.config.conf_files.get_log_dir()}/{log_prefix}.log")
     return proc.returncode
   def execute_snapshot(self, cmd: str, dir: str, env: dict = None):
     if self.config.cmd in ["rerun", "snapshot"]:
-      self.execute("rm -rf " + self.config.conf_files.snapshot_dir, dir)
+      self.execute("rm -rf " + self.config.conf_files.snapshot_dir, dir, "rm")
     if not os.path.exists(self.config.conf_files.snapshot_file):
       if self.config.debug:
         print(f"snapshot file {self.config.conf_files.snapshot_file} does not exist")
-      self.execute(cmd, dir, env)
+      self.execute(cmd, dir, "snapshot", env)
   def run(self):
     if self.config.cmd == "analyze":
       analyzer = Analyzer(self.config)
@@ -334,17 +336,21 @@ class Runner:
     self.execute_snapshot(cmd, self.config.workdir)
     if self.config.cmd != "snapshot":
       cmd = self.config.get_cmd_opts(False)
-      self.execute(cmd, self.config.workdir)
+      self.execute(cmd, self.config.workdir, "uni-klee")
       analyzer = Analyzer(self.config)
       analyzer.analyze()
 
 class DataLogParser:
   dir: str
   fork_map: Dict[int, List[int]]
+  fork_graph: Dict[int, List[int]]
+  state_type_map: Dict[int, str]
   meta_data: Dict[int, Dict[str, int]]
   def __init__(self, dir: str):
     self.dir = dir
     self.fork_map = dict()
+    self.fork_graph = dict()
+    self.state_type_map = dict()
     self.meta_data = dict()
   def parse_dict(self, line: str) -> dict:
     result = dict()
@@ -388,11 +394,24 @@ class DataLogParser:
     if match:
       source_state = int(match.group(1))
       target_state = int(match.group(2))
-      if source_state not in self.fork_map:
-        self.fork_map[source_state] = list()
-      self.fork_map[source_state].append(target_state)
+      if source_state not in self.fork_graph:
+        self.fork_graph[source_state] = list()
+      self.fork_graph[source_state].append(target_state)
   def add_fork_map(self, line: str):
-    fork_map = list()
+    # [fork-map] [fork] [state 1] 1 [base 0] 1 [state 5] 1 [fork-count 5/-1]
+    fork_map_pattern = r"\[fork-map\] \[fork\] \[state (\d+)\] (\d+) \[base (\d+)\] (\d+) \[state (\d+)\] (\d+) \[fork-count .+\]"
+    match = re.match(fork_map_pattern, line)
+    if match:
+      state = int(match.group(1))
+      base_state = int(match.group(3))
+      forked_state = int(match.group(5))
+      if forked_state == 94:
+        print(line)
+      if base_state not in self.fork_map:
+        self.fork_map[base_state] = list()
+      self.fork_map[base_state].append(forked_state)
+      self.state_type_map[state] = match.group(2)
+      self.state_type_map[forked_state] = match.group(6)
   def add_regression(self, line: str):
     reg_pattern = r"\[regression\] \[state (\d+)\] \[([^\]]*)\]"
     match = re.match(reg_pattern, line)
@@ -478,9 +497,34 @@ class DataLogParser:
           reg = data["lazyTrace"] if "lazyTrace" in data else ""
           st = data["stackTrace"] if "stackTrace" in data else ""
           md.write(f"| {data['state']} | {data['patchId']} | {data['stateType']} | {data['isCrash']} | {data['actuallyCrashed']} | [{reg}] | {data['exit']} | {st} |\n")
+  def generate_fork_graph(self, name: str):
+    dot = graphviz.Digraph(format='png')
+    done = set(self.meta_data.keys())
+    for state in done:
+      meta_data = self.meta_data[state]
+      state_type = meta_data["stateType"]
+      if state_type == '4':
+        dot.node(str(state), style="filled", fillcolor="blue")
+      elif state_type == '2':
+        dot.node(str(state), style="filled", fillcolor="green")
+      elif state_type == '1':
+        dot.node(str(state), style="filled", fillcolor="red")
+    for source, state_type in self.state_type_map.items():
+      if source not in done:
+        if state_type == '4':
+          dot.node(str(source), style="filled", fillcolor="skyblue")
+        elif state_type == '2':
+          dot.node(str(source), style="filled", fillcolor="lightgreen")
+        elif state_type == '1':
+          dot.node(str(source), style="filled", fillcolor="pink")
+    for source, targets in self.fork_graph.items():
+      for target in targets:
+        dot.edge(str(source), str(target))
+    dot.render(name, self.dir, view=False, format="png")
   def generate(self):
     self.read_data_log("data.log")
     self.generate_table(self.cluster())
+    self.generate_fork_graph("fork-graph")
     print(f"Saved table to {os.path.join(self.dir, 'table.md')}")
     
         
@@ -832,8 +876,8 @@ def main(args: List[str]):
   try:
     runner = Runner(conf)
     runner.run()
-  except:
-    print("Error")
+  except Exception as e:
+    print(f"Error: {e}")
   finally:
     release_lock(lock_file, lock)
 
