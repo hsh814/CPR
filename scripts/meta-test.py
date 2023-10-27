@@ -312,13 +312,16 @@ class Runner:
     if self.config.debug or proc.returncode != 0:
       if proc.returncode != 0:
         print("!!!!! Error !!!!")
-      print(proc.stderr.decode("utf-8"))
-      os.makedirs(self.config.conf_files.get_log_dir(), exist_ok=True)
-      with open(os.path.join(self.config.conf_files.get_log_dir(), f"{log_prefix}.log"), "w") as f:
-        f.write(proc.stderr.decode("utf-8"))
-        f.write("\n###############\n")
-        f.write(proc.stdout.decode("utf-8"))
-      print(f"Save error log to {self.config.conf_files.get_log_dir()}/{log_prefix}.log")
+      try:
+        print(proc.stderr.decode("utf-8", errors="ignore"))
+        os.makedirs(self.config.conf_files.get_log_dir(), exist_ok=True)
+        with open(os.path.join(self.config.conf_files.get_log_dir(), f"{log_prefix}.log"), "w") as f:
+          f.write(proc.stderr.decode("utf-8", errors="ignore"))
+          f.write("\n###############\n")
+          f.write(proc.stdout.decode("utf-8", errors="ignore"))
+        print(f"Save error log to {self.config.conf_files.get_log_dir()}/{log_prefix}.log")
+      except:
+        pass
     return proc.returncode
   def execute_snapshot(self, cmd: str, dir: str, env: dict = None):
     if self.config.cmd in ["rerun", "snapshot"]:
@@ -346,12 +349,16 @@ class DataLogParser:
   fork_graph: Dict[int, List[int]]
   state_type_map: Dict[int, str]
   meta_data: Dict[int, Dict[str, int]]
+  merge_edge_map: Dict[int, List[int]]
+  merge_patch_map: Dict[int, int]
   def __init__(self, dir: str):
     self.dir = dir
     self.fork_map = dict()
     self.fork_graph = dict()
     self.state_type_map = dict()
     self.meta_data = dict()
+    self.merge_edge_map = dict()
+    self.merge_patch_map = dict()
   def parse_dict(self, line: str) -> dict:
     result = dict()
     for item in line.split(","):
@@ -400,6 +407,7 @@ class DataLogParser:
   def add_fork_map(self, line: str):
     # [fork-map] [fork] [state 1] 1 [base 0] 1 [state 5] 1 [fork-count 5/-1]
     fork_map_pattern = r"\[fork-map\] \[fork\] \[state (\d+)\] (\d+) \[base (\d+)\] (\d+) \[state (\d+)\] (\d+) \[fork-count .+\]"
+    fork_merge_pattern = r"\[fork-map\] \[merge\] \[state (\d+)\] -> \[state (\d+)\] \[patch (\d+)\]"
     match = re.match(fork_map_pattern, line)
     if match:
       state = int(match.group(1))
@@ -412,6 +420,16 @@ class DataLogParser:
       self.fork_map[base_state].append(forked_state)
       self.state_type_map[state] = match.group(2)
       self.state_type_map[forked_state] = match.group(6)
+    else:
+      match = re.match(fork_merge_pattern, line)
+      if match:
+        source_state = int(match.group(1))
+        target_state = int(match.group(2))
+        patch_id = int(match.group(3))
+        if source_state not in self.merge_edge_map:
+          self.merge_edge_map[source_state] = list()
+        self.merge_edge_map[source_state].append(target_state)
+        self.merge_patch_map[target_state] = patch_id
   def add_regression(self, line: str):
     reg_pattern = r"\[regression\] \[state (\d+)\] \[([^\]]*)\]"
     match = re.match(reg_pattern, line)
@@ -498,7 +516,7 @@ class DataLogParser:
           st = data["stackTrace"] if "stackTrace" in data else ""
           md.write(f"| {data['state']} | {data['patchId']} | {data['stateType']} | {data['isCrash']} | {data['actuallyCrashed']} | [{reg}] | {data['exit']} | {st} |\n")
   def generate_fork_graph(self, name: str):
-    dot = graphviz.Digraph(format='png')
+    dot = graphviz.Digraph()
     done = set(self.meta_data.keys())
     for state in done:
       meta_data = self.meta_data[state]
@@ -517,10 +535,16 @@ class DataLogParser:
           dot.node(str(source), style="filled", fillcolor="lightgreen")
         elif state_type == '1':
           dot.node(str(source), style="filled", fillcolor="pink")
+    for source, targets in self.merge_edge_map.items():
+      for target in targets:
+        dot.edge(str(source), str(target), style="dashed", color="red", label=f"patch {self.merge_patch_map[target]}")
     for source, targets in self.fork_graph.items():
       for target in targets:
         dot.edge(str(source), str(target))
+    dot.render(name, self.dir, view=False, format="svg")
     dot.render(name, self.dir, view=False, format="png")
+    dot.render(name, self.dir, view=False, format="pdf")
+    # dot.attr(size="10,10")
   def generate(self):
     self.read_data_log("data.log")
     self.generate_table(self.cluster())
