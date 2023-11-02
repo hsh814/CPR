@@ -370,7 +370,8 @@ class DataLogParser:
     return result
   def add_meta_data(self, line: str):
     # metadata_pattern = r"\[meta-data\] \[state (\d+)\] \[crashId: (\d+), patchId: (\d+), stateType: (\w+), isCrash: (\w+), actuallyCrashed: (\d+), exitLoc: ([^,]+), exit: ([^\]]+)\]"
-    metadata_pattern = r"\[meta-data\] \[state (\d+)\] \[([^\]]+)\]"
+    # metadata_pattern = r"\[meta-data\] \[state (\d+)\] \[([^\]]+)\]"
+    metadata_pattern = r'\[meta-data\] \[state (\d+)\] \[(.*?)\]'
     match = re.match(metadata_pattern, line)
     if match:
       state = int(match.group(1))
