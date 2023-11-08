@@ -368,92 +368,126 @@ class DataLogParser:
       key, value = item.split(":", 1)
       result[key.strip()] = value.strip()
     return result
+  def parser_level_1(self, line: str) -> list:
+    # input: "[fork-map] [fork] [state 1] 1 [base 0] 1 [state 5] 1 [fork-count 5/-1]"
+    # output: ["fork-map", "fork", "state 1", "1", "base 0", "1", "state 5", "1", "fork-count 5/-1"]
+    result = list()
+    level = 0
+    current = ""
+    for char in line:
+      if char == '[':  
+        level += 1
+        if level == 1:
+          if len(current.strip()) > 0:
+            result.append(current.strip())
+          current = ""
+      elif char == ']':
+        level -= 1
+        if level == 0:
+          result.append(current.strip())
+          current = ""
+      else:
+        current += char
+    if len(current.strip()) > 0:
+      result.append(current.strip())
+    return result
+  def parse_state_id(self, state: str, prefix: str = "state") -> int:
+    return int(state.removeprefix(prefix).strip())
   def add_meta_data(self, line: str):
     # metadata_pattern = r"\[meta-data\] \[state (\d+)\] \[crashId: (\d+), patchId: (\d+), stateType: (\w+), isCrash: (\w+), actuallyCrashed: (\d+), exitLoc: ([^,]+), exit: ([^\]]+)\]"
-    # metadata_pattern = r"\[meta-data\] \[state (\d+)\] \[([^\]]+)\]"
-    metadata_pattern = r'\[meta-data\] \[state (\d+)\] \[(.*?)\]'
-    match = re.match(metadata_pattern, line)
-    if match:
-      state = int(match.group(1))
-      data = self.parse_dict(match.group(2))
-      crash_id = int(data["crashId"])
-      patch_id = int(data["patchId"])
-      state_type = data["stateType"]
-      is_crash = data["isCrash"] == "true"
-      actually_crashed = data["actuallyCrashed"] == "true"
-      exit_loc = data["exitLoc"]
-      exit_code = data["exit"]
-      if state not in self.meta_data:
-        self.meta_data[state] = dict()
-      result = self.meta_data[state]
-      result["state"] = state
-      result["crashId"] = crash_id
-      result["patchId"] = patch_id
-      result["stateType"] = state_type
-      result["isCrash"] = is_crash
-      result["actuallyCrashed"] = actually_crashed
-      result["exitLoc"] = exit_loc
-      result["exit"] = exit_code
-    else:
+    tokens = self.parser_level_1(line)
+    if len(tokens) < 3:
       print(f"Unknown meta-data: {line}")
+      return
+    state = self.parse_state_id(tokens[1])
+    data = self.parse_dict(tokens[2])
+    crash_id = int(data["crashId"])
+    patch_id = int(data["patchId"])
+    state_type = data["stateType"]
+    is_crash = data["isCrash"] == "true"
+    actually_crashed = data["actuallyCrashed"] == "true"
+    exit_loc = data["exitLoc"]
+    exit_code = data["exit"]
+    if state not in self.meta_data:
+      self.meta_data[state] = dict()
+    result = self.meta_data[state]
+    result["state"] = state
+    result["crashId"] = crash_id
+    result["patchId"] = patch_id
+    result["stateType"] = state_type
+    result["isCrash"] = is_crash
+    result["actuallyCrashed"] = actually_crashed
+    result["exitLoc"] = exit_loc
+    result["exit"] = exit_code    
   def add_fork(self, line: str):
-    fork_pattern = r"\[fork\] \[state (\d+)\] -> \[state (\d+)\]"
-    match = re.match(fork_pattern, line)
-    if match:
-      source_state = int(match.group(1))
-      target_state = int(match.group(2))
-      if source_state not in self.fork_graph:
-        self.fork_graph[source_state] = list()
-      self.fork_graph[source_state].append(target_state)
+    # fork_pattern = r"\[fork\] \[state (\d+)\] -> \[state (\d+)\]"
+    tokens = self.parser_level_1(line)
+    if len(tokens) < 4:
+      print(f"Unknown fork: {line}")
+      return
+    source_state = self.parse_state_id(tokens[1])
+    target_state = self.parse_state_id(tokens[3])
+    if source_state not in self.fork_graph:
+      self.fork_graph[source_state] = list()
+    self.fork_graph[source_state].append(target_state)
   def add_fork_map(self, line: str):
     # [fork-map] [fork] [state 1] 1 [base 0] 1 [state 5] 1 [fork-count 5/-1]
-    fork_map_pattern = r"\[fork-map\] \[fork\] \[state (\d+)\] (\d+) \[base (\d+)\] (\d+) \[state (\d+)\] (\d+) \[fork-count .+\]"
-    fork_merge_pattern = r"\[fork-map\] \[merge\] \[state (\d+)\] -> \[state (\d+)\] \[patch (\d+)\]"
-    match = re.match(fork_map_pattern, line)
-    if match:
-      state = int(match.group(1))
-      base_state = int(match.group(3))
-      forked_state = int(match.group(5))
-      if forked_state == 94:
-        print(line)
+    # fork_map_pattern = r"\[fork-map\] \[fork\] \[state (\d+)\] (\d+) \[base (\d+)\] (\d+) \[state (\d+)\] (\d+) \[fork-count .+\]"
+    # fork_merge_pattern = r"\[fork-map\] \[merge\] \[state (\d+)\] -> \[state (\d+)\] \[patch (\d+)\]"
+    tokens = self.parser_level_1(line)
+    if len(tokens) < 3:
+      print(f"Unknown fork-map: {line}")
+      return
+    if tokens[1] == "fork":
+      if len(tokens) < 8:
+        print(f"Unknown fork-map: {line}")
+        return
+      state = self.parse_state_id(tokens[2])
+      base_state = self.parse_state_id(tokens[4], "base")
+      forked_state = self.parse_state_id(tokens[6])
       if base_state not in self.fork_map:
         self.fork_map[base_state] = list()
       self.fork_map[base_state].append(forked_state)
-      self.state_type_map[state] = match.group(2)
-      self.state_type_map[forked_state] = match.group(6)
-    else:
-      match = re.match(fork_merge_pattern, line)
-      if match:
-        source_state = int(match.group(1))
-        target_state = int(match.group(2))
-        patch_id = int(match.group(3))
-        if source_state not in self.merge_edge_map:
-          self.merge_edge_map[source_state] = list()
-        self.merge_edge_map[source_state].append(target_state)
-        self.merge_patch_map[target_state] = patch_id
+      self.state_type_map[state] = tokens[3]
+      self.state_type_map[forked_state] = tokens[7]
+    elif tokens[1] == "merge":
+      if len(tokens) < 6:
+        print(f"Unknown fork-map: {line}")
+        return
+      source_state = self.parse_state_id(tokens[2])
+      target_state = self.parse_state_id(tokens[4])
+      patch_id = self.parse_state_id(tokens[5], "patch")
+      if source_state not in self.merge_edge_map:
+        self.merge_edge_map[source_state] = list()
+      self.merge_edge_map[source_state].append(target_state)
+      self.merge_patch_map[target_state] = patch_id
   def add_regression(self, line: str):
-    reg_pattern = r"\[regression\] \[state (\d+)\] \[([^\]]*)\]"
-    match = re.match(reg_pattern, line)
-    if match:
-      state = int(match.group(1))
-      reg = match.group(2)
-      self.meta_data[state]["regressionTrace"] = reg
-    else:
+    # reg_pattern = r"\[regression\] \[state (\d+)\] \[([^\]]*)\]"
+    tokens = self.parser_level_1(line)
+    if len(tokens) < 3:
       print(f"Unknown regression: {line}")
+      return
+    state = self.parse_state_id(tokens[1])
+    reg = tokens[2]
+    self.meta_data[state]["regressionTrace"] = reg
   def add_lazy_trace(self, line: str):
-    reg_pattern = r"\[lazy-trace\] \[state (\d+)\] \[([^\]]*)\]"
-    match = re.match(reg_pattern, line)
-    if match:
-      state = int(match.group(1))
-      reg = match.group(2)
-      self.meta_data[state]["lazyTrace"] = reg
+    # reg_pattern = r"\[lazy-trace\] \[state (\d+)\] \[([^\]]*)\]"
+    tokens = self.parser_level_1(line)
+    if len(tokens) < 3:
+      print(f"Unknown lazy-trace: {line}")
+      return
+    state = self.parse_state_id(tokens[1])
+    reg = tokens[2]
+    self.meta_data[state]["lazyTrace"] = reg
   def add_stack_trace(self, line: str):
-    st_pattern = r"\[stack-trace\] \[state (\d+)\] \[([^\]]*)\]"
-    match = re.match(st_pattern, line)
-    if match:
-      state = int(match.group(1))
-      st = match.group(2)
-      self.meta_data[state]["stackTrace"] = st
+    # st_pattern = r"\[stack-trace\] \[state (\d+)\] \[([^\]]*)\]"
+    tokens = self.parser_level_1(line)
+    if len(tokens) < 3:
+      print(f"Unknown stack-trace: {line}")
+      return
+    state = self.parse_state_id(tokens[1])
+    st = tokens[2]
+    self.meta_data[state]["stackTrace"] = st
   def read_data_log(self, name: str) -> dict:
     with open(os.path.join(self.dir, name), "r") as f:
       for line in f.readlines():
