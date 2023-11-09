@@ -375,19 +375,20 @@ class DataLogParser:
     level = 0
     current = ""
     for char in line:
-      if char == '[':  
+      if char == '[':
         level += 1
         if level == 1:
           if len(current.strip()) > 0:
             result.append(current.strip())
           current = ""
+          continue
       elif char == ']':
         level -= 1
         if level == 0:
           result.append(current.strip())
           current = ""
-      else:
-        current += char
+          continue
+      current += char
     if len(current.strip()) > 0:
       result.append(current.strip())
     return result
@@ -517,33 +518,74 @@ class DataLogParser:
       cluster_by_crash_id[crash_id].append(data)
     return cluster_by_crash_id
   def analyze_cluster(self, cluster: Dict[int, list]):
-    result: Dict[int, List[int]] = dict()
+    result: Dict[int, Tuple[List[Dict[str, int]], List[Dict[str, int]], List[Dict[str, int]]]] = dict()
     for crash_id, data_list in cluster.items():
       removed = list()
-      result[crash_id] = removed
+      removed_if_feasible = list()
+      removed_if_infeasible = list()
+      result[crash_id] = (removed, removed_if_feasible, removed_if_infeasible)
       # get base state
       base = data_list[0]
       for data in data_list:
-        if data["stateType"] == 2:
+        if data["stateType"] == '2':
           base = data
           break
-      if base["isCrash"]:
-        continue
+      is_crash = base["isCrash"]
+      # 0. remove most likely incorrect patches
+      if not is_crash:
+        for data in data_list:
+          if data["actuallyCrashed"]:
+            removed.append({"id": data["state"], "patch": data["patchId"]})
+      # 1. if input is feasible: 
+      # crash -> not crash
+      # not crash -> not crash (preserve regression)
       for data in data_list:
         if data["actuallyCrashed"]:
-          removed.append({"id": data["state"], "patch": data["patchId"]})
+          removed_if_feasible.append({"id": data["state"], "patch": data["patchId"]})
+        elif not is_crash:
+          reg = base["lazyTrace"].split() if "lazyTrace" in base else []
+          data_reg = data["lazyTrace"].split() if "lazyTrace" in data else []
+          if reg != data_reg:
+            removed_if_feasible.append({"id": data["state"], "patch": data["patchId"]})
+      # 2. if input is infeasible:
+      # crash -> crash (preserve regression)
+      # not crash -> crash (?)
+      for data in data_list:
+        if is_crash and not data["actuallyCrashed"]:
+          removed_if_infeasible.append({"id": data["state"], "patch": data["patchId"]})
     return result
   def generate_table(self, cluster: Dict[int, list]):
+    def to_str(patch: int, state: int) -> str:
+      return f"{patch} ({state})"
+    def list_to_str(l: list) -> str:
+      return ", ".join(map(lambda x: to_str(x["patch"], x["id"]), l))
     removed = self.analyze_cluster(cluster)
     with open(os.path.join(self.dir, "table.md"), "w") as md:
       md.write("# Table\n")
-      md.write(f"| crashId | num | removed |\n")
-      md.write(f"| ------- | --- | ------- |\n")
+      md.write(f"| crashId | num | removed patch (state) | feasible | infeasible |\n")
+      md.write(f"| ------- | --- | --------------------- | -------- | ---------- |\n")
       for base, data_list in cluster.items():
-        md.write(f"| {base} | {len(data_list)} | {removed[base]} |\n")
+        rm, rm_if_feasible, rm_if_infeasible = removed[base]
+        md.write(f"| {base} | {len(data_list)} | {list_to_str(rm)} | {list_to_str(rm_if_feasible)} | {list_to_str(rm_if_infeasible)} |\n")
       for base, data_list in cluster.items():
         md.write(f"## Crash ID: {base}, len {len(data_list)}\n")
-        md.write(f"removed: {removed[base]}\n")
+        md.write("### removed:\n")
+        md.write("| patchId | state |\n")
+        md.write("| ------- | ----- |\n")
+        rm, rm_if_feasible, rm_if_infeasible = removed[base]
+        for data in rm:
+          md.write(f"| {data['patch']} | {data['id']} |\n")
+        md.write("### removed if feasible:\n")
+        md.write("| patchId | state |\n")
+        md.write("| ------- | ----- |\n")
+        for data in rm_if_feasible:
+          md.write(f"| {data['patch']} | {data['id']} |\n")
+        md.write("### removed if infeasible:\n")
+        md.write("| patchId | state |\n")
+        md.write("| ------- | ----- |\n")
+        for data in rm_if_infeasible:
+          md.write(f"| {data['patch']} | {data['id']} |\n")
+        md.write("### data:\n")
         md.write("| id | patchId | stateType | isCrash | actuallyCrashed | regression | exit | stackTrace |\n")
         md.write("| -- | ------- | --------- | ------- | --------------- | ---------- | ---- | ---------- |\n")
         for data in data_list:
