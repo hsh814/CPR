@@ -585,6 +585,22 @@ class DataLogParser:
         md.write("| ------- | ----- |\n")
         for data in rm_if_infeasible:
           md.write(f"| {data['patch']} | {data['id']} |\n")
+        md.write("### base\n")
+        md.write("| id | patchId | stateType | isCrash | actuallyCrashed | regression | exit | stackTrace |\n")
+        md.write("| -- | ------- | --------- | ------- | --------------- | ---------- | ---- | ---------- |\n")
+        for data in data_list:
+          if data["stateType"] == '2':
+            reg = data["lazyTrace"] if "lazyTrace" in data else ""
+            st = data["stackTrace"] if "stackTrace" in data else ""
+            md.write(f"| {data['state']} | {data['patchId']} | {data['stateType']} | {data['isCrash']} | {data['actuallyCrashed']} | [{reg}] | {data['exit']} | {st} |\n")
+        md.write("### correct:\n")
+        md.write("| id | patchId | stateType | isCrash | actuallyCrashed | regression | exit | stackTrace |\n")
+        md.write("| -- | ------- | --------- | ------- | --------------- | ---------- | ---- | ---------- |\n")
+        for data in data_list:
+          if data["patchId"] == 2:
+            reg = data["lazyTrace"] if "lazyTrace" in data else ""
+            st = data["stackTrace"] if "stackTrace" in data else ""
+            md.write(f"| {data['state']} | {data['patchId']} | {data['stateType']} | {data['isCrash']} | {data['actuallyCrashed']} | [{reg}] | {data['exit']} | {st} |\n")
         md.write("### data:\n")
         md.write("| id | patchId | stateType | isCrash | actuallyCrashed | regression | exit | stackTrace |\n")
         md.write("| -- | ------- | --------- | ------- | --------------- | ---------- | ---- | ---------- |\n")
