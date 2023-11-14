@@ -1,5 +1,5 @@
 {
-  "base": "  int col_sep_length = rvals[0];\n  int constant_a;\n",
+  "base": "  long long col_sep_length = rvals[0];\n  long long constant_a;\n",
   "patches": [
     {
       "name": "1-0",

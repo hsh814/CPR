@@ -13,14 +13,14 @@ def formula_to_code(formula: str, concrete_range: list, vars: List[str]) -> List
   variable_names = set(re.findall(r'\b([a-zA-Z_]\w*)\b', formula))
   code = ""
   for i in range(len(vars)):
-    code += f"  int {vars[i]} = rvals[{i}];\n"
+    code += f"  long long {vars[i]} = rvals[{i}];\n"
   result = list()
   if len(concrete_range) == 0:
     code += f"  result = {formula};\n"
     result.append(code)
     return result
   for i in concrete_range:
-    tmp = f"{code}  int constant_a = {i};\n"
+    tmp = f"{code}  long long constant_a = {i};\n"
     tmp += f"  result = {formula};\n"
     result.append(tmp)
   return result
@@ -28,8 +28,8 @@ def formula_to_code(formula: str, concrete_range: list, vars: List[str]) -> List
 def get_basics(vars: List[str]) -> str:
   code = ""
   for i in range(len(vars)):
-    code += f"  int {vars[i]} = rvals[{i}];\n"
-  code += "  int constant_a;\n"
+    code += f"  long long {vars[i]} = rvals[{i}];\n"
+  code += "  long long constant_a;\n"
   return code
 
 def get_concrete(formula: str, concrete_range: list) -> List[str]:

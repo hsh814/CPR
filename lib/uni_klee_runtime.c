@@ -8,7 +8,7 @@ void klee_select_patch(int *patch_id) {
 
 // UNI_KLEE_START
 int __cpr_choice(char* lid, char* typestr,
-                     int* rvals, char** rvals_ids, int rvals_size,
+                     long long* rvals, char** rvals_ids, int rvals_size,
                      int** lvals, char** lvals_ids, int lvals_size){
   klee_select_patch(&uni_klee_patch_id);
   int result;

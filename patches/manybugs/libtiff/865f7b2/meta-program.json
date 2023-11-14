@@ -1,5 +1,5 @@
 {
-  "base": "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a;\n",
+  "base": "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a;\n",
   "patches": [
     {
       "name": "1-0",
