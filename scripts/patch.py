@@ -325,7 +325,7 @@ def main(args: List[str]):
     with open(f"{outdir}/concrete-patches.json", "w") as f:
       print(f"Writing to {outdir}/concrete-patches.json")
       json.dump(final_patch_list, f, indent=2)    
-    save_to_file(concrete_dir, final_patch_list)
+    # save_to_file(concrete_dir, final_patch_list)
   if opt == "compile":
     pool.close()
     pool.join()
