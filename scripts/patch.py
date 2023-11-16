@@ -230,6 +230,8 @@ def main(args: List[str]):
   # exit(0)
   for meta in meta_data:
     bug_id = meta["bug_id"]
+    # if bug_id != "CVE-2012-5134":
+    #   continue
     benchmark = meta["benchmark"]
     subject = meta["subject"]
     concrete_dir = os.path.join(patch_dir, "concrete", benchmark, subject, bug_id)
