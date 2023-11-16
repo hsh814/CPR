@@ -513,6 +513,8 @@ class DataLogParser:
     cluster_by_crash_id = dict()
     for state, data in self.meta_data.items():
       crash_id = data["crashId"]
+      if crash_id == 0:
+        continue
       if crash_id not in cluster_by_crash_id:
         cluster_by_crash_id[crash_id] = list()
       cluster_by_crash_id[crash_id].append(data)
@@ -593,14 +595,14 @@ class DataLogParser:
             reg = data["lazyTrace"] if "lazyTrace" in data else ""
             st = data["stackTrace"] if "stackTrace" in data else ""
             md.write(f"| {data['state']} | {data['patchId']} | {data['stateType']} | {data['isCrash']} | {data['actuallyCrashed']} | [{reg}] | {data['exit']} | {st} |\n")
-        md.write("### correct:\n")
-        md.write("| id | patchId | stateType | isCrash | actuallyCrashed | regression | exit | stackTrace |\n")
-        md.write("| -- | ------- | --------- | ------- | --------------- | ---------- | ---- | ---------- |\n")
-        for data in data_list:
-          if data["patchId"] == 2:
-            reg = data["lazyTrace"] if "lazyTrace" in data else ""
-            st = data["stackTrace"] if "stackTrace" in data else ""
-            md.write(f"| {data['state']} | {data['patchId']} | {data['stateType']} | {data['isCrash']} | {data['actuallyCrashed']} | [{reg}] | {data['exit']} | {st} |\n")
+        # md.write("### correct:\n")
+        # md.write("| id | patchId | stateType | isCrash | actuallyCrashed | regression | exit | stackTrace |\n")
+        # md.write("| -- | ------- | --------- | ------- | --------------- | ---------- | ---- | ---------- |\n")
+        # for data in data_list:
+        #   if data["patchId"] == 2:
+        #     reg = data["lazyTrace"] if "lazyTrace" in data else ""
+        #     st = data["stackTrace"] if "stackTrace" in data else ""
+        #     md.write(f"| {data['state']} | {data['patchId']} | {data['stateType']} | {data['isCrash']} | {data['actuallyCrashed']} | [{reg}] | {data['exit']} | {st} |\n")
         md.write("### data:\n")
         md.write("| id | patchId | stateType | isCrash | actuallyCrashed | regression | exit | stackTrace |\n")
         md.write("| -- | ------- | --------- | ------- | --------------- | ---------- | ---- | ---------- |\n")
@@ -953,7 +955,7 @@ def log(args: List[str]):
   lock = acquire_lock(lock_file, "w")
   try:
     with open(log_file, "a") as f:
-      f.write(" ".join(args) + "\n")
+      f.write("meta-test.py " + " ".join(args[1:]) + "\n")
   except:
     print("Cannot write log")
   finally:

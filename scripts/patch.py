@@ -172,6 +172,19 @@ def compile(dir: str):
   cmd = "wllvm -fPIC -shared -o libcpr_runtime.so uni_klee_runtime.o"
   lazy_compile(dir, cmd, "uni_klee_runtime.o", "libcpr_runtime.so")
 
+def move_files(meta_data: dict, experiments: str, patches: str):
+  for meta in meta_data:
+    bug_id = meta["bug_id"]
+    benchmark = meta["benchmark"]
+    subject = meta["subject"]
+    exp_dir = os.path.join(experiments, benchmark, subject, bug_id)
+    pat_dir = os.path.join(patches, benchmark, subject, bug_id)
+    if os.path.exists(f'{exp_dir}/results.tar.gz'):
+      print(f"tar -xzf {exp_dir}/results.tar.gz -C {exp_dir}")
+      os.system(f"tar -xzf {exp_dir}/results.tar.gz -C {exp_dir}")
+      print(f"cp {exp_dir}/results/output/patch-set-ranked {pat_dir}/patch-set-ranked")
+      os.system(f"cp {exp_dir}/results/output/patch-set-ranked {pat_dir}/patch-set-ranked")
+
 def main(args: List[str]):
   if len(args) != 3:
     print("Usage: patch.py <opt> <patch-dir>")
@@ -245,7 +258,9 @@ def main(args: List[str]):
     #   compile(buggy_dir)
     #   if opt == "buggy":
     #     continue
-    patch_file = os.path.join(outdir, "results", "output", "patch-set-ranked")
+    
+    # option == concrete
+    patch_file = os.path.join(outdir, "patch-set-ranked")
     if not os.path.exists(patch_file):
       print(f"Patch file does not exist: {patch_file}")
       continue
