@@ -1,5 +1,2 @@
-frontend
-meta_test.py
-run.sh
-server.py
 uni-klee-webui
+config.toml
