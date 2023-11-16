@@ -4,7 +4,7 @@
     "lid": "L290",
     "patch": "(constant_a != col_sep_length)",
     "codes": [
-      "  int col_sep_length = rvals[0];\n  int constant_a = 3;\n  result = (constant_a != col_sep_length);\n"
+      "  long long col_sep_length = rvals[0];\n  long long constant_a = 3;\n  result = (constant_a != col_sep_length);\n"
     ]
   },
   {
@@ -12,7 +12,7 @@
     "lid": "L290",
     "patch": "(col_sep_length != col_sep_length)",
     "codes": [
-      "  int col_sep_length = rvals[0];\n  result = (col_sep_length != col_sep_length);\n"
+      "  long long col_sep_length = rvals[0];\n  result = (col_sep_length != col_sep_length);\n"
     ]
   },
   {
@@ -20,13 +20,13 @@
     "lid": "L290",
     "patch": "(constant_a <= col_sep_length)",
     "codes": [
-      "  int col_sep_length = rvals[0];\n  int constant_a = 4;\n  result = (constant_a <= col_sep_length);\n",
-      "  int col_sep_length = rvals[0];\n  int constant_a = 5;\n  result = (constant_a <= col_sep_length);\n",
-      "  int col_sep_length = rvals[0];\n  int constant_a = 6;\n  result = (constant_a <= col_sep_length);\n",
-      "  int col_sep_length = rvals[0];\n  int constant_a = 7;\n  result = (constant_a <= col_sep_length);\n",
-      "  int col_sep_length = rvals[0];\n  int constant_a = 8;\n  result = (constant_a <= col_sep_length);\n",
-      "  int col_sep_length = rvals[0];\n  int constant_a = 9;\n  result = (constant_a <= col_sep_length);\n",
-      "  int col_sep_length = rvals[0];\n  int constant_a = 10;\n  result = (constant_a <= col_sep_length);\n"
+      "  long long col_sep_length = rvals[0];\n  long long constant_a = 4;\n  result = (constant_a <= col_sep_length);\n",
+      "  long long col_sep_length = rvals[0];\n  long long constant_a = 5;\n  result = (constant_a <= col_sep_length);\n",
+      "  long long col_sep_length = rvals[0];\n  long long constant_a = 6;\n  result = (constant_a <= col_sep_length);\n",
+      "  long long col_sep_length = rvals[0];\n  long long constant_a = 7;\n  result = (constant_a <= col_sep_length);\n",
+      "  long long col_sep_length = rvals[0];\n  long long constant_a = 8;\n  result = (constant_a <= col_sep_length);\n",
+      "  long long col_sep_length = rvals[0];\n  long long constant_a = 9;\n  result = (constant_a <= col_sep_length);\n",
+      "  long long col_sep_length = rvals[0];\n  long long constant_a = 10;\n  result = (constant_a <= col_sep_length);\n"
     ]
   },
   {
@@ -34,14 +34,14 @@
     "lid": "L290",
     "patch": "(constant_a < col_sep_length)",
     "codes": [
-      "  int col_sep_length = rvals[0];\n  int constant_a = 3;\n  result = (constant_a < col_sep_length);\n",
-      "  int col_sep_length = rvals[0];\n  int constant_a = 4;\n  result = (constant_a < col_sep_length);\n",
-      "  int col_sep_length = rvals[0];\n  int constant_a = 5;\n  result = (constant_a < col_sep_length);\n",
-      "  int col_sep_length = rvals[0];\n  int constant_a = 6;\n  result = (constant_a < col_sep_length);\n",
-      "  int col_sep_length = rvals[0];\n  int constant_a = 7;\n  result = (constant_a < col_sep_length);\n",
-      "  int col_sep_length = rvals[0];\n  int constant_a = 8;\n  result = (constant_a < col_sep_length);\n",
-      "  int col_sep_length = rvals[0];\n  int constant_a = 9;\n  result = (constant_a < col_sep_length);\n",
-      "  int col_sep_length = rvals[0];\n  int constant_a = 10;\n  result = (constant_a < col_sep_length);\n"
+      "  long long col_sep_length = rvals[0];\n  long long constant_a = 3;\n  result = (constant_a < col_sep_length);\n",
+      "  long long col_sep_length = rvals[0];\n  long long constant_a = 4;\n  result = (constant_a < col_sep_length);\n",
+      "  long long col_sep_length = rvals[0];\n  long long constant_a = 5;\n  result = (constant_a < col_sep_length);\n",
+      "  long long col_sep_length = rvals[0];\n  long long constant_a = 6;\n  result = (constant_a < col_sep_length);\n",
+      "  long long col_sep_length = rvals[0];\n  long long constant_a = 7;\n  result = (constant_a < col_sep_length);\n",
+      "  long long col_sep_length = rvals[0];\n  long long constant_a = 8;\n  result = (constant_a < col_sep_length);\n",
+      "  long long col_sep_length = rvals[0];\n  long long constant_a = 9;\n  result = (constant_a < col_sep_length);\n",
+      "  long long col_sep_length = rvals[0];\n  long long constant_a = 10;\n  result = (constant_a < col_sep_length);\n"
     ]
   },
   {
@@ -49,19 +49,19 @@
     "lid": "L290",
     "patch": "(col_sep_length <= constant_a)",
     "codes": [
-      "  int col_sep_length = rvals[0];\n  int constant_a = -10;\n  result = (col_sep_length <= constant_a);\n",
-      "  int col_sep_length = rvals[0];\n  int constant_a = -9;\n  result = (col_sep_length <= constant_a);\n",
-      "  int col_sep_length = rvals[0];\n  int constant_a = -8;\n  result = (col_sep_length <= constant_a);\n",
-      "  int col_sep_length = rvals[0];\n  int constant_a = -7;\n  result = (col_sep_length <= constant_a);\n",
-      "  int col_sep_length = rvals[0];\n  int constant_a = -6;\n  result = (col_sep_length <= constant_a);\n",
-      "  int col_sep_length = rvals[0];\n  int constant_a = -5;\n  result = (col_sep_length <= constant_a);\n",
-      "  int col_sep_length = rvals[0];\n  int constant_a = -4;\n  result = (col_sep_length <= constant_a);\n",
-      "  int col_sep_length = rvals[0];\n  int constant_a = -3;\n  result = (col_sep_length <= constant_a);\n",
-      "  int col_sep_length = rvals[0];\n  int constant_a = -2;\n  result = (col_sep_length <= constant_a);\n",
-      "  int col_sep_length = rvals[0];\n  int constant_a = -1;\n  result = (col_sep_length <= constant_a);\n",
-      "  int col_sep_length = rvals[0];\n  int constant_a = 0;\n  result = (col_sep_length <= constant_a);\n",
-      "  int col_sep_length = rvals[0];\n  int constant_a = 1;\n  result = (col_sep_length <= constant_a);\n",
-      "  int col_sep_length = rvals[0];\n  int constant_a = 2;\n  result = (col_sep_length <= constant_a);\n"
+      "  long long col_sep_length = rvals[0];\n  long long constant_a = -10;\n  result = (col_sep_length <= constant_a);\n",
+      "  long long col_sep_length = rvals[0];\n  long long constant_a = -9;\n  result = (col_sep_length <= constant_a);\n",
+      "  long long col_sep_length = rvals[0];\n  long long constant_a = -8;\n  result = (col_sep_length <= constant_a);\n",
+      "  long long col_sep_length = rvals[0];\n  long long constant_a = -7;\n  result = (col_sep_length <= constant_a);\n",
+      "  long long col_sep_length = rvals[0];\n  long long constant_a = -6;\n  result = (col_sep_length <= constant_a);\n",
+      "  long long col_sep_length = rvals[0];\n  long long constant_a = -5;\n  result = (col_sep_length <= constant_a);\n",
+      "  long long col_sep_length = rvals[0];\n  long long constant_a = -4;\n  result = (col_sep_length <= constant_a);\n",
+      "  long long col_sep_length = rvals[0];\n  long long constant_a = -3;\n  result = (col_sep_length <= constant_a);\n",
+      "  long long col_sep_length = rvals[0];\n  long long constant_a = -2;\n  result = (col_sep_length <= constant_a);\n",
+      "  long long col_sep_length = rvals[0];\n  long long constant_a = -1;\n  result = (col_sep_length <= constant_a);\n",
+      "  long long col_sep_length = rvals[0];\n  long long constant_a = 0;\n  result = (col_sep_length <= constant_a);\n",
+      "  long long col_sep_length = rvals[0];\n  long long constant_a = 1;\n  result = (col_sep_length <= constant_a);\n",
+      "  long long col_sep_length = rvals[0];\n  long long constant_a = 2;\n  result = (col_sep_length <= constant_a);\n"
     ]
   },
   {
@@ -69,20 +69,20 @@
     "lid": "L290",
     "patch": "(col_sep_length < constant_a)",
     "codes": [
-      "  int col_sep_length = rvals[0];\n  int constant_a = -10;\n  result = (col_sep_length < constant_a);\n",
-      "  int col_sep_length = rvals[0];\n  int constant_a = -9;\n  result = (col_sep_length < constant_a);\n",
-      "  int col_sep_length = rvals[0];\n  int constant_a = -8;\n  result = (col_sep_length < constant_a);\n",
-      "  int col_sep_length = rvals[0];\n  int constant_a = -7;\n  result = (col_sep_length < constant_a);\n",
-      "  int col_sep_length = rvals[0];\n  int constant_a = -6;\n  result = (col_sep_length < constant_a);\n",
-      "  int col_sep_length = rvals[0];\n  int constant_a = -5;\n  result = (col_sep_length < constant_a);\n",
-      "  int col_sep_length = rvals[0];\n  int constant_a = -4;\n  result = (col_sep_length < constant_a);\n",
-      "  int col_sep_length = rvals[0];\n  int constant_a = -3;\n  result = (col_sep_length < constant_a);\n",
-      "  int col_sep_length = rvals[0];\n  int constant_a = -2;\n  result = (col_sep_length < constant_a);\n",
-      "  int col_sep_length = rvals[0];\n  int constant_a = -1;\n  result = (col_sep_length < constant_a);\n",
-      "  int col_sep_length = rvals[0];\n  int constant_a = 0;\n  result = (col_sep_length < constant_a);\n",
-      "  int col_sep_length = rvals[0];\n  int constant_a = 1;\n  result = (col_sep_length < constant_a);\n",
-      "  int col_sep_length = rvals[0];\n  int constant_a = 2;\n  result = (col_sep_length < constant_a);\n",
-      "  int col_sep_length = rvals[0];\n  int constant_a = 3;\n  result = (col_sep_length < constant_a);\n"
+      "  long long col_sep_length = rvals[0];\n  long long constant_a = -10;\n  result = (col_sep_length < constant_a);\n",
+      "  long long col_sep_length = rvals[0];\n  long long constant_a = -9;\n  result = (col_sep_length < constant_a);\n",
+      "  long long col_sep_length = rvals[0];\n  long long constant_a = -8;\n  result = (col_sep_length < constant_a);\n",
+      "  long long col_sep_length = rvals[0];\n  long long constant_a = -7;\n  result = (col_sep_length < constant_a);\n",
+      "  long long col_sep_length = rvals[0];\n  long long constant_a = -6;\n  result = (col_sep_length < constant_a);\n",
+      "  long long col_sep_length = rvals[0];\n  long long constant_a = -5;\n  result = (col_sep_length < constant_a);\n",
+      "  long long col_sep_length = rvals[0];\n  long long constant_a = -4;\n  result = (col_sep_length < constant_a);\n",
+      "  long long col_sep_length = rvals[0];\n  long long constant_a = -3;\n  result = (col_sep_length < constant_a);\n",
+      "  long long col_sep_length = rvals[0];\n  long long constant_a = -2;\n  result = (col_sep_length < constant_a);\n",
+      "  long long col_sep_length = rvals[0];\n  long long constant_a = -1;\n  result = (col_sep_length < constant_a);\n",
+      "  long long col_sep_length = rvals[0];\n  long long constant_a = 0;\n  result = (col_sep_length < constant_a);\n",
+      "  long long col_sep_length = rvals[0];\n  long long constant_a = 1;\n  result = (col_sep_length < constant_a);\n",
+      "  long long col_sep_length = rvals[0];\n  long long constant_a = 2;\n  result = (col_sep_length < constant_a);\n",
+      "  long long col_sep_length = rvals[0];\n  long long constant_a = 3;\n  result = (col_sep_length < constant_a);\n"
     ]
   },
   {
@@ -90,26 +90,26 @@
     "lid": "L290",
     "patch": "(constant_a == col_sep_length)",
     "codes": [
-      "  int col_sep_length = rvals[0];\n  int constant_a = -10;\n  result = (constant_a == col_sep_length);\n",
-      "  int col_sep_length = rvals[0];\n  int constant_a = -9;\n  result = (constant_a == col_sep_length);\n",
-      "  int col_sep_length = rvals[0];\n  int constant_a = -8;\n  result = (constant_a == col_sep_length);\n",
-      "  int col_sep_length = rvals[0];\n  int constant_a = -7;\n  result = (constant_a == col_sep_length);\n",
-      "  int col_sep_length = rvals[0];\n  int constant_a = -6;\n  result = (constant_a == col_sep_length);\n",
-      "  int col_sep_length = rvals[0];\n  int constant_a = -5;\n  result = (constant_a == col_sep_length);\n",
-      "  int col_sep_length = rvals[0];\n  int constant_a = -4;\n  result = (constant_a == col_sep_length);\n",
-      "  int col_sep_length = rvals[0];\n  int constant_a = -3;\n  result = (constant_a == col_sep_length);\n",
-      "  int col_sep_length = rvals[0];\n  int constant_a = -2;\n  result = (constant_a == col_sep_length);\n",
-      "  int col_sep_length = rvals[0];\n  int constant_a = -1;\n  result = (constant_a == col_sep_length);\n",
-      "  int col_sep_length = rvals[0];\n  int constant_a = 0;\n  result = (constant_a == col_sep_length);\n",
-      "  int col_sep_length = rvals[0];\n  int constant_a = 1;\n  result = (constant_a == col_sep_length);\n",
-      "  int col_sep_length = rvals[0];\n  int constant_a = 2;\n  result = (constant_a == col_sep_length);\n",
-      "  int col_sep_length = rvals[0];\n  int constant_a = 4;\n  result = (constant_a == col_sep_length);\n",
-      "  int col_sep_length = rvals[0];\n  int constant_a = 5;\n  result = (constant_a == col_sep_length);\n",
-      "  int col_sep_length = rvals[0];\n  int constant_a = 6;\n  result = (constant_a == col_sep_length);\n",
-      "  int col_sep_length = rvals[0];\n  int constant_a = 7;\n  result = (constant_a == col_sep_length);\n",
-      "  int col_sep_length = rvals[0];\n  int constant_a = 8;\n  result = (constant_a == col_sep_length);\n",
-      "  int col_sep_length = rvals[0];\n  int constant_a = 9;\n  result = (constant_a == col_sep_length);\n",
-      "  int col_sep_length = rvals[0];\n  int constant_a = 10;\n  result = (constant_a == col_sep_length);\n"
+      "  long long col_sep_length = rvals[0];\n  long long constant_a = -10;\n  result = (constant_a == col_sep_length);\n",
+      "  long long col_sep_length = rvals[0];\n  long long constant_a = -9;\n  result = (constant_a == col_sep_length);\n",
+      "  long long col_sep_length = rvals[0];\n  long long constant_a = -8;\n  result = (constant_a == col_sep_length);\n",
+      "  long long col_sep_length = rvals[0];\n  long long constant_a = -7;\n  result = (constant_a == col_sep_length);\n",
+      "  long long col_sep_length = rvals[0];\n  long long constant_a = -6;\n  result = (constant_a == col_sep_length);\n",
+      "  long long col_sep_length = rvals[0];\n  long long constant_a = -5;\n  result = (constant_a == col_sep_length);\n",
+      "  long long col_sep_length = rvals[0];\n  long long constant_a = -4;\n  result = (constant_a == col_sep_length);\n",
+      "  long long col_sep_length = rvals[0];\n  long long constant_a = -3;\n  result = (constant_a == col_sep_length);\n",
+      "  long long col_sep_length = rvals[0];\n  long long constant_a = -2;\n  result = (constant_a == col_sep_length);\n",
+      "  long long col_sep_length = rvals[0];\n  long long constant_a = -1;\n  result = (constant_a == col_sep_length);\n",
+      "  long long col_sep_length = rvals[0];\n  long long constant_a = 0;\n  result = (constant_a == col_sep_length);\n",
+      "  long long col_sep_length = rvals[0];\n  long long constant_a = 1;\n  result = (constant_a == col_sep_length);\n",
+      "  long long col_sep_length = rvals[0];\n  long long constant_a = 2;\n  result = (constant_a == col_sep_length);\n",
+      "  long long col_sep_length = rvals[0];\n  long long constant_a = 4;\n  result = (constant_a == col_sep_length);\n",
+      "  long long col_sep_length = rvals[0];\n  long long constant_a = 5;\n  result = (constant_a == col_sep_length);\n",
+      "  long long col_sep_length = rvals[0];\n  long long constant_a = 6;\n  result = (constant_a == col_sep_length);\n",
+      "  long long col_sep_length = rvals[0];\n  long long constant_a = 7;\n  result = (constant_a == col_sep_length);\n",
+      "  long long col_sep_length = rvals[0];\n  long long constant_a = 8;\n  result = (constant_a == col_sep_length);\n",
+      "  long long col_sep_length = rvals[0];\n  long long constant_a = 9;\n  result = (constant_a == col_sep_length);\n",
+      "  long long col_sep_length = rvals[0];\n  long long constant_a = 10;\n  result = (constant_a == col_sep_length);\n"
     ]
   }
 ]

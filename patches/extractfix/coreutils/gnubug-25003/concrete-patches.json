@@ -4,7 +4,7 @@
     "lid": "L290",
     "patch": "(constant_a != initial_read)",
     "codes": [
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 0;\n  result = (constant_a != initial_read);\n"
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 0;\n  result = (constant_a != initial_read);\n"
     ]
   },
   {
@@ -12,7 +12,7 @@
     "lid": "L290",
     "patch": "(start != start)",
     "codes": [
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  result = (start != start);\n"
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  result = (start != start);\n"
     ]
   },
   {
@@ -20,7 +20,7 @@
     "lid": "L290",
     "patch": "(bufsize == start)",
     "codes": [
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  result = (bufsize == start);\n"
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  result = (bufsize == start);\n"
     ]
   },
   {
@@ -28,7 +28,7 @@
     "lid": "L290",
     "patch": "(bufsize < start)",
     "codes": [
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  result = (bufsize < start);\n"
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  result = (bufsize < start);\n"
     ]
   },
   {
@@ -36,7 +36,7 @@
     "lid": "L290",
     "patch": "(bufsize <= start)",
     "codes": [
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  result = (bufsize <= start);\n"
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  result = (bufsize <= start);\n"
     ]
   },
   {
@@ -44,7 +44,7 @@
     "lid": "L290",
     "patch": "(start < initial_read)",
     "codes": [
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  result = (start < initial_read);\n"
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  result = (start < initial_read);\n"
     ]
   },
   {
@@ -52,7 +52,7 @@
     "lid": "L290",
     "patch": "(bufsize == initial_read)",
     "codes": [
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  result = (bufsize == initial_read);\n"
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  result = (bufsize == initial_read);\n"
     ]
   },
   {
@@ -60,7 +60,7 @@
     "lid": "L290",
     "patch": "(bufsize < initial_read)",
     "codes": [
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  result = (bufsize < initial_read);\n"
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  result = (bufsize < initial_read);\n"
     ]
   },
   {
@@ -68,7 +68,7 @@
     "lid": "L290",
     "patch": "(bufsize <= initial_read)",
     "codes": [
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  result = (bufsize <= initial_read);\n"
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  result = (bufsize <= initial_read);\n"
     ]
   },
   {
@@ -76,8 +76,8 @@
     "lid": "L290",
     "patch": "(constant_a <= start)",
     "codes": [
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 9;\n  result = (constant_a <= start);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 10;\n  result = (constant_a <= start);\n"
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 9;\n  result = (constant_a <= start);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 10;\n  result = (constant_a <= start);\n"
     ]
   },
   {
@@ -85,9 +85,9 @@
     "lid": "L290",
     "patch": "(constant_a < start)",
     "codes": [
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 8;\n  result = (constant_a < start);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 9;\n  result = (constant_a < start);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 10;\n  result = (constant_a < start);\n"
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 8;\n  result = (constant_a < start);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 9;\n  result = (constant_a < start);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 10;\n  result = (constant_a < start);\n"
     ]
   },
   {
@@ -95,16 +95,16 @@
     "lid": "L290",
     "patch": "(start <= constant_a)",
     "codes": [
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -10;\n  result = (start <= constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -9;\n  result = (start <= constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -8;\n  result = (start <= constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -7;\n  result = (start <= constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -6;\n  result = (start <= constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -5;\n  result = (start <= constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -4;\n  result = (start <= constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -3;\n  result = (start <= constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -2;\n  result = (start <= constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -1;\n  result = (start <= constant_a);\n"
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -10;\n  result = (start <= constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -9;\n  result = (start <= constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -8;\n  result = (start <= constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -7;\n  result = (start <= constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -6;\n  result = (start <= constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -5;\n  result = (start <= constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -4;\n  result = (start <= constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -3;\n  result = (start <= constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -2;\n  result = (start <= constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -1;\n  result = (start <= constant_a);\n"
     ]
   },
   {
@@ -112,16 +112,16 @@
     "lid": "L290",
     "patch": "(constant_a <= initial_read)",
     "codes": [
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 1;\n  result = (constant_a <= initial_read);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 2;\n  result = (constant_a <= initial_read);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 3;\n  result = (constant_a <= initial_read);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 4;\n  result = (constant_a <= initial_read);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 5;\n  result = (constant_a <= initial_read);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 6;\n  result = (constant_a <= initial_read);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 7;\n  result = (constant_a <= initial_read);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 8;\n  result = (constant_a <= initial_read);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 9;\n  result = (constant_a <= initial_read);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 10;\n  result = (constant_a <= initial_read);\n"
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 1;\n  result = (constant_a <= initial_read);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 2;\n  result = (constant_a <= initial_read);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 3;\n  result = (constant_a <= initial_read);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 4;\n  result = (constant_a <= initial_read);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 5;\n  result = (constant_a <= initial_read);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 6;\n  result = (constant_a <= initial_read);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 7;\n  result = (constant_a <= initial_read);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 8;\n  result = (constant_a <= initial_read);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 9;\n  result = (constant_a <= initial_read);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 10;\n  result = (constant_a <= initial_read);\n"
     ]
   },
   {
@@ -129,16 +129,16 @@
     "lid": "L290",
     "patch": "(initial_read <= constant_a)",
     "codes": [
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -10;\n  result = (initial_read <= constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -9;\n  result = (initial_read <= constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -8;\n  result = (initial_read <= constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -7;\n  result = (initial_read <= constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -6;\n  result = (initial_read <= constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -5;\n  result = (initial_read <= constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -4;\n  result = (initial_read <= constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -3;\n  result = (initial_read <= constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -2;\n  result = (initial_read <= constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -1;\n  result = (initial_read <= constant_a);\n"
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -10;\n  result = (initial_read <= constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -9;\n  result = (initial_read <= constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -8;\n  result = (initial_read <= constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -7;\n  result = (initial_read <= constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -6;\n  result = (initial_read <= constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -5;\n  result = (initial_read <= constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -4;\n  result = (initial_read <= constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -3;\n  result = (initial_read <= constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -2;\n  result = (initial_read <= constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -1;\n  result = (initial_read <= constant_a);\n"
     ]
   },
   {
@@ -146,17 +146,17 @@
     "lid": "L290",
     "patch": "(start < constant_a)",
     "codes": [
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -10;\n  result = (start < constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -9;\n  result = (start < constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -8;\n  result = (start < constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -7;\n  result = (start < constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -6;\n  result = (start < constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -5;\n  result = (start < constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -4;\n  result = (start < constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -3;\n  result = (start < constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -2;\n  result = (start < constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -1;\n  result = (start < constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 0;\n  result = (start < constant_a);\n"
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -10;\n  result = (start < constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -9;\n  result = (start < constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -8;\n  result = (start < constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -7;\n  result = (start < constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -6;\n  result = (start < constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -5;\n  result = (start < constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -4;\n  result = (start < constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -3;\n  result = (start < constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -2;\n  result = (start < constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -1;\n  result = (start < constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 0;\n  result = (start < constant_a);\n"
     ]
   },
   {
@@ -164,17 +164,17 @@
     "lid": "L290",
     "patch": "(constant_a < initial_read)",
     "codes": [
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 0;\n  result = (constant_a < initial_read);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 1;\n  result = (constant_a < initial_read);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 2;\n  result = (constant_a < initial_read);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 3;\n  result = (constant_a < initial_read);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 4;\n  result = (constant_a < initial_read);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 5;\n  result = (constant_a < initial_read);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 6;\n  result = (constant_a < initial_read);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 7;\n  result = (constant_a < initial_read);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 8;\n  result = (constant_a < initial_read);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 9;\n  result = (constant_a < initial_read);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 10;\n  result = (constant_a < initial_read);\n"
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 0;\n  result = (constant_a < initial_read);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 1;\n  result = (constant_a < initial_read);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 2;\n  result = (constant_a < initial_read);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 3;\n  result = (constant_a < initial_read);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 4;\n  result = (constant_a < initial_read);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 5;\n  result = (constant_a < initial_read);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 6;\n  result = (constant_a < initial_read);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 7;\n  result = (constant_a < initial_read);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 8;\n  result = (constant_a < initial_read);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 9;\n  result = (constant_a < initial_read);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 10;\n  result = (constant_a < initial_read);\n"
     ]
   },
   {
@@ -182,17 +182,17 @@
     "lid": "L290",
     "patch": "(initial_read < constant_a)",
     "codes": [
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -10;\n  result = (initial_read < constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -9;\n  result = (initial_read < constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -8;\n  result = (initial_read < constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -7;\n  result = (initial_read < constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -6;\n  result = (initial_read < constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -5;\n  result = (initial_read < constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -4;\n  result = (initial_read < constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -3;\n  result = (initial_read < constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -2;\n  result = (initial_read < constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -1;\n  result = (initial_read < constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 0;\n  result = (initial_read < constant_a);\n"
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -10;\n  result = (initial_read < constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -9;\n  result = (initial_read < constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -8;\n  result = (initial_read < constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -7;\n  result = (initial_read < constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -6;\n  result = (initial_read < constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -5;\n  result = (initial_read < constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -4;\n  result = (initial_read < constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -3;\n  result = (initial_read < constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -2;\n  result = (initial_read < constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -1;\n  result = (initial_read < constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 0;\n  result = (initial_read < constant_a);\n"
     ]
   },
   {
@@ -200,18 +200,18 @@
     "lid": "L290",
     "patch": "(constant_a == start)",
     "codes": [
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -10;\n  result = (constant_a == start);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -9;\n  result = (constant_a == start);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -8;\n  result = (constant_a == start);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -7;\n  result = (constant_a == start);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -6;\n  result = (constant_a == start);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -5;\n  result = (constant_a == start);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -4;\n  result = (constant_a == start);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -3;\n  result = (constant_a == start);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -2;\n  result = (constant_a == start);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -1;\n  result = (constant_a == start);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 9;\n  result = (constant_a == start);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 10;\n  result = (constant_a == start);\n"
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -10;\n  result = (constant_a == start);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -9;\n  result = (constant_a == start);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -8;\n  result = (constant_a == start);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -7;\n  result = (constant_a == start);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -6;\n  result = (constant_a == start);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -5;\n  result = (constant_a == start);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -4;\n  result = (constant_a == start);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -3;\n  result = (constant_a == start);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -2;\n  result = (constant_a == start);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -1;\n  result = (constant_a == start);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 9;\n  result = (constant_a == start);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 10;\n  result = (constant_a == start);\n"
     ]
   },
   {
@@ -219,26 +219,26 @@
     "lid": "L290",
     "patch": "(constant_a == initial_read)",
     "codes": [
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -10;\n  result = (constant_a == initial_read);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -9;\n  result = (constant_a == initial_read);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -8;\n  result = (constant_a == initial_read);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -7;\n  result = (constant_a == initial_read);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -6;\n  result = (constant_a == initial_read);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -5;\n  result = (constant_a == initial_read);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -4;\n  result = (constant_a == initial_read);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -3;\n  result = (constant_a == initial_read);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -2;\n  result = (constant_a == initial_read);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -1;\n  result = (constant_a == initial_read);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 1;\n  result = (constant_a == initial_read);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 2;\n  result = (constant_a == initial_read);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 3;\n  result = (constant_a == initial_read);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 4;\n  result = (constant_a == initial_read);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 5;\n  result = (constant_a == initial_read);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 6;\n  result = (constant_a == initial_read);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 7;\n  result = (constant_a == initial_read);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 8;\n  result = (constant_a == initial_read);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 9;\n  result = (constant_a == initial_read);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 10;\n  result = (constant_a == initial_read);\n"
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -10;\n  result = (constant_a == initial_read);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -9;\n  result = (constant_a == initial_read);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -8;\n  result = (constant_a == initial_read);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -7;\n  result = (constant_a == initial_read);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -6;\n  result = (constant_a == initial_read);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -5;\n  result = (constant_a == initial_read);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -4;\n  result = (constant_a == initial_read);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -3;\n  result = (constant_a == initial_read);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -2;\n  result = (constant_a == initial_read);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -1;\n  result = (constant_a == initial_read);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 1;\n  result = (constant_a == initial_read);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 2;\n  result = (constant_a == initial_read);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 3;\n  result = (constant_a == initial_read);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 4;\n  result = (constant_a == initial_read);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 5;\n  result = (constant_a == initial_read);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 6;\n  result = (constant_a == initial_read);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 7;\n  result = (constant_a == initial_read);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 8;\n  result = (constant_a == initial_read);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 9;\n  result = (constant_a == initial_read);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 10;\n  result = (constant_a == initial_read);\n"
     ]
   },
   {
@@ -246,27 +246,27 @@
     "lid": "L290",
     "patch": "(constant_a == bufsize)",
     "codes": [
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -10;\n  result = (constant_a == bufsize);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -9;\n  result = (constant_a == bufsize);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -8;\n  result = (constant_a == bufsize);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -7;\n  result = (constant_a == bufsize);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -6;\n  result = (constant_a == bufsize);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -5;\n  result = (constant_a == bufsize);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -4;\n  result = (constant_a == bufsize);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -3;\n  result = (constant_a == bufsize);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -2;\n  result = (constant_a == bufsize);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -1;\n  result = (constant_a == bufsize);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 0;\n  result = (constant_a == bufsize);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 1;\n  result = (constant_a == bufsize);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 2;\n  result = (constant_a == bufsize);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 3;\n  result = (constant_a == bufsize);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 4;\n  result = (constant_a == bufsize);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 5;\n  result = (constant_a == bufsize);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 6;\n  result = (constant_a == bufsize);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 7;\n  result = (constant_a == bufsize);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 8;\n  result = (constant_a == bufsize);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 9;\n  result = (constant_a == bufsize);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 10;\n  result = (constant_a == bufsize);\n"
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -10;\n  result = (constant_a == bufsize);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -9;\n  result = (constant_a == bufsize);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -8;\n  result = (constant_a == bufsize);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -7;\n  result = (constant_a == bufsize);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -6;\n  result = (constant_a == bufsize);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -5;\n  result = (constant_a == bufsize);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -4;\n  result = (constant_a == bufsize);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -3;\n  result = (constant_a == bufsize);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -2;\n  result = (constant_a == bufsize);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -1;\n  result = (constant_a == bufsize);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 0;\n  result = (constant_a == bufsize);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 1;\n  result = (constant_a == bufsize);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 2;\n  result = (constant_a == bufsize);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 3;\n  result = (constant_a == bufsize);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 4;\n  result = (constant_a == bufsize);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 5;\n  result = (constant_a == bufsize);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 6;\n  result = (constant_a == bufsize);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 7;\n  result = (constant_a == bufsize);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 8;\n  result = (constant_a == bufsize);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 9;\n  result = (constant_a == bufsize);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 10;\n  result = (constant_a == bufsize);\n"
     ]
   },
   {
@@ -274,27 +274,27 @@
     "lid": "L290",
     "patch": "(bufsize < constant_a)",
     "codes": [
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -10;\n  result = (bufsize < constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -9;\n  result = (bufsize < constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -8;\n  result = (bufsize < constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -7;\n  result = (bufsize < constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -6;\n  result = (bufsize < constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -5;\n  result = (bufsize < constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -4;\n  result = (bufsize < constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -3;\n  result = (bufsize < constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -2;\n  result = (bufsize < constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -1;\n  result = (bufsize < constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 0;\n  result = (bufsize < constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 1;\n  result = (bufsize < constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 2;\n  result = (bufsize < constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 3;\n  result = (bufsize < constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 4;\n  result = (bufsize < constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 5;\n  result = (bufsize < constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 6;\n  result = (bufsize < constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 7;\n  result = (bufsize < constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 8;\n  result = (bufsize < constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 9;\n  result = (bufsize < constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 10;\n  result = (bufsize < constant_a);\n"
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -10;\n  result = (bufsize < constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -9;\n  result = (bufsize < constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -8;\n  result = (bufsize < constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -7;\n  result = (bufsize < constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -6;\n  result = (bufsize < constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -5;\n  result = (bufsize < constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -4;\n  result = (bufsize < constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -3;\n  result = (bufsize < constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -2;\n  result = (bufsize < constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -1;\n  result = (bufsize < constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 0;\n  result = (bufsize < constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 1;\n  result = (bufsize < constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 2;\n  result = (bufsize < constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 3;\n  result = (bufsize < constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 4;\n  result = (bufsize < constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 5;\n  result = (bufsize < constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 6;\n  result = (bufsize < constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 7;\n  result = (bufsize < constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 8;\n  result = (bufsize < constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 9;\n  result = (bufsize < constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 10;\n  result = (bufsize < constant_a);\n"
     ]
   },
   {
@@ -302,27 +302,27 @@
     "lid": "L290",
     "patch": "(bufsize <= constant_a)",
     "codes": [
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -10;\n  result = (bufsize <= constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -9;\n  result = (bufsize <= constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -8;\n  result = (bufsize <= constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -7;\n  result = (bufsize <= constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -6;\n  result = (bufsize <= constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -5;\n  result = (bufsize <= constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -4;\n  result = (bufsize <= constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -3;\n  result = (bufsize <= constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -2;\n  result = (bufsize <= constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = -1;\n  result = (bufsize <= constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 0;\n  result = (bufsize <= constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 1;\n  result = (bufsize <= constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 2;\n  result = (bufsize <= constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 3;\n  result = (bufsize <= constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 4;\n  result = (bufsize <= constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 5;\n  result = (bufsize <= constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 6;\n  result = (bufsize <= constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 7;\n  result = (bufsize <= constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 8;\n  result = (bufsize <= constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 9;\n  result = (bufsize <= constant_a);\n",
-      "  int start = rvals[0];\n  int initial_read = rvals[1];\n  int bufsize = rvals[2];\n  int constant_a = 10;\n  result = (bufsize <= constant_a);\n"
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -10;\n  result = (bufsize <= constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -9;\n  result = (bufsize <= constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -8;\n  result = (bufsize <= constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -7;\n  result = (bufsize <= constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -6;\n  result = (bufsize <= constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -5;\n  result = (bufsize <= constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -4;\n  result = (bufsize <= constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -3;\n  result = (bufsize <= constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -2;\n  result = (bufsize <= constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = -1;\n  result = (bufsize <= constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 0;\n  result = (bufsize <= constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 1;\n  result = (bufsize <= constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 2;\n  result = (bufsize <= constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 3;\n  result = (bufsize <= constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 4;\n  result = (bufsize <= constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 5;\n  result = (bufsize <= constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 6;\n  result = (bufsize <= constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 7;\n  result = (bufsize <= constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 8;\n  result = (bufsize <= constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 9;\n  result = (bufsize <= constant_a);\n",
+      "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a = 10;\n  result = (bufsize <= constant_a);\n"
     ]
   }
 ]

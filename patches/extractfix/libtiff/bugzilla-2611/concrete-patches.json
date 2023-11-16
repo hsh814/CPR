@@ -4,7 +4,7 @@
     "lid": "L816",
     "patch": "(constant_a == x)",
     "codes": [
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = 0;\n  result = (constant_a == x);\n"
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = 0;\n  result = (constant_a == x);\n"
     ]
   },
   {
@@ -12,7 +12,7 @@
     "lid": "L816",
     "patch": "(x == x)",
     "codes": [
-      "  int x = rvals[0];\n  int y = rvals[1];\n  result = (x == x);\n"
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  result = (x == x);\n"
     ]
   },
   {
@@ -20,7 +20,7 @@
     "lid": "L816",
     "patch": "(x < y)",
     "codes": [
-      "  int x = rvals[0];\n  int y = rvals[1];\n  result = (x < y);\n"
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  result = (x < y);\n"
     ]
   },
   {
@@ -28,7 +28,7 @@
     "lid": "L816",
     "patch": "(y != x)",
     "codes": [
-      "  int x = rvals[0];\n  int y = rvals[1];\n  result = (y != x);\n"
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  result = (y != x);\n"
     ]
   },
   {
@@ -36,7 +36,7 @@
     "lid": "L816",
     "patch": "(x <= y)",
     "codes": [
-      "  int x = rvals[0];\n  int y = rvals[1];\n  result = (x <= y);\n"
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  result = (x <= y);\n"
     ]
   },
   {
@@ -44,16 +44,16 @@
     "lid": "L816",
     "patch": "(x < constant_a)",
     "codes": [
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = 1;\n  result = (x < constant_a);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = 2;\n  result = (x < constant_a);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = 3;\n  result = (x < constant_a);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = 4;\n  result = (x < constant_a);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = 5;\n  result = (x < constant_a);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = 6;\n  result = (x < constant_a);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = 7;\n  result = (x < constant_a);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = 8;\n  result = (x < constant_a);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = 9;\n  result = (x < constant_a);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = 10;\n  result = (x < constant_a);\n"
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = 1;\n  result = (x < constant_a);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = 2;\n  result = (x < constant_a);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = 3;\n  result = (x < constant_a);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = 4;\n  result = (x < constant_a);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = 5;\n  result = (x < constant_a);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = 6;\n  result = (x < constant_a);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = 7;\n  result = (x < constant_a);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = 8;\n  result = (x < constant_a);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = 9;\n  result = (x < constant_a);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = 10;\n  result = (x < constant_a);\n"
     ]
   },
   {
@@ -61,16 +61,16 @@
     "lid": "L816",
     "patch": "(constant_a < x)",
     "codes": [
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = -10;\n  result = (constant_a < x);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = -9;\n  result = (constant_a < x);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = -8;\n  result = (constant_a < x);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = -7;\n  result = (constant_a < x);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = -6;\n  result = (constant_a < x);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = -5;\n  result = (constant_a < x);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = -4;\n  result = (constant_a < x);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = -3;\n  result = (constant_a < x);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = -2;\n  result = (constant_a < x);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = -1;\n  result = (constant_a < x);\n"
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = -10;\n  result = (constant_a < x);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = -9;\n  result = (constant_a < x);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = -8;\n  result = (constant_a < x);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = -7;\n  result = (constant_a < x);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = -6;\n  result = (constant_a < x);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = -5;\n  result = (constant_a < x);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = -4;\n  result = (constant_a < x);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = -3;\n  result = (constant_a < x);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = -2;\n  result = (constant_a < x);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = -1;\n  result = (constant_a < x);\n"
     ]
   },
   {
@@ -78,17 +78,17 @@
     "lid": "L816",
     "patch": "(x <= constant_a)",
     "codes": [
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = 0;\n  result = (x <= constant_a);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = 1;\n  result = (x <= constant_a);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = 2;\n  result = (x <= constant_a);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = 3;\n  result = (x <= constant_a);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = 4;\n  result = (x <= constant_a);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = 5;\n  result = (x <= constant_a);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = 6;\n  result = (x <= constant_a);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = 7;\n  result = (x <= constant_a);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = 8;\n  result = (x <= constant_a);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = 9;\n  result = (x <= constant_a);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = 10;\n  result = (x <= constant_a);\n"
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = 0;\n  result = (x <= constant_a);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = 1;\n  result = (x <= constant_a);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = 2;\n  result = (x <= constant_a);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = 3;\n  result = (x <= constant_a);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = 4;\n  result = (x <= constant_a);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = 5;\n  result = (x <= constant_a);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = 6;\n  result = (x <= constant_a);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = 7;\n  result = (x <= constant_a);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = 8;\n  result = (x <= constant_a);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = 9;\n  result = (x <= constant_a);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = 10;\n  result = (x <= constant_a);\n"
     ]
   },
   {
@@ -96,17 +96,17 @@
     "lid": "L816",
     "patch": "(constant_a <= x)",
     "codes": [
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = -10;\n  result = (constant_a <= x);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = -9;\n  result = (constant_a <= x);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = -8;\n  result = (constant_a <= x);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = -7;\n  result = (constant_a <= x);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = -6;\n  result = (constant_a <= x);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = -5;\n  result = (constant_a <= x);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = -4;\n  result = (constant_a <= x);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = -3;\n  result = (constant_a <= x);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = -2;\n  result = (constant_a <= x);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = -1;\n  result = (constant_a <= x);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = 0;\n  result = (constant_a <= x);\n"
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = -10;\n  result = (constant_a <= x);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = -9;\n  result = (constant_a <= x);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = -8;\n  result = (constant_a <= x);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = -7;\n  result = (constant_a <= x);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = -6;\n  result = (constant_a <= x);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = -5;\n  result = (constant_a <= x);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = -4;\n  result = (constant_a <= x);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = -3;\n  result = (constant_a <= x);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = -2;\n  result = (constant_a <= x);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = -1;\n  result = (constant_a <= x);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = 0;\n  result = (constant_a <= x);\n"
     ]
   },
   {
@@ -114,19 +114,19 @@
     "lid": "L816",
     "patch": "(constant_a < y)",
     "codes": [
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = -10;\n  result = (constant_a < y);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = -9;\n  result = (constant_a < y);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = -8;\n  result = (constant_a < y);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = -7;\n  result = (constant_a < y);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = -6;\n  result = (constant_a < y);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = -5;\n  result = (constant_a < y);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = -4;\n  result = (constant_a < y);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = -3;\n  result = (constant_a < y);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = -2;\n  result = (constant_a < y);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = -1;\n  result = (constant_a < y);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = 0;\n  result = (constant_a < y);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = 1;\n  result = (constant_a < y);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = 2;\n  result = (constant_a < y);\n"
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = -10;\n  result = (constant_a < y);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = -9;\n  result = (constant_a < y);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = -8;\n  result = (constant_a < y);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = -7;\n  result = (constant_a < y);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = -6;\n  result = (constant_a < y);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = -5;\n  result = (constant_a < y);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = -4;\n  result = (constant_a < y);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = -3;\n  result = (constant_a < y);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = -2;\n  result = (constant_a < y);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = -1;\n  result = (constant_a < y);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = 0;\n  result = (constant_a < y);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = 1;\n  result = (constant_a < y);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = 2;\n  result = (constant_a < y);\n"
     ]
   },
   {
@@ -134,20 +134,20 @@
     "lid": "L816",
     "patch": "(constant_a <= y)",
     "codes": [
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = -10;\n  result = (constant_a <= y);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = -9;\n  result = (constant_a <= y);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = -8;\n  result = (constant_a <= y);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = -7;\n  result = (constant_a <= y);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = -6;\n  result = (constant_a <= y);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = -5;\n  result = (constant_a <= y);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = -4;\n  result = (constant_a <= y);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = -3;\n  result = (constant_a <= y);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = -2;\n  result = (constant_a <= y);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = -1;\n  result = (constant_a <= y);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = 0;\n  result = (constant_a <= y);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = 1;\n  result = (constant_a <= y);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = 2;\n  result = (constant_a <= y);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = 3;\n  result = (constant_a <= y);\n"
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = -10;\n  result = (constant_a <= y);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = -9;\n  result = (constant_a <= y);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = -8;\n  result = (constant_a <= y);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = -7;\n  result = (constant_a <= y);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = -6;\n  result = (constant_a <= y);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = -5;\n  result = (constant_a <= y);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = -4;\n  result = (constant_a <= y);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = -3;\n  result = (constant_a <= y);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = -2;\n  result = (constant_a <= y);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = -1;\n  result = (constant_a <= y);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = 0;\n  result = (constant_a <= y);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = 1;\n  result = (constant_a <= y);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = 2;\n  result = (constant_a <= y);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = 3;\n  result = (constant_a <= y);\n"
     ]
   },
   {
@@ -155,24 +155,24 @@
     "lid": "L816",
     "patch": "(y != constant_a)",
     "codes": [
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = -10;\n  result = (y != constant_a);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = -9;\n  result = (y != constant_a);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = -8;\n  result = (y != constant_a);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = -7;\n  result = (y != constant_a);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = -6;\n  result = (y != constant_a);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = -5;\n  result = (y != constant_a);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = -4;\n  result = (y != constant_a);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = -3;\n  result = (y != constant_a);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = -2;\n  result = (y != constant_a);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = -1;\n  result = (y != constant_a);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = 0;\n  result = (y != constant_a);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = 1;\n  result = (y != constant_a);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = 2;\n  result = (y != constant_a);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = 4;\n  result = (y != constant_a);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = 5;\n  result = (y != constant_a);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = 7;\n  result = (y != constant_a);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = 8;\n  result = (y != constant_a);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = 10;\n  result = (y != constant_a);\n"
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = -10;\n  result = (y != constant_a);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = -9;\n  result = (y != constant_a);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = -8;\n  result = (y != constant_a);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = -7;\n  result = (y != constant_a);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = -6;\n  result = (y != constant_a);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = -5;\n  result = (y != constant_a);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = -4;\n  result = (y != constant_a);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = -3;\n  result = (y != constant_a);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = -2;\n  result = (y != constant_a);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = -1;\n  result = (y != constant_a);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = 0;\n  result = (y != constant_a);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = 1;\n  result = (y != constant_a);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = 2;\n  result = (y != constant_a);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = 4;\n  result = (y != constant_a);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = 5;\n  result = (y != constant_a);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = 7;\n  result = (y != constant_a);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = 8;\n  result = (y != constant_a);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = 10;\n  result = (y != constant_a);\n"
     ]
   },
   {
@@ -180,26 +180,26 @@
     "lid": "L816",
     "patch": "(constant_a != x)",
     "codes": [
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = -10;\n  result = (constant_a != x);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = -9;\n  result = (constant_a != x);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = -8;\n  result = (constant_a != x);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = -7;\n  result = (constant_a != x);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = -6;\n  result = (constant_a != x);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = -5;\n  result = (constant_a != x);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = -4;\n  result = (constant_a != x);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = -3;\n  result = (constant_a != x);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = -2;\n  result = (constant_a != x);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = -1;\n  result = (constant_a != x);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = 1;\n  result = (constant_a != x);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = 2;\n  result = (constant_a != x);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = 3;\n  result = (constant_a != x);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = 4;\n  result = (constant_a != x);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = 5;\n  result = (constant_a != x);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = 6;\n  result = (constant_a != x);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = 7;\n  result = (constant_a != x);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = 8;\n  result = (constant_a != x);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = 9;\n  result = (constant_a != x);\n",
-      "  int x = rvals[0];\n  int y = rvals[1];\n  int constant_a = 10;\n  result = (constant_a != x);\n"
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = -10;\n  result = (constant_a != x);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = -9;\n  result = (constant_a != x);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = -8;\n  result = (constant_a != x);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = -7;\n  result = (constant_a != x);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = -6;\n  result = (constant_a != x);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = -5;\n  result = (constant_a != x);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = -4;\n  result = (constant_a != x);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = -3;\n  result = (constant_a != x);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = -2;\n  result = (constant_a != x);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = -1;\n  result = (constant_a != x);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = 1;\n  result = (constant_a != x);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = 2;\n  result = (constant_a != x);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = 3;\n  result = (constant_a != x);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = 4;\n  result = (constant_a != x);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = 5;\n  result = (constant_a != x);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = 6;\n  result = (constant_a != x);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = 7;\n  result = (constant_a != x);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = 8;\n  result = (constant_a != x);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = 9;\n  result = (constant_a != x);\n",
+      "  long long x = rvals[0];\n  long long y = rvals[1];\n  long long constant_a = 10;\n  result = (constant_a != x);\n"
     ]
   }
 ]

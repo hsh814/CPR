@@ -185,6 +185,16 @@ def move_files(meta_data: dict, experiments: str, patches: str):
       print(f"cp {exp_dir}/results/output/patch-set-ranked {pat_dir}/patch-set-ranked")
       os.system(f"cp {exp_dir}/results/output/patch-set-ranked {pat_dir}/patch-set-ranked")
 
+def search_files(meta_data: dict, patches: str):
+  for meta in meta_data:
+    bug_id = meta["bug_id"]
+    benchmark = meta["benchmark"]
+    subject = meta["subject"]
+    id = meta["id"]
+    pat_dir = os.path.join(patches, benchmark, subject, bug_id)
+    if not os.path.exists(f'{pat_dir}/patch-set-ranked'):
+      print(f"Patch file does not exist: id ({id}) {pat_dir}/patch-set-ranked")
+
 def main(args: List[str]):
   if len(args) != 3:
     print("Usage: patch.py <opt> <patch-dir>")
@@ -216,6 +226,8 @@ def main(args: List[str]):
     sys.exit(0)
   with open(os.path.join(patch_dir, "meta-data.json"), "r") as f:
     meta_data = json.load(f)
+  # search_files(meta_data, patch_dir)
+  # exit(0)
   for meta in meta_data:
     bug_id = meta["bug_id"]
     benchmark = meta["benchmark"]
