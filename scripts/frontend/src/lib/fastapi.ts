@@ -10,9 +10,11 @@ export const fastapi = (method: string, _url: string, params: Record<string, any
     if (method === 'POST') {
         init.body = body;
     } else {
-        url += '?' + new URLSearchParams(params).toString();
+        if (Object.keys(params).length > 0) {
+            url += '?' + new URLSearchParams(params).toString();
+        }
     }
-
+    console.log("fastapi: fetch " + url);
     fetch(url, init)
         .then((response) => {
             if (response.ok) {

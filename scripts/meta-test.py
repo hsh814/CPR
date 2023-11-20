@@ -29,24 +29,37 @@ class GloablConfig:
   patch_dir: str
   meta_data_file: str
   meta_data: dict
+  meta_data_indexed: dict
   def __init__(self):
     self.root_dir = ROOT_DIR
     self.patch_dir = os.path.join(self.root_dir, "patches")
     self.meta_data_file = os.path.join(self.patch_dir, "meta-data.json")
     with open(self.meta_data_file, "r") as f:
       self.meta_data = json.load(f)
+    self.meta_data_indexed = dict()
+    for data in self.meta_data:
+      self.meta_data_indexed[data["id"]] = data
   def get_meta_data_list(self) -> List[dict]:
     return self.meta_data
   def get_meta_data_info(self, id: str) -> dict:
-    for data in self.meta_data:
-      if str(data["id"]) == id:
-        conf_files = ConfigFiles()
-        conf_files.set(data)
-        result = dict()
-        result['conf'] = conf_files.read_conf_file()
-        result['meta-program'] = conf_files.read_meta_program()
-        return result
+    if int(id) in self.meta_data_indexed:
+      data = self.meta_data_indexed[int(id)]
+      conf_files = ConfigFiles()
+      conf_files.set(data)
+      result = dict()
+      result['meta'] = data
+      result['conf'] = conf_files.read_conf_file()
+      result['meta_program'] = conf_files.read_meta_program()
+      return result
     return dict()
+  def get_config_for_analyzer(self, id: int, prefix: str) -> 'Config':
+    if id in self.meta_data_indexed:
+      data = self.meta_data_indexed[id]
+      config = Config("analyze", f"{data['bug_id']}:buggy", False, "0", "0")
+      config.init("buggy", False, "", "w")
+      config.conf_files.set_out_dir("", prefix, data, "snapshot")
+      return config
+    return None      
 
 global_config = GloablConfig()
 
@@ -134,6 +147,7 @@ class ConfigFiles:
         continue
       index += 1
       result.append((d, index))
+    print(result)
     return result
 
   def read_conf_file(self) -> dict:

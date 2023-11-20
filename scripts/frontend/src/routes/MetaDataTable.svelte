@@ -21,7 +21,7 @@
     {#each data as item (item.id)}
       <tr>
         <td>{item.id}</td>
-        <td>{item.bug_id}</td>
+        <td><a href="/benchmark?id={item.id}">{item.bug_id}</a></td>
         <td>{item.benchmark}</td>
         <td>{item.subject}</td>
         <td>{item.vars ? item.vars.join(', ') : ''}</td>
