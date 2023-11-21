@@ -21,6 +21,8 @@
 	},
 	"type": "module",
 	"dependencies": {
-		"marked": "^10.0.0"
+		"graphology": "^0.25.4",
+		"marked": "^10.0.0",
+		"sigma": "^3.0.0-alpha3"
 	}
 }

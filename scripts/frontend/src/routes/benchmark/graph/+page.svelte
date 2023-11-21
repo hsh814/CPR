@@ -2,6 +2,7 @@
   import { fastapi } from '$lib/fastapi';
   import type { Metadata } from '$lib/metadata';
   import {onMount} from 'svelte';
+  import Graph from './Graph.svelte'
   interface dir_type { id: string, full: string };
   const urlSearchParams = new URLSearchParams(window.location.search);
   let data = {id: parseInt(urlSearchParams.get('id') || '0')};
@@ -87,5 +88,5 @@
   {/each}
 </ul>
 
-
+<Graph />
 
