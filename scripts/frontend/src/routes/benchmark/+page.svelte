@@ -2,12 +2,15 @@
   import { fastapi } from '$lib/fastapi';
   import type { Metadata } from '$lib/metadata';
   import {onMount} from 'svelte';
-
-  let message: string = "invalid string";
-  let data: { id: number } = {id: 0};
+  import ResultTable from './ResultTable.svelte';
+  interface dir_type { id: string, full: string };
+  const urlSearchParams = new URLSearchParams(window.location.search);
+  let data = {id: parseInt(urlSearchParams.get('id') || '0')};
   let meta_data: Metadata;
-  let out_dirs: string[] = [];
+  let out_dirs: dir_type[] = [];
+  let result_table: {table: string} = {table: ""};
   let user_prefix = "uni-m-out";
+  let show_result_table = false;
 
   const get_meta_data = (id: number) => {
     console.log("get_meta_data" + id);
@@ -20,43 +23,74 @@
   const handle_error = (error: any) => {
     console.log(error);
   }
-  const get_message = (data: {message: string}) => {
-    message = data.message;
-  }
 
   const get_out_dirs = (id: number, prefix: string) => {
     console.log("get_out_dirs" + id);
-    fastapi("GET", "/meta-data/out-dir/", {id: id, prefix: prefix}, (dirs: string[]) => {
+    fastapi("GET", "/meta-data/out-dir/", {id: id, prefix: prefix}, (dirs: dir_type[]) => {
       console.log("get_out_dirs: " + JSON.stringify(dirs));
       out_dirs = dirs;
     }, handle_error);
   }
 
-  // fastapi("GET", "/hello", {}, get_message, handle_error);
-  // fastapi("GET", "/meta-data/list", {}, get_meta_data, handle_error);
-  onMount(() => {
-    const urlSearchParams = new URLSearchParams(window.location.search);
-    data = {id: parseInt(urlSearchParams.get('id') || '0')};
-    get_meta_data(data.id);
-  })
-
-  $: {
-    if (meta_data) {
-      console.log("meta_data is updated: " + meta_data.bug_id);
-    }
+  const handle_click_out_dir = (full_path: string) => {
+    const data_log_parser_url = "/meta-data/data-log-parser";
+    const params = { dir: full_path };
+    fastapi("GET", data_log_parser_url, params, handle_log_parser_response, handle_error)
   }
+
+  const handle_log_parser_response = (result: {table: string}) => {
+    result_table = result;
+    show_result_table = true;
+  }
+
+  get_meta_data(data.id);
 
 </script>
 
+<style>
+  /* Add your styling here */
+  .button-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .button-list-item {
+    margin-bottom: 8px;
+  }
+
+  .button-list-item button {
+    display: block;
+    width: 100%;
+    padding: 8px;
+    text-align: left;
+    background-color: #f0f0f0; /* Background color */
+    border: 1px solid #ddd;   /* Border color */
+    border-radius: 4px;       /* Rounded corners */
+    cursor: pointer;
+  }
+
+  .button-list-item button:hover {
+    background-color: #ddd;   /* Change background color on hover */
+  }
+</style>
+
 <h1>Web UI of uni-klee</h1>
-<p> Test Test </p>
-<h2>{message}</h2>
-<h2>Data is {data.id}</h2>
+<h2>Id: {data.id}</h2>
 <h3>Bug id is {meta_data ? meta_data.bug_id : ''}</h3>
+{#if show_result_table}
+  <ResultTable data={result_table} />
+{/if}
+
 <input type="text" bind:value={user_prefix} />
 <button on:click={() => get_out_dirs(data.id, user_prefix)}>Get Out Dirs</button>
-{#each out_dirs as out_dir}
-  <p>{out_dir}</p>
-{/each}
+<ul class="button-list">
+  {#each out_dirs as out_dir}
+    <li class="button-list-item">
+      <button on:click={() => handle_click_out_dir(out_dir.full)}>{out_dir.id}</button>
+    </li>
+  {/each}
+</ul>
+
 
 
