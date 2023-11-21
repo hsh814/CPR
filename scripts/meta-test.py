@@ -359,6 +359,8 @@ class Runner:
 
 class DataLogParser:
   dir: str
+  fork_map_nodes: Set[int]
+  fork_map_edges: Set[Tuple[int, int, str]]
   fork_map: Dict[int, List[int]]
   fork_graph: Dict[int, List[int]]
   state_type_map: Dict[int, str]
@@ -367,6 +369,8 @@ class DataLogParser:
   merge_patch_map: Dict[int, int]
   def __init__(self, dir: str):
     self.dir = dir
+    self.fork_map_nodes = set()
+    self.fork_map_edges = set()
     self.fork_map = dict()
     self.fork_graph = dict()
     self.state_type_map = dict()
@@ -445,6 +449,9 @@ class DataLogParser:
     if source_state not in self.fork_graph:
       self.fork_graph[source_state] = list()
     self.fork_graph[source_state].append(target_state)
+    self.fork_map_nodes.add(source_state)
+    self.fork_map_nodes.add(target_state)
+    self.fork_map_edges.add((source_state, target_state, "fork"))
   def add_fork_map(self, line: str):
     # [fork-map] [fork] [state 1] 1 [base 0] 1 [state 5] 1 [fork-count 5/-1]
     # fork_map_pattern = r"\[fork-map\] \[fork\] \[state (\d+)\] (\d+) \[base (\d+)\] (\d+) \[state (\d+)\] (\d+) \[fork-count .+\]"
@@ -460,6 +467,9 @@ class DataLogParser:
       state = self.parse_state_id(tokens[2])
       base_state = self.parse_state_id(tokens[4], "base")
       forked_state = self.parse_state_id(tokens[6])
+      self.fork_map_nodes.add(state)
+      self.fork_map_nodes.add(forked_state)
+      self.fork_map_edges.add((state, forked_state, "fork"))
       if base_state not in self.fork_map:
         self.fork_map[base_state] = list()
       self.fork_map[base_state].append(forked_state)
@@ -476,6 +486,9 @@ class DataLogParser:
         self.merge_edge_map[source_state] = list()
       self.merge_edge_map[source_state].append(target_state)
       self.merge_patch_map[target_state] = patch_id
+      self.fork_map_nodes.add(source_state)
+      self.fork_map_nodes.add(target_state)
+      self.fork_map_edges.add((source_state, target_state, "merge"))
   def add_regression(self, line: str):
     # reg_pattern = r"\[regression\] \[state (\d+)\] \[([^\]]*)\]"
     tokens = self.parser_level_1(line)
@@ -658,10 +671,69 @@ class DataLogParser:
     if format in {"all", "pdf"}:
       dot.render(name, self.dir, view=False, format="pdf")
     # dot.attr(size="10,10")
+  # nodes: List[{key: int, attributes: Dict[str, any]}]
+  # edges: List[{key: str, source: int, target: int, attributes: Dict[str, any]}]
+  def draw_graph(self, nodes: List[Dict[str, any]], edges: List[Dict[str, any]], name: str, format: str = "all"):
+    dot = graphviz.Digraph()
+    for node in nodes:
+      key = node["key"]
+      attributes = node["attributes"]
+      dot.node(str(key), **attributes)
+    for edge in edges:
+      key = edge["key"]
+      source = edge["source"]
+      target = edge["target"]
+      attributes = edge["attributes"]
+      dot.edge(str(source), str(target), **attributes)
+    if format in {"all", "svg"}:
+      dot.render(name, self.dir, view=False, format="svg")
+    if format in {"all", "png"}:
+      dot.render(name, self.dir, view=False, format="png")
+    if format in {"all", "pdf"}:
+      dot.render(name, self.dir, view=False, format="pdf")
+  def generate_fork_graph_v2(self) -> Tuple[List[Dict[str, any]], List[Dict[str, any]]]:
+    nodes: List[Dict[str, any]] = list()
+    edges: List[Dict[str, any]] = list()
+    for node in self.fork_map_nodes:
+      if node in self.meta_data:
+        meta_data = self.meta_data[node]
+        state_type = meta_data["stateType"]
+        if state_type == '4':
+          nodes.append({"key": node, "attributes": {"style": "filled", "fillcolor": "blue"}})
+        elif state_type == '2':
+          nodes.append({"key": node, "attributes": {"style": "filled", "fillcolor": "green"}})
+        elif state_type == '1':
+          nodes.append({"key": node, "attributes": {"style": "filled", "fillcolor": "red"}})
+      else:
+        nodes.append({"key": node, "attributes": {"style": "filled", "fillcolor": "white"}})
+    for source, target, edge_type in self.fork_map_edges:
+      attributes = {"style": "solid", "color": "black"}
+      if edge_type == "merge":
+        attributes = {"style": "dashed", "color": "red", "label": f"patch {self.merge_patch_map[target]}"}
+      edges.append({"key": f"{edge_type[0]}{source}-{target}", "source": source, "target": target, "attributes": attributes})
+    return (nodes, edges)
+  def generate_input_graph(self):
+    nodes: List[Dict[str, any]] = list()
+    edges: List[Dict[str, any]] = list()
+    nodes_set: Set[int] = set()
+    for node in self.fork_map_nodes:
+      if node in self.meta_data:
+        meta_data = self.meta_data[node]
+        if meta_data["stateType"] == "2":
+          with open(os.path.join(self.dir, f"test{node:06d}.input")) as f:
+            input_data = json.load(f)
+          nodes_set.add(node)
+          nodes.append({"key": node, "attributes": {"style": "filled", "fillcolor": "green"}, "data": input_data})
+    for source, target, edge_type in self.fork_map_edges:
+      if edge_type == "fork" and source in nodes_set:
+        edges.append({"key": f"f{source}-{target}", "source": source, "target": target, "attributes": {"style": "solid", "color": "black"}})
+    return (nodes, edges)
   def generate(self):
     self.read_data_log("data.log")
     result_table = self.generate_table(self.cluster())
-    self.generate_fork_graph("fork-graph")
+    # self.generate_fork_graph("fork-graph")
+    nodes, edges = self.generate_fork_graph_v2()
+    self.draw_graph(nodes, edges, "fork-graph")
     print(f"Saved table to {result_table}")
     
         

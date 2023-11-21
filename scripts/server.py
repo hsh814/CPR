@@ -31,6 +31,9 @@ def read_root():
 @app.get("/benchmark")
 def read_benchmark():
     return FileResponse("frontend/build/benchmark.html")
+@app.get("/benchmark/{path}")
+def read_benchmark_path(path: str):
+    return FileResponse(f"frontend/build/benchmark/{path}.html")
 
 # APIs
 @app.get("/meta-data/list")
@@ -63,7 +66,11 @@ def meta_data_data_log_parser(dir: str = Query("")):
     result_table = dp.generate_table(dp.cluster())
     with open(result_table, "r") as f:
         result = f.read()
-    return {"table": result}
+    fork_map_nodes, fork_map_edges = dp.generate_fork_graph_v2()
+    input_map_nodes, input_map_edges = dp.generate_input_graph()
+    return {"table": result, 
+            "fork_graph": {"nodes": fork_map_nodes, "edges": fork_map_edges}, 
+            "input_graph": {"nodes": input_map_nodes, "edges": input_map_edges}}
 
 
 @app.get("/analyze")
