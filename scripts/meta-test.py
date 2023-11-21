@@ -570,7 +570,7 @@ class DataLogParser:
         if is_crash and not data["actuallyCrashed"]:
           removed_if_infeasible.append({"id": data["state"], "patch": data["patchId"]})
     return result
-  def generate_table(self, cluster: Dict[int, list]):
+  def generate_table(self, cluster: Dict[int, list]) -> str:
     def to_str(patch: int, state: int) -> str:
       return f"{patch} ({state})"
     def list_to_str(l: list) -> str:
@@ -624,7 +624,8 @@ class DataLogParser:
           reg = data["lazyTrace"] if "lazyTrace" in data else ""
           st = data["stackTrace"] if "stackTrace" in data else ""
           md.write(f"| {data['state']} | {data['patchId']} | {data['stateType']} | {data['isCrash']} | {data['actuallyCrashed']} | [{reg}] | {data['exit']} | {st} |\n")
-  def generate_fork_graph(self, name: str):
+    return os.path.join(self.dir, "table.md")
+  def generate_fork_graph(self, name: str, format: str = "all"):
     dot = graphviz.Digraph()
     done = set(self.meta_data.keys())
     for state in done:
@@ -650,15 +651,18 @@ class DataLogParser:
     for source, targets in self.fork_graph.items():
       for target in targets:
         dot.edge(str(source), str(target))
-    dot.render(name, self.dir, view=False, format="svg")
-    dot.render(name, self.dir, view=False, format="png")
-    dot.render(name, self.dir, view=False, format="pdf")
+    if format in {"all", "svg"}:
+      dot.render(name, self.dir, view=False, format="svg")
+    if format in {"all", "png"}:
+      dot.render(name, self.dir, view=False, format="png")
+    if format in {"all", "pdf"}:
+      dot.render(name, self.dir, view=False, format="pdf")
     # dot.attr(size="10,10")
   def generate(self):
     self.read_data_log("data.log")
-    self.generate_table(self.cluster())
+    result_table = self.generate_table(self.cluster())
     self.generate_fork_graph("fork-graph")
-    print(f"Saved table to {os.path.join(self.dir, 'table.md')}")
+    print(f"Saved table to {result_table}")
     
         
 

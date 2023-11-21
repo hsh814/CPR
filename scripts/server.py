@@ -24,10 +24,15 @@ class Item(BaseModel):
     price: float
     is_offer: Optional[bool] = None
 
+# Serve static files from frontend/build
 @app.get("/")
 def read_root():
     return FileResponse("frontend/build/index.html")
+@app.get("/benchmark")
+def read_benchmark():
+    return FileResponse("frontend/build/benchmark.html")
 
+# APIs
 @app.get("/meta-data/list")
 def meta_data_list():
     return meta_test.global_config.get_meta_data_list()
@@ -42,7 +47,24 @@ def meta_data_out_dir(id: int = Query(0), prefix = Query("uni-m-out")):
     print(f"meta_data_out_dir: {id} & {prefix}")
     config = meta_test.global_config.get_config_for_analyzer(id, prefix)
     print(f"meta_data_out_dir: {config.conf_files.out_base_dir}, {config.conf_files.out_dir_prefix}")
-    return config.conf_files.find_all_nums(config.conf_files.out_base_dir, config.conf_files.out_dir_prefix)
+    dirs = config.conf_files.find_all_nums(config.conf_files.out_base_dir, config.conf_files.out_dir_prefix)
+    result = list()
+    for dir, id in dirs:
+        result.append({"id": dir, "full": os.path.join(config.conf_files.out_base_dir, dir)})
+    return result
+
+@app.get("/meta-data/data-log-parser")
+def meta_data_data_log_parser(dir: str = Query("")):
+    print(f"meta_data_data_log_parser: {dir}")
+    if not os.path.exists(dir):
+        return {"table": ""}
+    dp = meta_test.DataLogParser(dir)
+    dp.read_data_log("data.log")
+    result_table = dp.generate_table(dp.cluster())
+    with open(result_table, "r") as f:
+        result = f.read()
+    return {"table": result}
+
 
 @app.get("/analyze")
 def analyze():
