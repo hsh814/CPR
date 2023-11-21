@@ -1,12 +1,13 @@
 <script lang='ts'>
   import { fastapi } from '$lib/fastapi';
   import type { Metadata } from '$lib/metadata';
-  import { resultStore } from '$lib/store';
+  import {onMount} from 'svelte';
   interface dir_type { id: string, full: string };
   const urlSearchParams = new URLSearchParams(window.location.search);
   let data = {id: parseInt(urlSearchParams.get('id') || '0')};
   let meta_data: Metadata;
   let out_dirs: dir_type[] = [];
+  let result_table: {table: string} = {table: ""};
   let user_prefix = "uni-m-out";
   let show_result_table = false;
 
@@ -37,7 +38,7 @@
   }
 
   const handle_log_parser_response = (result: {table: string}) => {
-    resultStore.set(result);
+    result_table = result;
     show_result_table = true;
   }
 
@@ -76,12 +77,6 @@
 <h1>Web UI of uni-klee</h1>
 <h2>Id: {data.id}</h2>
 <h3>Bug id is {meta_data ? meta_data.bug_id : ''}</h3>
-{#if show_result_table}
-  <div class="result-table">
-    <a href="/benchmark/table">Goto result table</a>
-  </div>
-{/if}
-
 <input type="text" bind:value={user_prefix} />
 <button on:click={() => get_out_dirs(data.id, user_prefix)}>Get Out Dirs</button>
 <ul class="button-list">
