@@ -671,18 +671,19 @@ class DataLogParser:
     if format in {"all", "pdf"}:
       dot.render(name, self.dir, view=False, format="pdf")
     # dot.attr(size="10,10")
-  # nodes: List[{key: int, attributes: Dict[str, any]}]
-  # edges: List[{key: str, source: int, target: int, attributes: Dict[str, any]}]
+  # nodes: List[{id: int, attributes: Dict[str, any]}]
+  # edges: List[{id: str, source: int, target: int, attributes: Dict[str, any]}]
   def draw_graph(self, nodes: List[Dict[str, any]], edges: List[Dict[str, any]], name: str, format: str = "all"):
     dot = graphviz.Digraph()
     for node in nodes:
-      key = node["key"]
+      key = node["data"]["id"]
       attributes = node["attributes"]
       dot.node(str(key), **attributes)
     for edge in edges:
-      key = edge["key"]
-      source = edge["source"]
-      target = edge["target"]
+      data = edge["data"]
+      key = data["id"]
+      source = data["source"]
+      target = data["target"]
       attributes = edge["attributes"]
       dot.edge(str(source), str(target), **attributes)
     if format in {"all", "svg"}:
@@ -691,6 +692,10 @@ class DataLogParser:
       dot.render(name, self.dir, view=False, format="png")
     if format in {"all", "pdf"}:
       dot.render(name, self.dir, view=False, format="pdf")
+  def get_node(self, id: int, extra: dict = None) -> dict:
+    return {"id": str(id), "extra": extra}
+  def get_edge(self, source: int, target: int, edge_type: str) -> dict:
+    return {"id": f"{edge_type[0]}{source}-{target}", "source": source, "target": target}
   def generate_fork_graph_v2(self) -> Tuple[List[Dict[str, any]], List[Dict[str, any]]]:
     nodes: List[Dict[str, any]] = list()
     edges: List[Dict[str, any]] = list()
@@ -699,18 +704,18 @@ class DataLogParser:
         meta_data = self.meta_data[node]
         state_type = meta_data["stateType"]
         if state_type == '4':
-          nodes.append({"key": node, "attributes": {"style": "filled", "fillcolor": "blue"}})
+          nodes.append({"data": self.get_node(node), "attributes": {"style": "filled", "fillcolor": "blue"}})
         elif state_type == '2':
-          nodes.append({"key": node, "attributes": {"style": "filled", "fillcolor": "green"}})
+          nodes.append({"data": self.get_node(node), "attributes": {"style": "filled", "fillcolor": "green"}})
         elif state_type == '1':
-          nodes.append({"key": node, "attributes": {"style": "filled", "fillcolor": "red"}})
+          nodes.append({"data": self.get_node(node), "attributes": {"style": "filled", "fillcolor": "red"}})
       else:
-        nodes.append({"key": node, "attributes": {"style": "filled", "fillcolor": "white"}})
+        nodes.append({"data": self.get_node(node), "attributes": {"style": "filled", "fillcolor": "white"}})
     for source, target, edge_type in self.fork_map_edges:
       attributes = {"style": "solid", "color": "black"}
       if edge_type == "merge":
         attributes = {"style": "dashed", "color": "red", "label": f"patch {self.merge_patch_map[target]}"}
-      edges.append({"key": f"{edge_type[0]}{source}-{target}", "source": source, "target": target, "attributes": attributes})
+      edges.append({"data": self.get_edge(source, target, edge_type), "attributes": attributes})
     return (nodes, edges)
   def generate_input_graph(self):
     nodes: List[Dict[str, any]] = list()
@@ -722,11 +727,13 @@ class DataLogParser:
         if meta_data["stateType"] == "2":
           with open(os.path.join(self.dir, f"test{node:06d}.input")) as f:
             input_data = json.load(f)
-          nodes_set.add(node)
-          nodes.append({"key": node, "attributes": {"style": "filled", "fillcolor": "green"}, "data": input_data})
+            nodes_set.add(node)
+            nodes.append({"data": self.get_node(node, input_data), "classes": ["base"], 
+                          "attributes": {"style": "filled", "fillcolor": "green"}})
     for source, target, edge_type in self.fork_map_edges:
-      if edge_type == "fork" and source in nodes_set:
-        edges.append({"key": f"f{source}-{target}", "source": source, "target": target, "attributes": {"style": "solid", "color": "black"}})
+      if edge_type == "fork" and source in nodes_set and target in nodes_set:
+        edges.append({"data": self.get_edge(source, target, edge_type), "classes": ["base_edge"],
+                      "attributes": {"style": "solid", "color": "black"}})
     return (nodes, edges)
   def generate(self):
     self.read_data_log("data.log")
@@ -734,6 +741,8 @@ class DataLogParser:
     # self.generate_fork_graph("fork-graph")
     nodes, edges = self.generate_fork_graph_v2()
     self.draw_graph(nodes, edges, "fork-graph")
+    nodes, edges = self.generate_input_graph()
+    self.draw_graph(nodes, edges, "input-graph", "png")
     print(f"Saved table to {result_table}")
     
         
