@@ -1,8 +1,14 @@
 <script lang='ts'>
   import { fastapi } from '$lib/fastapi';
   import type { Metadata } from '$lib/metadata';
-  import { resultStore } from '$lib/store';
+  import { graphStore, resultStore } from '$lib/store';
+  import type { NodeType, EdgeType, GraphType } from '$lib/graph_api';
   interface dir_type { id: string, full: string };
+  interface log_parser_result {
+    table: string, 
+    fork_graph: GraphType,
+    input_graph: GraphType,
+  };
   const urlSearchParams = new URLSearchParams(window.location.search);
   let data = {id: parseInt(urlSearchParams.get('id') || '0')};
   let meta_data: Metadata;
@@ -36,8 +42,9 @@
     fastapi("GET", data_log_parser_url, params, handle_log_parser_response, handle_error)
   }
 
-  const handle_log_parser_response = (result: {table: string}) => {
-    resultStore.set(result);
+  const handle_log_parser_response = (result: log_parser_result) => {
+    resultStore.set({table: result.table});
+    graphStore.set(result.input_graph);
     show_result_table = true;
   }
 
@@ -79,6 +86,9 @@
 {#if show_result_table}
   <div class="result-table">
     <a href="/benchmark/table">Goto result table</a>
+  </div>
+  <div class="graph">
+    <a href="/benchmark/graph">Goto graph</a>
   </div>
 {/if}
 

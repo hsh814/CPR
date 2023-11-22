@@ -1,92 +1,17 @@
 <script lang='ts'>
   import { fastapi } from '$lib/fastapi';
-  import type { Metadata } from '$lib/metadata';
   import {onMount} from 'svelte';
   import Graph from './Graph.svelte'
-  interface dir_type { id: string, full: string };
-  const urlSearchParams = new URLSearchParams(window.location.search);
-  let data = {id: parseInt(urlSearchParams.get('id') || '0')};
-  let meta_data: Metadata;
-  let out_dirs: dir_type[] = [];
-  let result_table: {table: string} = {table: ""};
-  let user_prefix = "uni-m-out";
-  let show_result_table = false;
-
-  const get_meta_data = (id: number) => {
-    console.log("get_meta_data" + id);
-    fastapi("GET", "/meta-data/info/" + id, {}, (data: {meta: Metadata, conf: object, meta_program: object}) => {
-      console.log("get_meta_data: " + JSON.stringify(data));
-      meta_data = data.meta;
-    }, handle_error);
-  }
-
-  const handle_error = (error: any) => {
-    console.log(error);
-  }
-
-  const get_out_dirs = (id: number, prefix: string) => {
-    console.log("get_out_dirs" + id);
-    fastapi("GET", "/meta-data/out-dir/", {id: id, prefix: prefix}, (dirs: dir_type[]) => {
-      console.log("get_out_dirs: " + JSON.stringify(dirs));
-      out_dirs = dirs;
-    }, handle_error);
-  }
-
-  const handle_click_out_dir = (full_path: string) => {
-    const data_log_parser_url = "/meta-data/data-log-parser";
-    const params = { dir: full_path };
-    fastapi("GET", data_log_parser_url, params, handle_log_parser_response, handle_error)
-  }
-
-  const handle_log_parser_response = (result: {table: string}) => {
-    result_table = result;
-    show_result_table = true;
-  }
-
-  get_meta_data(data.id);
-
+  import type { NodeType, EdgeType, GraphType } from '$lib/graph_api'
+  import { graphStore } from '$lib/store';
+  let graph_data: GraphType;
+  graphStore.subscribe(value => {
+    graph_data = value;
+  });
 </script>
 
-<style>
-  /* Add your styling here */
-  .button-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-  }
-
-  .button-list-item {
-    margin-bottom: 8px;
-  }
-
-  .button-list-item button {
-    display: block;
-    width: 100%;
-    padding: 8px;
-    text-align: left;
-    background-color: #f0f0f0; /* Background color */
-    border: 1px solid #ddd;   /* Border color */
-    border-radius: 4px;       /* Rounded corners */
-    cursor: pointer;
-  }
-
-  .button-list-item button:hover {
-    background-color: #ddd;   /* Change background color on hover */
-  }
-</style>
-
 <h1>Web UI of uni-klee</h1>
-<h2>Id: {data.id}</h2>
-<h3>Bug id is {meta_data ? meta_data.bug_id : ''}</h3>
-<input type="text" bind:value={user_prefix} />
-<button on:click={() => get_out_dirs(data.id, user_prefix)}>Get Out Dirs</button>
-<ul class="button-list">
-  {#each out_dirs as out_dir}
-    <li class="button-list-item">
-      <button on:click={() => handle_click_out_dir(out_dir.full)}>{out_dir.id}</button>
-    </li>
-  {/each}
-</ul>
 
-<Graph />
+
+<Graph graph_data={graph_data} />
 
