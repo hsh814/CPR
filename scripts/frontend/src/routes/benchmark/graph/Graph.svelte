@@ -1,9 +1,11 @@
 <script lang="ts">
   import cytoscape from 'cytoscape';
+  import cola from 'cytoscape-cola';
   import { onMount } from 'svelte';
   import { parse } from 'svelte/compiler';
   import type { GraphType, NodeType, EdgeType } from '$lib/graph_api';
   export let graph_data: GraphType;
+  cytoscape.use(cola);
   let container: HTMLElement;
   let selectedNodeScratch: any = null;
   const handle_click: cytoscape.EventHandler = (event: cytoscape.EventObject) => {
@@ -32,14 +34,17 @@
             'width': 3,
             'line-color': '#ccc',
             'target-arrow-color': '#ccc',
-            'target-arrow-shape': 'triangle'
+            'target-arrow-shape': 'vee',
+            'curve-style': 'bezier',
           }
         }
       ],
     });
     graph.on('tap', 'node', handle_click);
     // graph.nodes().once('tap', handle_click);
-    const layout = graph.layout({ name: 'grid' });
+    const layout = graph.layout({
+      name: 'cola',
+    });
     layout.run();
   });
 </script>
@@ -53,7 +58,7 @@
     border: solid 1px;
   }
   .sidebar {
-    width: 30%;
+    width: 40%;
     height: 100%;
     float: right;
     border: solid 1px;

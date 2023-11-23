@@ -16,7 +16,7 @@ export const fastapi = (method: string, _url: string, params: Record<string, any
     }
     console.log("fastapi: fetch " + url);
     fetch(url, init)
-        .then((response) => {
+        .then((response: Response) => {
             if (response.ok) {
                 return response.json();
             } else {
