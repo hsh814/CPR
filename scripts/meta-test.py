@@ -30,6 +30,7 @@ class GloablConfig:
   meta_data_file: str
   meta_data: dict
   meta_data_indexed: dict
+  log_dir: str
   def __init__(self):
     self.root_dir = ROOT_DIR
     self.patch_dir = os.path.join(self.root_dir, "patches")
@@ -39,9 +40,68 @@ class GloablConfig:
     self.meta_data_indexed = dict()
     for data in self.meta_data:
       self.meta_data_indexed[data["id"]] = data
+    self.log_dir = os.path.join(self.root_dir, "logs", ".meta-test")
+    os.makedirs(self.log_dir, exist_ok=True)
+  def get_bug_info(self, query: str) -> dict:
+    for data in self.meta_data:
+      bid = data["bug_id"]
+      benchmark = data["benchmark"]
+      subject = data["subject"]
+      id = data["id"]
+      if query == str(id):
+        return data
+      if query.lower() in bid.lower():
+        return data
+    return None
+  def get_id(self, query: str) -> int:
+    data = self.get_bug_info(query)
+    if data is None:
+      return -1
+    return data["id"]
+  def get_global_log_file(self) -> str:
+    return os.path.join(self.log_dir, "log")
+  def get_global_lock_file(self) -> str:
+    return os.path.join(self.log_dir, "lock")
+  def parse_query(self, query: str) -> str:
+    parsed: List[str] = None
+    if ":" in query:
+      parsed = query.rsplit(":", 1)
+    else:
+      parsed = query.rsplit("/", 1)
+    return parsed[0]
+  def get_last_command(self, id: int, limit: int = 10) -> List[str]:
+    log_file = self.get_global_log_file()
+    if not os.path.exists(log_file):
+      return list()
+    with open(log_file, "r") as f:
+      lines = f.readlines()
+    result = list()
+    for line in lines:
+      line = line.strip()
+      tokens = line.split()
+      if len(tokens) < 3:
+        continue
+      cmd = tokens[1]
+      if cmd in ["run", "rerun"]:
+        query = self.parse_query(tokens[2])
+        if id == self.get_id(query):
+          result.append(line)
+    return result[-limit:][::-1]
+  def get_current_processes(self) -> List[int]:
+    result = list()
+    files = os.listdir(self.log_dir)
+    for file in files:
+      if file.startswith("."):
+        continue
+      if file.startswith("log"):
+        continue
+      if file.startswith("lock"):
+        continue
+      result.append(self.get_id(file))
+    return result
   def get_meta_data_list(self) -> List[dict]:
     return self.meta_data
-  def get_meta_data_info(self, id: str) -> dict:
+  def get_meta_data_info_by_id(self, id: str) -> dict:
     if int(id) in self.meta_data_indexed:
       data = self.meta_data_indexed[int(id)]
       conf_files = ConfigFiles()
@@ -193,28 +253,6 @@ class Config:
   lock: str
   rerun: bool
   
-  def get_bug_info(self, bugid: str) -> dict:
-    def check_int(s: str) -> bool:
-      try:
-        int(s)
-        return True
-      except ValueError:
-        return False
-    num = -1
-    if check_int(bugid):
-      num = int(bugid)
-    for data in self.meta:
-      bid = data["bug_id"]
-      benchmark = data["benchmark"]
-      subject = data["subject"]
-      id = data["id"]
-      if num != -1:
-        if num == id:
-          return data
-      if bugid.lower() in bid.lower():
-        return data
-    return None
-  
   def get_patch_ids(self, patch_ids: list) -> List[str]:
     self.meta_program = self.conf_files.read_meta_program()
     result = list()
@@ -233,7 +271,7 @@ class Config:
     else:
       parsed = self.query.rsplit("/", 1)
     bugid = parsed[0]
-    self.bug_info = self.get_bug_info(bugid)
+    self.bug_info = global_config.get_bug_info(bugid)
     if self.bug_info is None:
       print(f"Cannot find patch for {self.query} - {bugid}")
       sys.exit(1)
@@ -349,13 +387,20 @@ class Runner:
       analyzer = Analyzer(self.config)
       analyzer.analyze()
       return
-    cmd = self.config.get_cmd_opts(True)
-    self.execute_snapshot(cmd, self.config.workdir)
-    if self.config.cmd != "snapshot":
-      cmd = self.config.get_cmd_opts(False)
-      self.execute(cmd, self.config.workdir, "uni-klee")
-      analyzer = Analyzer(self.config)
-      analyzer.analyze()
+    lock_file = self.config.conf_files.get_lock()
+    lock = acquire_lock(lock_file, self.config.lock)
+    try:
+      cmd = self.config.get_cmd_opts(True)
+      self.execute_snapshot(cmd, self.config.workdir)
+      if self.config.cmd != "snapshot":
+        cmd = self.config.get_cmd_opts(False)
+        self.execute(cmd, self.config.workdir, "uni-klee")
+        analyzer = Analyzer(self.config)
+        analyzer.analyze()
+    except Exception as e:
+      print(f"Exception: {e}")
+    finally:
+      release_lock(lock_file, lock)
 
 class DataLogParser:
   dir: str
@@ -1040,8 +1085,8 @@ def log(args: List[str]):
   if len(args) < 2:
     return
   cmd = args[1]
-  log_file = "logs/.meta-test/log"
-  lock_file = "logs/.meta-test/lock"
+  log_file = global_config.get_global_log_file()
+  lock_file = global_config.get_global_lock_file()
   if cmd == "log":
     if os.path.exists(log_file):
       with open(log_file, "r") as f:
@@ -1085,19 +1130,8 @@ def main(args: List[str]):
   os.chdir(root_dir)
   log(args)
   conf = arg_parser(args)
-  lock_file = conf.conf_files.get_lock()
-  if conf.cmd == "analyze":
-    runner = Runner(conf)
-    runner.run()
-    exit(0)
-  lock = acquire_lock(lock_file, conf.lock)
-  try:
-    runner = Runner(conf)
-    runner.run()
-  except Exception as e:
-    print(f"Error: {e}")
-  finally:
-    release_lock(lock_file, lock)
+  runner = Runner(conf)
+  runner.run()
 
 if __name__ == "__main__":
   main(sys.argv)
