@@ -4,6 +4,7 @@ from fastapi import FastAPI, Query, BackgroundTasks
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from starlette.responses import RedirectResponse, FileResponse
+import multiprocessing as mp
 
 import os
 import sys
@@ -73,20 +74,41 @@ def meta_data_data_log_parser(dir: str = Query("")):
             "input_graph": {"nodes": input_map_nodes, "edges": input_map_edges}}
 
 def run_cmd(cmd: List[str]):
-    final_cmd = ["meta-test.py"] + cmd + ["--lock=w"]
-    meta_test.main(final_cmd)
+    final_cmd = cmd
+    final_cmd[0] = "meta-test.py"
+    if "--lock=w" not in final_cmd:
+        final_cmd.append("--lock=w")
+    process = mp.Process(target=meta_test.main, args=(final_cmd,))
+    process.start()
+    process.join()
 
-@app.get("/meta-data/run/status")
+@app.get("/benchmark/run/status")
 def meta_data_run_status():
     return meta_test.global_config.get_current_processes()
 
-@app.get("/meta-data/run/cmds")
+@app.get("/benchmark/run/cmds")
 def meta_data_run_cmds(id: int = Query(0), limit: int = Query(10)):
     return meta_test.global_config.get_last_command(id, limit)
 
-@app.post("/meta-data/run")
-async def meta_data_run(cmd: List[str], background_tasks: BackgroundTasks):
-    background_tasks.add_task(run_cmd, cmd)
+@app.get("/benchmark/run/current")
+def meta_data_run_current(bug_id: str = Query(""), dir: str = Query("")):
+    if bug_id == "" or dir == "":
+        return {"message": "bug_id or dir is not provided", "running": False, "dir": ""}
+    lock_file = meta_test.global_config.get_lock_file(bug_id)
+    if not os.path.exists(lock_file):
+        return {"message": f"no running process {bug_id}", "running": False, "dir": ""}
+    with open(lock_file, "r") as f:
+        lines = f.readlines()
+        if len(lines) < 2:
+            return {"message": f"no running process {bug_id}", "running": False, "dir": ""}
+        return {"message": f"running process {bug_id}", "running": True, "dir": lines[2].strip()}
+    return {"message": f"no running process {bug_id}", "running": False, "dir": ""}
+
+@app.post("/benchmark/run")
+async def meta_data_run(cmd: Dict[str, str], background_tasks: BackgroundTasks):
+    if "cmd" not in cmd:
+        return {"message": "cmd is not provided"}
+    background_tasks.add_task(run_cmd, cmd["cmd"].split())
     return {"message": f"run {cmd} in background"}
 
 @app.get("/analyze")

@@ -62,6 +62,8 @@ class GloablConfig:
     return os.path.join(self.log_dir, "log")
   def get_global_lock_file(self) -> str:
     return os.path.join(self.log_dir, "lock")
+  def get_lock_file(self, bug_id: str) -> str:
+    return os.path.join(self.log_dir, bug_id)
   def parse_query(self, query: str) -> str:
     parsed: List[str] = None
     if ":" in query:
@@ -75,8 +77,10 @@ class GloablConfig:
       return list()
     with open(log_file, "r") as f:
       lines = f.readlines()
-    result = list()
-    for line in lines:
+    result = set()
+    for line in lines[::-1]:
+      if len(result) >= limit:
+        break
       line = line.strip()
       tokens = line.split()
       if len(tokens) < 3:
@@ -85,8 +89,8 @@ class GloablConfig:
       if cmd in ["run", "rerun"]:
         query = self.parse_query(tokens[2])
         if id == self.get_id(query):
-          result.append(line)
-    return result[-limit:][::-1]
+          result.add(line)
+    return list(result)
   def get_current_processes(self) -> List[int]:
     result = list()
     files = os.listdir(self.log_dir)
@@ -230,8 +234,6 @@ class ConfigFiles:
       return json.load(f)
   def get_log_dir(self) -> str:
     return os.path.join(self.root_dir, "logs", self.bid)
-  def get_lock(self) -> str:
-    return os.path.join(self.root_dir, "logs", ".meta-test", self.bid)
 
 
 class Config:
@@ -387,8 +389,8 @@ class Runner:
       analyzer = Analyzer(self.config)
       analyzer.analyze()
       return
-    lock_file = self.config.conf_files.get_lock()
-    lock = acquire_lock(lock_file, self.config.lock)
+    lock_file = global_config.get_lock_file(self.config.bug_info["bug_id"])
+    lock = acquire_lock(lock_file, self.config.lock, self.config.conf_files.out_dir)
     try:
       cmd = self.config.get_cmd_opts(True)
       self.execute_snapshot(cmd, self.config.workdir)
@@ -1047,7 +1049,7 @@ class TableGenerator:
                 md.write(f"| {data['id']} | {data['patch']} | {data['ret']} | {data['base_exit']} | {data['exit']} | {data['regression']} |\n")
             md.write("\n")   
 
-def acquire_lock(lock_file: str, lock_behavior: str) -> int:
+def acquire_lock(lock_file: str, lock_behavior: str, message: str = "") -> int:
   timeout = 10  # Maximum time (in seconds) to wait for the lock
   interval = 0.1  # Time (in seconds) between attempts
 
@@ -1056,7 +1058,7 @@ def acquire_lock(lock_file: str, lock_behavior: str) -> int:
     try:
       # Try to create a lock file (this will fail if the file already exists)
       lock_fd = os.open(lock_file, os.O_CREAT | os.O_EXCL | os.O_RDWR)
-      os.write(lock_fd, str(os.getpid()).encode("utf-8"))
+      os.write(lock_fd, f"{os.getpid()}\n{message}".encode("utf-8"))
       return lock_fd
     except FileExistsError:
       if lock_behavior == "w":
@@ -1069,7 +1071,8 @@ def acquire_lock(lock_file: str, lock_behavior: str) -> int:
       elif lock_behavior == "f":
         print("Force to kill the previous process and acquire the lock")
         with open(lock_file, "r") as f:
-          pid = int(f.read())
+          lines = f.readlines()
+          pid = int(lines[0].strip())
           os.kill(pid, signal.SIGKILL)
         os.remove(lock_file)
         continue
@@ -1096,7 +1099,7 @@ def log(args: List[str]):
           print(line.strip())
     exit(0)
   os.makedirs("logs/.meta-test", exist_ok=True)
-  lock = acquire_lock(lock_file, "w")
+  lock = acquire_lock(lock_file, "w", log_file)
   try:
     with open(log_file, "a") as f:
       f.write("meta-test.py " + " ".join(args[1:]) + "\n")
