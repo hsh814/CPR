@@ -71,7 +71,9 @@ def meta_data_data_log_parser(dir: str = Query("")):
     input_map_nodes, input_map_edges = dp.generate_input_graph()
     return {"table": result, 
             "fork_graph": {"nodes": fork_map_nodes, "edges": fork_map_edges}, 
-            "input_graph": {"nodes": input_map_nodes, "edges": input_map_edges}}
+            "input_graph": {"nodes": input_map_nodes, "edges": input_map_edges},
+            "result": dp.generate_table_v2(dp.cluster()),
+        }
 
 def run_cmd(cmd: List[str]):
     final_cmd = cmd

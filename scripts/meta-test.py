@@ -593,13 +593,12 @@ class DataLogParser:
         cluster_by_crash_id[crash_id] = list()
       cluster_by_crash_id[crash_id].append(data)
     return cluster_by_crash_id
-  def analyze_cluster(self, cluster: Dict[int, list]):
-    result: Dict[int, Tuple[List[Dict[str, int]], List[Dict[str, int]], List[Dict[str, int]]]] = dict()
+  def analyze_cluster(self, cluster: Dict[int, list]) -> Dict[int, Tuple[int, List[Dict[str, int]], List[Dict[str, int]], List[Dict[str, int]]]]:
+    result: Dict[int, Tuple[int, List[Dict[str, int]], List[Dict[str, int]], List[Dict[str, int]]]] = dict()
     for crash_id, data_list in cluster.items():
       removed = list()
       removed_if_feasible = list()
       removed_if_infeasible = list()
-      result[crash_id] = (removed, removed_if_feasible, removed_if_infeasible)
       # get base state
       base = data_list[0]
       for data in data_list:
@@ -607,6 +606,7 @@ class DataLogParser:
           base = data
           break
       is_crash = base["isCrash"]
+      result[crash_id] = (base["state"], removed, removed_if_feasible, removed_if_infeasible)
       # 0. remove most likely incorrect patches
       if not is_crash:
         for data in data_list:
@@ -641,14 +641,14 @@ class DataLogParser:
       md.write(f"| crashId | num | removed patch (state) | feasible | infeasible |\n")
       md.write(f"| ------- | --- | --------------------- | -------- | ---------- |\n")
       for base, data_list in cluster.items():
-        rm, rm_if_feasible, rm_if_infeasible = removed[base]
-        md.write(f"| {base} | {len(data_list)} | {list_to_str(rm)} | {list_to_str(rm_if_feasible)} | {list_to_str(rm_if_infeasible)} |\n")
+        base_state, rm, rm_if_feasible, rm_if_infeasible = removed[base]
+        md.write(f"| {base}({base_state}) | {len(data_list)} | {list_to_str(rm)} | {list_to_str(rm_if_feasible)} | {list_to_str(rm_if_infeasible)} |\n")
       for base, data_list in cluster.items():
         md.write(f"## Crash ID: {base}, len {len(data_list)}\n")
         md.write("### removed:\n")
         md.write("| patchId | state |\n")
         md.write("| ------- | ----- |\n")
-        rm, rm_if_feasible, rm_if_infeasible = removed[base]
+        base_state, rm, rm_if_feasible, rm_if_infeasible = removed[base]
         for data in rm:
           md.write(f"| {data['patch']} | {data['id']} |\n")
         md.write("### removed if feasible:\n")
@@ -664,11 +664,10 @@ class DataLogParser:
         md.write("### base\n")
         md.write("| id | patchId | stateType | isCrash | actuallyCrashed | regression | exit | stackTrace |\n")
         md.write("| -- | ------- | --------- | ------- | --------------- | ---------- | ---- | ---------- |\n")
-        for data in data_list:
-          if data["stateType"] == '2':
-            reg = data["lazyTrace"] if "lazyTrace" in data else ""
-            st = data["stackTrace"] if "stackTrace" in data else ""
-            md.write(f"| {data['state']} | {data['patchId']} | {data['stateType']} | {data['isCrash']} | {data['actuallyCrashed']} | [{reg}] | {data['exit']} | {st} |\n")
+        data = self.meta_data[base_state]
+        reg = data["lazyTrace"] if "lazyTrace" in data else ""
+        st = data["stackTrace"] if "stackTrace" in data else ""
+        md.write(f"| {data['state']} | {data['patchId']} | {data['stateType']} | {data['isCrash']} | {data['actuallyCrashed']} | [{reg}] | {data['exit']} | {st} |\n")
         # md.write("### correct:\n")
         # md.write("| id | patchId | stateType | isCrash | actuallyCrashed | regression | exit | stackTrace |\n")
         # md.write("| -- | ------- | --------- | ------- | --------------- | ---------- | ---- | ---------- |\n")
@@ -685,6 +684,43 @@ class DataLogParser:
           st = data["stackTrace"] if "stackTrace" in data else ""
           md.write(f"| {data['state']} | {data['patchId']} | {data['stateType']} | {data['isCrash']} | {data['actuallyCrashed']} | [{reg}] | {data['exit']} | {st} |\n")
     return os.path.join(self.dir, "table.md")
+  def generate_table_v2(self, cluster: Dict[int, list]) -> str:
+    def unpack(data: List[dict]) -> List[Tuple[int, int]]:
+      return list(map(lambda x: (x["patchId"], x["state"]), data))
+    """ result: {
+      state_map: Record<number, any>
+      removed_if_feasible: Record<number, Array<[number, number]>>
+      removed_if_infeasible: Record<number, Array<[number, number]>>
+      removed: Record<number, Array<[number, number]>>
+      crash_id_to_state: Record<number, number>
+      crash_test_result: Record<number, Array<number>>
+      graph: {nodes: Set<number>, edges: Set<[number, number, string]>}
+    }
+    """
+    result = { 
+      "state_map": self.meta_data,
+      "removed_if_feasible": dict(),
+      "removed_if_infeasible": dict(),
+      "removed": dict(),
+      "crash_id_to_state": dict(),
+      "crash_test_result": dict(),
+      "graph": {
+        "nodes": self.fork_map_nodes,
+        "edges": self.fork_map_edges,
+      },
+    }
+    removed = self.analyze_cluster(cluster)
+    # 0. Initialize result
+    for base, data_list in cluster.items():
+      base_state, rm, rm_if_feasible, rm_if_infeasible = removed[base]
+      result["removed"][base] = unpack(rm)
+      result["removed_if_feasible"][base] = unpack(rm_if_feasible)
+      result["removed_if_infeasible"][base] = unpack(rm_if_infeasible)
+      result["crash_id_to_state"][base] = base_state
+      result["crash_test_result"][base] = list(map(lambda x: x["state"], data_list))
+    # Depper analysis
+    # 1. 
+    return result
   def generate_fork_graph(self, name: str, format: str = "all"):
     dot = graphviz.Digraph()
     done = set(self.meta_data.keys())
