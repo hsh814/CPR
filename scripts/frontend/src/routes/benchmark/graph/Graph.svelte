@@ -44,6 +44,8 @@
     // graph.nodes().once('tap', handle_click);
     const layout = graph.layout({
       name: 'cola',
+      infinite: true,
+      fit: false,
     });
     layout.run();
   });
