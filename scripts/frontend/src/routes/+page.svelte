@@ -2,6 +2,7 @@
   import { fastapi } from '$lib/fastapi';
   import type { Metadata } from '$lib/metadata';
   import MetaDataTable from './MetaDataTable.svelte';
+  import MetaTestStatus from './MetaTestStatus.svelte';
   let message: string = "invalid string";
   let meta_data: Metadata[] = [];
   const handle_error = (error: any) => {
@@ -20,9 +21,7 @@
 </script>
 
 <h1>Web UI of uni-klee</h1>
-<p> Test Test </p>
-<h2>{message}</h2>
-
+<MetaTestStatus />
 <MetaDataTable data={meta_data} />
 
 

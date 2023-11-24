@@ -14,6 +14,6 @@
 
 
 <h1>Web UI of uni-klee</h1>
-
+<a href="/benchmark/graph">Goto graph</a>
 <ResultTable data={result_table} />
 

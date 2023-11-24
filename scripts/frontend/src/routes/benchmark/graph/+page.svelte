@@ -11,7 +11,7 @@
 </script>
 
 <h1>Web UI of uni-klee</h1>
-
+<a href="/benchmark/table">Goto table</a>
 
 <Graph graph_data={graph_data} />
 
