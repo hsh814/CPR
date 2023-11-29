@@ -3,10 +3,10 @@
   import type { Metadata } from '$lib/metadata';
   import {onMount} from 'svelte';
   import ResultTable from './ResultTable.svelte';
-  import { resultStore } from '$lib/store';
+  import { mdTableStore } from '$lib/store';
 
   let result_table: {table: string} = {table: 'not available'};
-  resultStore.subscribe(value => {
+  mdTableStore.subscribe(value => {
     result_table = value;
   });
 

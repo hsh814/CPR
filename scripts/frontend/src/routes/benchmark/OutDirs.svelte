@@ -1,13 +1,15 @@
 <script lang='ts'>
   import { fastapi } from '$lib/fastapi';
   import type { Metadata } from '$lib/metadata';
-  import { graphStore, resultStore } from '$lib/store';
+  import { graphStore, mdTableStore, resultStore } from '$lib/store';
+  import type { ResultType } from '$lib/store';
   import type { NodeType, EdgeType, GraphType } from '$lib/graph_api';
   interface dir_type { id: string, full: string };
   interface log_parser_result {
     table: string, 
     fork_graph: GraphType,
     input_graph: GraphType,
+    result: ResultType,
   };
   interface benchmark_current_result {
     message: string,
@@ -58,8 +60,9 @@
   }
 
   const handle_log_parser_response = (result: log_parser_result) => {
-    resultStore.set({table: result.table});
+    mdTableStore.set({table: result.table});
     graphStore.set(result.input_graph);
+    resultStore.set(result.result);
     show_result_table = true;
   }
 </script>
@@ -98,6 +101,9 @@
   </div>
   <div class="graph">
     <a href="/benchmark/graph">Goto graph</a>
+  </div>
+  <div class="analysis">
+    <a href="/benchmark/analysis">Goto analysis</a>
   </div>
 {/if}
 

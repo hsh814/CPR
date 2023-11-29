@@ -1,16 +1,10 @@
 <script lang='ts'>
   import { fastapi } from '$lib/fastapi';
   import type { Metadata } from '$lib/metadata';
-  import { graphStore, resultStore } from '$lib/store';
+  import { graphStore, mdTableStore } from '$lib/store';
   import type { NodeType, EdgeType, GraphType } from '$lib/graph_api';
   import Benchmark from './Benchmark.svelte';
   import OutDirs from './OutDirs.svelte';
-  interface dir_type { id: string, full: string };
-  interface log_parser_result {
-    table: string, 
-    fork_graph: GraphType,
-    input_graph: GraphType,
-  };
   const urlSearchParams = new URLSearchParams(window.location.search);
   let data = {id: parseInt(urlSearchParams.get('id') || '0')};
   let meta_data: Metadata;
