@@ -72,7 +72,7 @@ def meta_data_data_log_parser(dir: str = Query("")):
     input_map_nodes, input_map_edges = dp.generate_input_graph()
     if os.path.exists(dp.get_cache_file("result.json")):
         with open(dp.get_cache_file("result.json"), "r") as f:
-            ar = f.read()
+            ar = json.load(f)
     else:
         ar = dp.generate_table_v2(dp.cluster())
     return {"table": result, 
