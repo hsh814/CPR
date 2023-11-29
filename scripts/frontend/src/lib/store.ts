@@ -1,5 +1,13 @@
 import { writable } from 'svelte/store';
 import type { NodeType, EdgeType, GraphType } from './graph_api';
+import type { Metadata } from './metadata';
+export interface AnalysisTableType {
+  columns: number[],
+  rows: {
+    base: number,
+    row: boolean[],
+  }[][],
+}
 export interface ResultType {
   state_map: Record<number, any>
   removed_if_feasible: Record<number, Array<[number, number]>>
@@ -9,7 +17,11 @@ export interface ResultType {
   crash_test_result: Record<number, Array<number>>
   graph: { nodes: Set<number>, edges: Set<[number, number, string]> }
   patch_analysis: Record<number, Array<number>>
+  table: AnalysisTableType
 }
+
+
+export const metaDataStore = writable<Metadata>({ id: 0, bug_id: '', benchmark: '', subject: '', vars: [], buggy: { code: '', id: '' }, correct: { code: '', id: '' }, target: '' });
 export const mdTableStore = writable({ table: '' });
 export const graphStore = writable<GraphType>({ nodes: [], edges: [] });
-export const resultStore = writable<ResultType>({ state_map: {}, removed_if_feasible: {}, removed_if_infeasible: {}, removed: {}, crash_id_to_state: {}, crash_test_result: {}, graph: { nodes: new Set(), edges: new Set() }, patch_analysis: {} });
+export const resultStore = writable<ResultType>({ state_map: {}, removed_if_feasible: {}, removed_if_infeasible: {}, removed: {}, crash_id_to_state: {}, crash_test_result: {}, graph: { nodes: new Set(), edges: new Set() }, patch_analysis: {}, table: { columns: [], rows: [] } });

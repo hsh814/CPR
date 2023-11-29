@@ -1,7 +1,7 @@
 <script lang='ts'>
   import { fastapi } from '$lib/fastapi';
   import type { Metadata } from '$lib/metadata';
-  import { graphStore, mdTableStore } from '$lib/store';
+  import { graphStore, mdTableStore, metaDataStore } from '$lib/store';
   import type { NodeType, EdgeType, GraphType } from '$lib/graph_api';
   import Benchmark from './Benchmark.svelte';
   import OutDirs from './OutDirs.svelte';
@@ -15,6 +15,7 @@
     fastapi("GET", "/meta-data/info/" + id, {}, (data: {meta: Metadata, conf: object, meta_program: object}) => {
       console.log("get_meta_data: " + JSON.stringify(data));
       meta_data = data.meta;
+      metaDataStore.set(meta_data);
     }, handle_error);
   }
 

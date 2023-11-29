@@ -3,8 +3,11 @@
   import type { Metadata } from '$lib/metadata';
   import {onMount} from 'svelte';
   import ResultTable from './ResultTable.svelte';
-  import { mdTableStore } from '$lib/store';
-
+  import { mdTableStore, metaDataStore } from '$lib/store';
+  let meta_data: Metadata;
+  metaDataStore.subscribe(value => {
+    meta_data = value;
+  });
   let result_table: {table: string} = {table: 'not available'};
   mdTableStore.subscribe(value => {
     result_table = value;
@@ -14,6 +17,9 @@
 
 
 <h1>Web UI of uni-klee</h1>
+<a href="/benchmark?id={meta_data.id}">Goto benchmark</a>
+<a href="/benchmark/table">Goto table</a>
 <a href="/benchmark/graph">Goto graph</a>
+<a href="/benchmark/analysis">Goto analysis</a>
 <ResultTable data={result_table} />
 

@@ -63,6 +63,8 @@
     mdTableStore.set({table: result.table});
     graphStore.set(result.input_graph);
     resultStore.set(result.result);
+    console.log("outdir: ", result.result);
+    console.log("outdir2: ", result.result.table);
     show_result_table = true;
   }
 </script>
