@@ -424,6 +424,8 @@ class DataLogParser:
     self.meta_data = dict()
     self.merge_edge_map = dict()
     self.merge_patch_map = dict()
+  def get_cache_file(self, name: str) -> str:
+    return os.path.join(self.dir, name)
   def parse_dict(self, line: str) -> dict:
     result = dict()
     for item in line.split(","):
@@ -684,9 +686,35 @@ class DataLogParser:
           st = data["stackTrace"] if "stackTrace" in data else ""
           md.write(f"| {data['state']} | {data['patchId']} | {data['stateType']} | {data['isCrash']} | {data['actuallyCrashed']} | [{reg}] | {data['exit']} | {st} |\n")
     return os.path.join(self.dir, "table.md")
-  def generate_table_v2(self, cluster: Dict[int, list]) -> str:
+  
+  def cluster_forest(self, nodes: List[int], edges: List[Tuple[int, int]], crash_id_to_state: Dict[int, int]) -> List[List[int]]:
+    def dfs(node: int, visited: Set[int], cluster: List[int], state_to_crash_id: Dict[int, int]):
+      visited[node] = True
+      if node in state_to_crash_id:
+        cluster.append(state_to_crash_id[node])
+      for neighbor in graph[node]:
+        if not visited[neighbor]:
+          dfs(neighbor, visited, cluster, state_to_crash_id)
+    state_to_crash_id = dict()
+    for crash_id, state in crash_id_to_state.items():
+      state_to_crash_id[state] = crash_id
+    # Create an adjacency list representation of the graph
+    graph = {node: [] for node in nodes}
+    for edge in edges:
+      graph[edge[0]].append(edge[1])
+      graph[edge[1]].append(edge[0])
+    clusters = []
+    visited = {node: False for node in nodes}
+    for node in nodes:
+      if not visited[node]:
+        cluster = []
+        dfs(node, visited, cluster, state_to_crash_id)
+        clusters.append(cluster)
+    return clusters
+  
+  def generate_table_v2(self, cluster: Dict[int, list]) -> dict:
     def unpack(data: List[dict]) -> List[Tuple[int, int]]:
-      return list(map(lambda x: (x["patchId"], x["state"]), data))
+      return list(map(lambda x: (x["patch"], x["id"]), data))
     """ result: {
       state_map: Record<number, any>
       removed_if_feasible: Record<number, Array<[number, number]>>
@@ -695,6 +723,7 @@ class DataLogParser:
       crash_id_to_state: Record<number, number>
       crash_test_result: Record<number, Array<number>>
       graph: {nodes: Set<number>, edges: Set<[number, number, string]>}
+      patch_analysis: Record<number, Array<number>>
     }
     """
     result = { 
@@ -705,10 +734,12 @@ class DataLogParser:
       "crash_id_to_state": dict(),
       "crash_test_result": dict(),
       "graph": {
-        "nodes": self.fork_map_nodes,
-        "edges": self.fork_map_edges,
+        "nodes": list(self.fork_map_nodes),
+        "edges": list(self.fork_map_edges),
       },
+      "table": dict(),
     }
+    patches = set()
     removed = self.analyze_cluster(cluster)
     # 0. Initialize result
     for base, data_list in cluster.items():
@@ -718,9 +749,138 @@ class DataLogParser:
       result["removed_if_infeasible"][base] = unpack(rm_if_infeasible)
       result["crash_id_to_state"][base] = base_state
       result["crash_test_result"][base] = list(map(lambda x: x["state"], data_list))
+      for data in data_list:
+        patches.add(data["patchId"])
     # Depper analysis
-    # 1. 
+    # 1. Analyze patch
+    patch_analysis: Dict[int, List[int]] = dict()
+    for patch in patches:
+      patch_analysis[patch] = list()
+    for base in result["removed_if_feasible"]:
+      base_state = result["crash_id_to_state"][base]
+      for patch_id, state in result["removed_if_feasible"][base]:
+        if state == base_state:
+          continue
+        if state not in result["graph"]["nodes"]:
+          continue
+        if base_state not in result["graph"]["nodes"]:
+          continue
+        patch_analysis[patch_id].append(base)
+    result["patch_analysis"] = patch_analysis
+    # 2. Analyze inputs
+    filtered_nodes = list()
+    for node in self.fork_map_nodes:
+      if node not in self.meta_data:
+        continue
+      meta_data = self.meta_data[node]
+      if meta_data["stateType"] == "2":
+        filtered_nodes.append(node)
+    filtered_edges = list()
+    for source, target, edge_type in self.fork_map_edges:
+      if source in filtered_nodes and target in filtered_nodes:
+        filtered_edges.append((source, target, edge_type))
+    clusters = self.cluster_forest(filtered_nodes, filtered_edges, result["crash_id_to_state"])
+    print(f"clusters: {clusters}")
+    input_analysis: Dict[int, List[int]] = dict()
+    input_analysis[base] = {
+      "state": base_state,
+      "removed_if_feasible": patches,
+      "group": clusters,
+    }
+    table: dict = result["table"]
+    columns = sorted(list(patches))
+    rows: List[List[int]] = list()
+    for cluster in clusters:
+      sub_rows = list()
+      rows.append(sub_rows)
+      for base in cluster:
+        base_state = result["crash_id_to_state"][base]
+        patches = set()
+        for patch_id, state in result["removed_if_feasible"][base]:
+          if state == base_state:
+            continue
+          patches.add(patch_id)
+        row = list()
+        for patch in columns:
+          row.append(patch in patches)
+        sub_rows.append({"base": base, "row": row})
+    table["columns"] = columns
+    table["rows"] = rows
+    with open(self.get_cache_file("result.json"), "w") as f:
+      json.dump(result, f)
     return result
+  def select_input(self, result: dict) -> int:
+    removed_if_feasible = result["removed_if_feasible"]
+    patch_analysis = result["patch_analysis"]
+    crash_id_to_state = result["crash_id_to_state"]
+    crash_test_result = result["crash_test_result"]
+    graph = result["graph"]
+    state_map = result["state_map"]
+    table = result["table"]
+    columns = table["columns"]
+    rows = table["rows"]
+    # 1. Select input
+    # TODO: make more intelligent selection
+    selected_input: int = 0
+    for sub_rows in rows:
+      for row in sub_rows:
+        base = row["base"]
+        selected_input = base
+        break
+      break
+    return selected_input
+  def filter_out_patches(self, result: dict, selected_input: int, feasible: bool) -> Tuple[List[int], List[int]]:
+    removed_if_feasible = result["removed_if_feasible"]
+    patch_analysis = result["patch_analysis"]
+    crash_id_to_state = result["crash_id_to_state"]
+    crash_test_result = result["crash_test_result"]
+    graph = result["graph"]
+    state_map = result["state_map"]
+    table = result["table"]
+    columns = table["columns"]
+    rows = table["rows"]
+    if not feasible:
+      return columns
+    # 1. Filter out patches
+    remaining_patches = list()
+    for sub_rows in rows:
+      for row in sub_rows:
+        base = row["base"]
+        if base != selected_input:
+          continue
+        for patch, value in zip(columns, row["row"]):
+          if value:
+            remaining_patches.append(patch)
+        break
+      break
+    # 2. Filter out undistinguishable inputs
+    pt = set(remaining_patches)
+    remaining_inputs = list()
+    for sub_rows in rows:
+      for row in sub_rows:
+        base = row["base"]
+        if base == selected_input:
+          continue
+        for patch, value in zip(columns, row["row"]):
+          false_check = False
+          true_check = True
+          if patch in pt:
+            false_check = false_check or value
+            true_check = true_check and value
+        if false_check and not true_check: # can distinguish patches
+          remaining_inputs.append(base)
+    return remaining_patches, remaining_inputs
+  def generate_markdown_table(self, result: dict) -> str:
+    removed_if_feasible = result["removed_if_feasible"]
+    patch_analysis = result["patch_analysis"]
+    crash_id_to_state = result["crash_id_to_state"]
+    crash_test_result = result["crash_test_result"]
+    graph = result["graph"]
+    state_map = result["state_map"]
+    removed_if_feasible_colums = [{"key": "patch", "label": "patch"}, {"key": "base", "label": "crash input"}, ]
+    md = "## Removed if feasible\n"
+    md += "| " + " | ".join(map(lambda x: x["label"], removed_if_feasible_colums)) + " |\n"
+    
   def generate_fork_graph(self, name: str, format: str = "all"):
     dot = graphviz.Digraph()
     done = set(self.meta_data.keys())
@@ -810,6 +970,7 @@ class DataLogParser:
         if meta_data["stateType"] == "2":
           with open(os.path.join(self.dir, f"test{node:06d}.input")) as f:
             input_data = json.load(f)
+            input_data["crashId"] = meta_data["crashId"]
             nodes_set.add(node)
             nodes.append({"data": self.get_node(node, input_data), "classes": ["base"], 
                           "attributes": {"style": "filled", "fillcolor": "green"}})

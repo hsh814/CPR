@@ -8,6 +8,7 @@ import multiprocessing as mp
 
 import os
 import sys
+import json
 
 # import importlib
 # PARENT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -69,11 +70,31 @@ def meta_data_data_log_parser(dir: str = Query("")):
         result = f.read()
     fork_map_nodes, fork_map_edges = dp.generate_fork_graph_v2()
     input_map_nodes, input_map_edges = dp.generate_input_graph()
+    if os.path.exists(dp.get_cache_file("result.json")):
+        with open(dp.get_cache_file("result.json"), "r") as f:
+            ar = f.read()
+    else:
+        ar = dp.generate_table_v2(dp.cluster())
     return {"table": result, 
             "fork_graph": {"nodes": fork_map_nodes, "edges": fork_map_edges}, 
             "input_graph": {"nodes": input_map_nodes, "edges": input_map_edges},
-            "result": dp.generate_table_v2(dp.cluster()),
+            "result": ar,
         }
+
+@app.get("/meta-data/data-log-parser/result")
+def meta_data_data_log_parser_result(dir: str = Query("")):
+    print(f"meta_data_data_log_parser_result: {dir}")
+    if not os.path.exists(dir):
+        return {"result": ""}
+    dp = meta_test.DataLogParser(dir)
+    if os.path.exists(dp.get_cache_file("result.json")):
+        with open(dp.get_cache_file("result.json"), "r") as f:
+            ar = json.load(f)
+    else:
+        dp.read_data_log()
+        ar = dp.generate_table_v2(dp.cluster())
+    return {"result": ar}
+
 
 def run_cmd(cmd: List[str]):
     final_cmd = cmd
