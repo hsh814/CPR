@@ -809,27 +809,27 @@ class DataLogParser:
     with open(self.get_cache_file("result.json"), "w") as f:
       json.dump(result, f)
     return result
-  def select_input(self, result: dict) -> int:
+  def select_input(self, result: dict, prev_inputs: List[int], feasible_list: List[bool]) -> Tuple[int, List[int], List[bool]]:
     removed_if_feasible = result["removed_if_feasible"]
     patch_analysis = result["patch_analysis"]
     crash_id_to_state = result["crash_id_to_state"]
     crash_test_result = result["crash_test_result"]
     graph = result["graph"]
     state_map = result["state_map"]
+    remaining_patches, remaining_inputs = self.filter_out_patches(result, prev_inputs, feasible_list)
     table = result["table"]
     columns = table["columns"]
     rows = table["rows"]
     # 1. Select input
     # TODO: make more intelligent selection
     selected_input: int = 0
-    for sub_rows in rows:
-      for row in sub_rows:
-        base = row["base"]
-        selected_input = base
-        break
+    for input in remaining_inputs:
+      if input in prev_inputs:
+        continue
+      selected_input = input
       break
-    return selected_input
-  def filter_out_patches(self, result: dict, selected_input: int, feasible: bool) -> Tuple[List[int], List[int]]:
+    return selected_input, remaining_patches, remaining_inputs
+  def filter_out_patches(self, result: dict, selected_inputs: List[int], feasible_list: List[bool]) -> Tuple[List[int], List[int]]:
     removed_if_feasible = result["removed_if_feasible"]
     patch_analysis = result["patch_analysis"]
     crash_id_to_state = result["crash_id_to_state"]
@@ -839,37 +839,72 @@ class DataLogParser:
     table = result["table"]
     columns = table["columns"]
     rows = table["rows"]
-    if not feasible:
+    if len(selected_inputs) == 0:
       return columns
     # 1. Filter out patches
-    remaining_patches = list()
-    for sub_rows in rows:
-      for row in sub_rows:
-        base = row["base"]
-        if base != selected_input:
-          continue
-        for patch, value in zip(columns, row["row"]):
-          if value:
-            remaining_patches.append(patch)
-        break
-      break
+    remaining_patches = set(columns)
+    for selected_input in selected_inputs:
+      for sub_rows in rows:
+        for row in sub_rows:
+          base = row["base"]
+          if base != selected_input:
+            continue
+          for patch, value in zip(columns, row["row"]):
+            if value:
+              if patch in remaining_patches:
+                remaining_patches.remove(patch)
     # 2. Filter out undistinguishable inputs
-    pt = set(remaining_patches)
+    input_filter = set(selected_inputs)
     remaining_inputs = list()
     for sub_rows in rows:
       for row in sub_rows:
         base = row["base"]
         if base == selected_input:
           continue
+        if base in input_filter:
+          continue
         for patch, value in zip(columns, row["row"]):
           false_check = False
           true_check = True
-          if patch in pt:
+          if patch in remaining_patches:
             false_check = false_check or value
             true_check = true_check and value
         if false_check and not true_check: # can distinguish patches
           remaining_inputs.append(base)
-    return remaining_patches, remaining_inputs
+    return sorted(list(remaining_patches)), remaining_inputs
+  def get_parent_states(self, graph, state: int) -> List[int]:
+    result = list()
+    for source, target, edge_type in graph["edges"]:
+      if target == state:
+        result.append(source)
+    return result
+  def get_trace(self, result: dict, selected_input: int) -> dict:
+    removed_if_feasible = result["removed_if_feasible"]
+    patch_analysis = result["patch_analysis"]
+    crash_id_to_state = result["crash_id_to_state"]
+    crash_test_result = result["crash_test_result"]
+    graph = result["graph"]
+    state_map = result["state_map"]
+    state_id = crash_id_to_state[selected_input]
+    parent_states = self.get_parent_states(graph, state_id)
+    state_filter = set(parent_states)
+    state_filter.add(state_id)
+    trace = list()
+    with open(os.path.join(self.dir, "bb-trace.log"), "r") as f:
+      for line in f.readlines():
+        line = line.strip()
+        if line.startswith(f"[state"):
+          tokens = self.parser_level_1(line)
+          if len(tokens) < 2:
+            continue
+          state = self.parse_state_id(tokens[0])
+          if state in state_filter:
+            trace.append(line)
+    input = {}
+    if os.path.exists(os.path.join(self.dir, f"test{state_id:06d}.input")):
+      with open(os.path.join(self.dir, f"test{state_id:06d}.input"), 'r') as f:
+        input = json.load(f)
+    return {"trace": trace, "input": input}
   def generate_markdown_table(self, result: dict) -> str:
     removed_if_feasible = result["removed_if_feasible"]
     patch_analysis = result["patch_analysis"]

@@ -95,11 +95,50 @@ def meta_data_data_log_parser_result(dir: str = Query("")):
         ar = dp.generate_table_v2(dp.cluster())
     return {"result": ar}
 
+@app.post("/meta-data/data-log-parser/explain")
+def meta_data_data_log_parser_explain(dir: str, inputs: List[str]):
+    if not os.path.exists(dir):
+        return {"result": ""}
+    dp = meta_test.DataLogParser(dir)
+    if os.path.exists(dp.get_cache_file("result.json")):
+        with open(dp.get_cache_file("result.json"), "r") as f:
+            ar = json.load(f)
+    else:
+        dp.read_data_log()
+        ar = dp.generate_table_v2(dp.cluster())
+    return dp.get_trace(ar, inputs[-1])
+
+@app.post("/meta-data/data-log-parser/select")
+def meta_data_data_log_parser_select(dir: str, inputs: List[str], feasible: List[bool]):
+    if not os.path.exists(dir):
+        return {"result": ""}
+    dp = meta_test.DataLogParser(dir)
+    if os.path.exists(dp.get_cache_file("result.json")):
+        with open(dp.get_cache_file("result.json"), "r") as f:
+            ar = json.load(f)
+    else:
+        dp.read_data_log()
+        ar = dp.generate_table_v2(dp.cluster())
+    selected_input, remaining_patches, remaining_inputs = dp.select_input(ar, inputs, feasible)
+    return {"selected_input": selected_input, "remaining_patches": remaining_patches, "remaining_inputs": remaining_inputs}
+    
+@app.post("/meta-data/data-log-parser/feasible")
+def meta_data_data_log_parser_feasible(dir: str, inputs: List[str], feasible: List[bool]):
+    if not os.path.exists(dir):
+        return {"result": ""}
+    dp = meta_test.DataLogParser(dir)
+    if os.path.exists(dp.get_cache_file("result.json")):
+        with open(dp.get_cache_file("result.json"), "r") as f:
+            ar = json.load(f)
+    else:
+        dp.read_data_log()
+        ar = dp.generate_table_v2(dp.cluster())
+    return dp.filter_out_patches(ar, inputs, feasible)
 
 def run_cmd(cmd: List[str]):
     final_cmd = cmd
     final_cmd[0] = "meta-test.py"
-    if "--lock=w" not in final_cmd:
+    if "--lock=f" not in final_cmd and "--lock=w" not in final_cmd:
         final_cmd.append("--lock=w")
     process = mp.Process(target=meta_test.main, args=(final_cmd,))
     process.start()
