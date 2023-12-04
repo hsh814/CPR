@@ -724,6 +724,7 @@ class DataLogParser:
       crash_test_result: Record<number, Array<number>>
       graph: {nodes: Set<number>, edges: Set<[number, number, string]>}
       patch_analysis: Record<number, Array<number>>
+      table: { columes: number[], rows: {base: number, row: boolean[]}[] }
     }
     """
     result = { 
