@@ -1,8 +1,8 @@
 <script lang='ts'>
   import { fastapi } from '$lib/fastapi';
   import type { Metadata } from '$lib/metadata';
-  import { graphStore, mdTableStore, resultStore } from '$lib/store';
-  import type { ResultType } from '$lib/store';
+  import { graphStore, mdTableStore, resultStore, dirDataStore } from '$lib/store';
+  import type { ResultType, DirDataType } from '$lib/store';
   import type { NodeType, EdgeType, GraphType } from '$lib/graph_api';
   interface dir_type { id: string, full: string };
   interface log_parser_result {
@@ -54,6 +54,7 @@
       console.log("current dir is running");
       return;
     }
+    dirDataStore.set({dir: full_path, inputs: [], feasible_list: []});
     const data_log_parser_url = "/meta-data/data-log-parser";
     const params = { dir: full_path };
     fastapi("GET", data_log_parser_url, params, handle_log_parser_response, handle_error)

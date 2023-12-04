@@ -19,9 +19,14 @@ export interface ResultType {
   patch_analysis: Record<number, Array<number>>
   table: AnalysisTableType
 }
-
+export interface DirDataType {
+  dir: string,
+  inputs: number[],
+  feasible_list: boolean[],
+}
 
 export const metaDataStore = writable<Metadata>({ id: 0, bug_id: '', benchmark: '', subject: '', vars: [], buggy: { code: '', id: '' }, correct: { code: '', id: '' }, target: '' });
 export const mdTableStore = writable({ table: '' });
 export const graphStore = writable<GraphType>({ nodes: [], edges: [] });
 export const resultStore = writable<ResultType>({ state_map: {}, removed_if_feasible: {}, removed_if_infeasible: {}, removed: {}, crash_id_to_state: {}, crash_test_result: {}, graph: { nodes: new Set(), edges: new Set() }, patch_analysis: {}, table: { columns: [], rows: [] } });
+export const dirDataStore = writable<DirDataType>({ dir: '', inputs: [], feasible_list: [] });

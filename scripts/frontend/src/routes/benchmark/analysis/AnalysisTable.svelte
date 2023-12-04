@@ -1,17 +1,83 @@
 <script lang='ts'>
-  import type { ResultType, AnalysisTableType } from '$lib/store';
-  export let data: ResultType;
+  import type { ResultType, AnalysisTableType, DirDataType } from '$lib/store';
+  import { dirDataStore } from '$lib/store';
+  import { onMount } from 'svelte';
+  import { fastapi } from '$lib/fastapi';
+  export let result_data: ResultType;
   export let table: AnalysisTableType;
+  let dirData: DirDataType;
+  dirDataStore.subscribe(value => {
+    dirData = value;
+  });
   $: localTable = table;
-  console.log('localTable:', localTable);
-  console.log('data', data);
+  let selected_feasibility: boolean = false;
+  let remaining_inputs: Map<number, boolean[]> = new Map();
+  let remaining_patches: Set<number> = new Set();
+  const rebuild_table = () => {
+    
+  }
+  const handle_click = (base: number, feasible: boolean) => {
+
+  }
+  const get_input_trace = () => {
+    const params = dirData;
+    fastapi("POST", "/meta-data/data-log-parser/explain", params, (data: {trace: string[], input: object}) => {
+      console.log("get_input_trace: " + JSON.stringify(data));
+    }, (error: any) => {
+      console.log(error);
+    });
+  }
+  const select_input = () => {
+    const params = dirData;
+    fastapi("POST", "/meta-data/data-log-parser/select", params, (data: {selected_input: number, remaining_patches: number[], remaining_inputs: number[]}) => {
+      console.log("select_input: " + JSON.stringify(data));
+      dirData.inputs.push(data.selected_input);
+      // Update remaining_inputs, remaining_patches
+      const remaining_inputs_filter = new Set(data.remaining_inputs);
+      for (const key of remaining_inputs.keys()) {
+        if (!remaining_inputs_filter.has(key)) {
+          remaining_inputs.delete(key);
+        }
+      }
+      const remaining_patches_filter = new Set(data.remaining_patches);
+      for (const key of remaining_patches) {
+        if (!remaining_patches_filter.has(key)) {
+          remaining_patches.delete(key);
+        }
+      }
+    }, (error: any) => {
+      console.log(error);
+    });
+  }
+  onMount(() => {
+    console.log("AnalysisTable onMount");
+    // Initialize remaining_inputs, remaining_patches
+    for (let i = 0; i < localTable.rows.length; i++) {
+      for (let j = 0; j < localTable.rows[i].length; j++) {
+        remaining_inputs.set(localTable.rows[i][j].base, localTable.rows[i][j].row);
+      }
+    }
+    localTable.columns.forEach((value, index) => {
+      remaining_patches.add(value);
+    });
+    select_input();
+  });
 </script>
 
 {#if localTable.columns.length > 0}
   <h2>Analysis Table</h2>
   <table>
     <thead>
+      <tr></tr>
+    </thead>
+  </table>
+  <button on:click={() => get_input_trace()}> Get input trace </button>
+  <input type="checkbox" bind:checked={selected_feasibility} />
+  <button on:click={() => select_input()}> Send feasiblity, get new input </button>
+  <table>
+    <thead>
       <tr>
+        <th>Feasible</th>
         <th>Cluster</th>
         <th>Input</th>
         {#each localTable.columns as column}
@@ -26,7 +92,7 @@
             <td>{index}</td>
             <td>i{base}</td>
             {#each row as value}
-              <td>{value ? 'O' : 'X'}</td>
+              <td>{value ? 'X' : 'O'}</td>
             {/each}
           </tr>
         {/each}
@@ -51,47 +117,3 @@
     background-color: #f2f2f2;
   }
 </style>
-
-<!-- {#if removed_if_feasible_rows.length > 0}
-  <h2>Removed If Feasible Table</h2>
-  <table>
-    <thead>
-      <tr>
-        {#each removed_if_feasible_columns as { key, title }}
-          <th>{title}</th>
-        {/each}
-      </tr>
-    </thead>
-    <tbody>
-      {#each removed_if_feasible_rows as row}
-        <tr>
-          {#each removed_if_feasible_columns as { key }}
-            <td>{row[key]}</td>
-          {/each}
-        </tr>
-      {/each}
-    </tbody>
-  </table>
-{/if}
-
-{#if patch_analysis_rows.length > 0}
-  <h2>Patch Analysis Table</h2>
-  <table>
-    <thead>
-      <tr>
-        {#each patch_analysis_columns as { key, title }}
-          <th>{title}</th>
-        {/each}
-      </tr>
-    </thead>
-    <tbody>
-      {#each patch_analysis_rows as row}
-        <tr>
-          {#each patch_analysis_columns as { key }}
-            <td>{row[key]}</td>
-          {/each}
-        </tr>
-      {/each}
-    </tbody>
-  </table>
-{/if} -->
