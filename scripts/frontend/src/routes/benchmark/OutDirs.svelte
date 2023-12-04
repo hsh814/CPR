@@ -55,7 +55,7 @@
       return;
     }
     dirDataStore.set({dir: full_path, inputs: [], feasible_list: []});
-    const data_log_parser_url = "/meta-data/data-log-parser";
+    const data_log_parser_url = "/meta-data/data-log-parser/parse";
     const params = { dir: full_path };
     fastapi("GET", data_log_parser_url, params, handle_log_parser_response, handle_error)
   }

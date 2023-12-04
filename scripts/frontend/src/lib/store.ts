@@ -6,7 +6,7 @@ export interface AnalysisTableType {
   rows: {
     base: number,
     row: boolean[],
-  }[][],
+  }[],
 }
 export interface ResultType {
   state_map: Record<number, any>

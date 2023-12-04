@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from typing import Union, List, Dict, Tuple, Optional, Set
-from fastapi import FastAPI, Query, BackgroundTasks
+from fastapi import FastAPI, Query, BackgroundTasks, Request
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from starlette.responses import RedirectResponse, FileResponse
@@ -37,6 +37,11 @@ def read_benchmark():
 def read_benchmark_path(path: str):
     return FileResponse(f"frontend/build/benchmark/{path}.html")
 
+class DirData(BaseModel):
+    dir: str
+    inputs: List[int]
+    feasible_list: List[bool]
+
 # APIs
 @app.get("/meta-data/list")
 def meta_data_list():
@@ -58,7 +63,7 @@ def meta_data_out_dir(id: int = Query(0), prefix = Query("uni-m-out")):
         result.append({"id": dir, "full": os.path.join(config.conf_files.out_base_dir, dir)})
     return result
 
-@app.get("/meta-data/data-log-parser")
+@app.get("/meta-data/data-log-parser/parse")
 def meta_data_data_log_parser(dir: str = Query("")):
     print(f"meta_data_data_log_parser: {dir}")
     if not os.path.exists(dir):
@@ -91,49 +96,50 @@ def meta_data_data_log_parser_result(dir: str = Query("")):
         with open(dp.get_cache_file("result.json"), "r") as f:
             ar = json.load(f)
     else:
-        dp.read_data_log()
+        dp.read_data_log("data.log")
         ar = dp.generate_table_v2(dp.cluster())
     return {"result": ar}
 
 @app.post("/meta-data/data-log-parser/explain")
-def meta_data_data_log_parser_explain(dir: str, inputs: List[str]):
-    if not os.path.exists(dir):
+def meta_data_data_log_parser_explain(request_data: DirData):
+    if not os.path.exists(request_data.dir):
         return {"result": ""}
-    dp = meta_test.DataLogParser(dir)
+    dp = meta_test.DataLogParser(request_data.dir)
     if os.path.exists(dp.get_cache_file("result.json")):
         with open(dp.get_cache_file("result.json"), "r") as f:
             ar = json.load(f)
     else:
-        dp.read_data_log()
+        dp.read_data_log("data.log")
         ar = dp.generate_table_v2(dp.cluster())
-    return dp.get_trace(ar, inputs[-1])
+    return dp.get_trace(ar, request_data.inputs[-1])
 
 @app.post("/meta-data/data-log-parser/select")
-def meta_data_data_log_parser_select(dir: str, inputs: List[str], feasible: List[bool]):
-    if not os.path.exists(dir):
+def meta_data_data_log_parser_select(request_data: DirData):
+    print(f"meta_data_data_log_parser_select: {request_data}")
+    if not os.path.exists(request_data.dir):
         return {"result": ""}
-    dp = meta_test.DataLogParser(dir)
+    dp = meta_test.DataLogParser(request_data.dir)
     if os.path.exists(dp.get_cache_file("result.json")):
         with open(dp.get_cache_file("result.json"), "r") as f:
             ar = json.load(f)
     else:
         dp.read_data_log()
         ar = dp.generate_table_v2(dp.cluster())
-    selected_input, remaining_patches, remaining_inputs = dp.select_input(ar, inputs, feasible)
+    selected_input, remaining_patches, remaining_inputs = dp.select_input(ar, request_data.inputs, request_data.feasible_list)
     return {"selected_input": selected_input, "remaining_patches": remaining_patches, "remaining_inputs": remaining_inputs}
     
 @app.post("/meta-data/data-log-parser/feasible")
-def meta_data_data_log_parser_feasible(dir: str, inputs: List[str], feasible: List[bool]):
-    if not os.path.exists(dir):
+def meta_data_data_log_parser_feasible(request_data: DirData):
+    if not os.path.exists(request_data.dir):
         return {"result": ""}
-    dp = meta_test.DataLogParser(dir)
+    dp = meta_test.DataLogParser(request_data.dir)
     if os.path.exists(dp.get_cache_file("result.json")):
         with open(dp.get_cache_file("result.json"), "r") as f:
             ar = json.load(f)
     else:
         dp.read_data_log()
         ar = dp.generate_table_v2(dp.cluster())
-    return dp.filter_out_patches(ar, inputs, feasible)
+    return dp.filter_out_patches(ar, request_data.inputs, request_data.feasible_list)
 
 def run_cmd(cmd: List[str]):
     final_cmd = cmd

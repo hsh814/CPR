@@ -28,5 +28,5 @@
 <a href="/benchmark/analysis">Goto analysis</a>
 
 {#if data && data.table.columns.length > 0}
-  <AnalysisTable data={data} table={data.table}/>
+  <AnalysisTable result_data={data} table={data.table}/>
 {/if}

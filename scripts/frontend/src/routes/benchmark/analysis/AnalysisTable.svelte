@@ -16,11 +16,9 @@
   const rebuild_table = () => {
     
   }
-  const handle_click = (base: number, feasible: boolean) => {
-
-  }
   const get_input_trace = () => {
     const params = dirData;
+    console.log("get_input_trace: " + JSON.stringify(params));
     fastapi("POST", "/meta-data/data-log-parser/explain", params, (data: {trace: string[], input: object}) => {
       console.log("get_input_trace: " + JSON.stringify(data));
     }, (error: any) => {
@@ -29,6 +27,7 @@
   }
   const select_input = () => {
     const params = dirData;
+    console.log("select_input: " + JSON.stringify(params));
     fastapi("POST", "/meta-data/data-log-parser/select", params, (data: {selected_input: number, remaining_patches: number[], remaining_inputs: number[]}) => {
       console.log("select_input: " + JSON.stringify(data));
       dirData.inputs.push(data.selected_input);
@@ -52,11 +51,9 @@
   onMount(() => {
     console.log("AnalysisTable onMount");
     // Initialize remaining_inputs, remaining_patches
-    for (let i = 0; i < localTable.rows.length; i++) {
-      for (let j = 0; j < localTable.rows[i].length; j++) {
-        remaining_inputs.set(localTable.rows[i][j].base, localTable.rows[i][j].row);
-      }
-    }
+    localTable.rows.forEach((value, index) => {
+      remaining_inputs.set(value.base, value.row);
+    });
     localTable.columns.forEach((value, index) => {
       remaining_patches.add(value);
     });
@@ -77,8 +74,6 @@
   <table>
     <thead>
       <tr>
-        <th>Feasible</th>
-        <th>Cluster</th>
         <th>Input</th>
         {#each localTable.columns as column}
           <th>p{column}</th>
@@ -86,16 +81,13 @@
       </tr>
     </thead>
     <tbody>
-      {#each localTable.rows as sub_row, index}
-        {#each sub_row as { base, row }}
-          <tr>
-            <td>{index}</td>
-            <td>i{base}</td>
-            {#each row as value}
-              <td>{value ? 'X' : 'O'}</td>
-            {/each}
-          </tr>
-        {/each}
+      {#each localTable.rows as row, index}
+        <tr>
+          <td>i{row.base}</td>
+          {#each row.row as value}
+            <td>{value ? 'X' : 'O'}</td>
+          {/each}
+        </tr>
       {/each}
     </tbody>
   </table>

@@ -565,7 +565,7 @@ class DataLogParser:
     state = self.parse_state_id(tokens[1])
     st = tokens[2]
     self.meta_data[state]["stackTrace"] = st
-  def read_data_log(self, name: str) -> dict:
+  def read_data_log(self, name: str = "data.log") -> dict:
     with open(os.path.join(self.dir, name), "r") as f:
       for line in f.readlines():
         line = line.strip()
@@ -696,7 +696,7 @@ class DataLogParser:
         if not visited[neighbor]:
           dfs(neighbor, visited, cluster, state_to_crash_id)
     state_to_crash_id = dict()
-    for crash_id, state in crash_id_to_state.items():
+    for crash_id, state in crash_id_to_state:
       state_to_crash_id[state] = crash_id
     # Create an adjacency list representation of the graph
     graph = {node: [] for node in nodes}
@@ -732,7 +732,7 @@ class DataLogParser:
       "removed_if_feasible": dict(),
       "removed_if_infeasible": dict(),
       "removed": dict(),
-      "crash_id_to_state": dict(),
+      "crash_id_to_state": list(),
       "crash_test_result": dict(),
       "graph": {
         "nodes": list(self.fork_map_nodes),
@@ -740,6 +740,7 @@ class DataLogParser:
       },
       "table": dict(),
     }
+    crash_id_to_state = dict()
     patches = set()
     removed = self.analyze_cluster(cluster)
     # 0. Initialize result
@@ -748,17 +749,19 @@ class DataLogParser:
       result["removed"][base] = unpack(rm)
       result["removed_if_feasible"][base] = unpack(rm_if_feasible)
       result["removed_if_infeasible"][base] = unpack(rm_if_infeasible)
-      result["crash_id_to_state"][base] = base_state
+      crash_id_to_state[base] = base_state
       result["crash_test_result"][base] = list(map(lambda x: x["state"], data_list))
       for data in data_list:
         patches.add(data["patchId"])
+    for base in crash_id_to_state:
+      result["crash_id_to_state"].append((base, crash_id_to_state[base]))
     # Depper analysis
     # 1. Analyze patch
     patch_analysis: Dict[int, List[int]] = dict()
     for patch in patches:
       patch_analysis[patch] = list()
     for base in result["removed_if_feasible"]:
-      base_state = result["crash_id_to_state"][base]
+      base_state = crash_id_to_state[base]
       for patch_id, state in result["removed_if_feasible"][base]:
         if state == base_state:
           continue
@@ -790,12 +793,10 @@ class DataLogParser:
     }
     table: dict = result["table"]
     columns = sorted(list(patches))
-    rows: List[List[int]] = list()
+    rows: List[int] = list()
     for cluster in clusters:
-      sub_rows = list()
-      rows.append(sub_rows)
       for base in cluster:
-        base_state = result["crash_id_to_state"][base]
+        base_state = crash_id_to_state[base]
         patches = set()
         for patch_id, state in result["removed_if_feasible"][base]:
           if state == base_state:
@@ -804,13 +805,13 @@ class DataLogParser:
         row = list()
         for patch in columns:
           row.append(patch in patches)
-        sub_rows.append({"base": base, "row": row})
+        rows.append({"base": base, "row": row})
     table["columns"] = columns
     table["rows"] = rows
     with open(self.get_cache_file("result.json"), "w") as f:
       json.dump(result, f)
     return result
-  def select_input(self, result: dict, prev_inputs: List[int], feasible_list: List[bool]) -> Tuple[int, List[int], List[bool]]:
+  def select_input(self, result: dict, prev_inputs: List[int], feasible_list: List[bool]) -> Tuple[int, List[int], List[int]]:
     removed_if_feasible = result["removed_if_feasible"]
     patch_analysis = result["patch_analysis"]
     crash_id_to_state = result["crash_id_to_state"]
@@ -833,7 +834,6 @@ class DataLogParser:
   def filter_out_patches(self, result: dict, selected_inputs: List[int], feasible_list: List[bool]) -> Tuple[List[int], List[int]]:
     removed_if_feasible = result["removed_if_feasible"]
     patch_analysis = result["patch_analysis"]
-    crash_id_to_state = result["crash_id_to_state"]
     crash_test_result = result["crash_test_result"]
     graph = result["graph"]
     state_map = result["state_map"]
@@ -841,38 +841,39 @@ class DataLogParser:
     columns = table["columns"]
     rows = table["rows"]
     if len(selected_inputs) == 0:
-      return columns
+      remaining_inputs = list()
+      for row in rows:
+        remaining_inputs.append(row["base"])
+      return columns, remaining_inputs
     # 1. Filter out patches
     remaining_patches = set(columns)
     for selected_input in selected_inputs:
-      for sub_rows in rows:
-        for row in sub_rows:
-          base = row["base"]
-          if base != selected_input:
-            continue
-          for patch, value in zip(columns, row["row"]):
-            if value:
-              if patch in remaining_patches:
-                remaining_patches.remove(patch)
+      for row in rows:
+        base = row["base"]
+        if base != selected_input:
+          continue
+        for patch, value in zip(columns, row["row"]):
+          if value:
+            if patch in remaining_patches:
+              remaining_patches.remove(patch)
     # 2. Filter out undistinguishable inputs
     input_filter = set(selected_inputs)
     remaining_inputs = list()
-    for sub_rows in rows:
-      for row in sub_rows:
-        base = row["base"]
-        if base == selected_input:
-          continue
-        if base in input_filter:
-          continue
-        for patch, value in zip(columns, row["row"]):
-          false_check = False
-          true_check = True
-          if patch in remaining_patches:
-            false_check = false_check or value
-            true_check = true_check and value
-        if false_check and not true_check: # can distinguish patches
-          remaining_inputs.append(base)
-    return sorted(list(remaining_patches)), remaining_inputs
+    for row in rows:
+      base = row["base"]
+      if base == selected_input:
+        continue
+      if base in input_filter:
+        continue
+      for patch, value in zip(columns, row["row"]):
+        false_check = False
+        true_check = True
+        if patch in remaining_patches:
+          false_check = false_check or value
+          true_check = true_check and value
+      if false_check and not true_check: # can distinguish patches
+        remaining_inputs.append(base)
+    return (sorted(list(remaining_patches)), remaining_inputs)
   def get_parent_states(self, graph, state: int) -> List[int]:
     result = list()
     for source, target, edge_type in graph["edges"]:
@@ -882,10 +883,13 @@ class DataLogParser:
   def get_trace(self, result: dict, selected_input: int) -> dict:
     removed_if_feasible = result["removed_if_feasible"]
     patch_analysis = result["patch_analysis"]
-    crash_id_to_state = result["crash_id_to_state"]
     crash_test_result = result["crash_test_result"]
+    crash_id_to_state = dict()
+    for crash_id, state in result["crash_id_to_state"]:
+      crash_id_to_state[crash_id] = state
     graph = result["graph"]
     state_map = result["state_map"]
+    print(crash_id_to_state)
     state_id = crash_id_to_state[selected_input]
     parent_states = self.get_parent_states(graph, state_id)
     state_filter = set(parent_states)
@@ -909,7 +913,6 @@ class DataLogParser:
   def generate_markdown_table(self, result: dict) -> str:
     removed_if_feasible = result["removed_if_feasible"]
     patch_analysis = result["patch_analysis"]
-    crash_id_to_state = result["crash_id_to_state"]
     crash_test_result = result["crash_test_result"]
     graph = result["graph"]
     state_map = result["state_map"]
