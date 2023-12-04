@@ -10,11 +10,18 @@
     dirData = value;
   });
   $: localTable = table;
+  $: selected_input = -1;
   let selected_feasibility: boolean = false;
   let remaining_inputs: Map<number, boolean[]> = new Map();
   let remaining_patches: Set<number> = new Set();
   const rebuild_table = () => {
-    
+    // Rebuild table based on remaining_inputs, remaining_patches
+    let new_columns = [...remaining_patches].sort((a, b) => a - b);
+    let new_rows: {base: number, row: boolean[]}[] = [];
+    for (const [key, value] of remaining_inputs) {
+      new_rows.push({base: key, row: value});
+    }
+    localTable = {columns: new_columns, rows: new_rows.sort((a, b) => a.base - b.base)};
   }
   const get_input_trace = () => {
     const params = dirData;
@@ -31,6 +38,7 @@
     fastapi("POST", "/meta-data/data-log-parser/select", params, (data: {selected_input: number, remaining_patches: number[], remaining_inputs: number[]}) => {
       console.log("select_input: " + JSON.stringify(data));
       dirData.inputs.push(data.selected_input);
+      selected_input = data.selected_input;
       // Update remaining_inputs, remaining_patches
       const remaining_inputs_filter = new Set(data.remaining_inputs);
       for (const key of remaining_inputs.keys()) {
@@ -63,6 +71,9 @@
 
 {#if localTable.columns.length > 0}
   <h2>Analysis Table</h2>
+  {#if selected_input > 0}
+    <div>Current input: {selected_input}</div>
+  {/if}
   <table>
     <thead>
       <tr></tr>
