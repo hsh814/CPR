@@ -30,6 +30,9 @@ class Item(BaseModel):
 @app.get("/")
 def read_root():
     return FileResponse("frontend/build/index.html")
+@app.get("/favicon.ico")
+def read_favicon():
+    return FileResponse("frontend/build/favicon.ico")
 @app.get("/benchmark")
 def read_benchmark():
     return FileResponse("frontend/build/benchmark.html")

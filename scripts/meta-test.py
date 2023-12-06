@@ -797,14 +797,15 @@ class DataLogParser:
     for cluster in clusters:
       for base in cluster:
         base_state = crash_id_to_state[base]
-        patches = set()
+        patch_filter = set()
         for patch_id, state in result["removed_if_feasible"][base]:
           if state == base_state:
             continue
-          patches.add(patch_id)
+          patch_filter.add(patch_id)
         row = list()
         for patch in columns:
-          row.append(patch in patches)
+          row.append(patch not in patch_filter)
+        print(f"base: {base}, row: {row}, patch_filter: {patch_filter}")
         rows.append({"base": base, "row": row})
     table["columns"] = columns
     table["rows"] = rows
@@ -824,12 +825,15 @@ class DataLogParser:
     rows = table["rows"]
     # 1. Select input
     # TODO: make more intelligent selection
+    print(f"remaining_patches: {remaining_patches}")
+    print(f"remaining_inputs: {remaining_inputs}")
     selected_input: int = 0
     for input in remaining_inputs:
       if input in prev_inputs:
         continue
       selected_input = input
       break
+    print(f"selected_input: {selected_input}")
     return selected_input, remaining_patches, remaining_inputs
   def filter_out_patches(self, result: dict, selected_inputs: List[int], feasible_list: List[bool]) -> Tuple[List[int], List[int]]:
     removed_if_feasible = result["removed_if_feasible"]
@@ -853,9 +857,10 @@ class DataLogParser:
         if base != selected_input:
           continue
         for patch, value in zip(columns, row["row"]):
-          if value:
+          if not value:
             if patch in remaining_patches:
               remaining_patches.remove(patch)
+    print(f"remaining_patches: {remaining_patches}")
     # 2. Filter out undistinguishable inputs
     input_filter = set(selected_inputs)
     remaining_inputs = list()
@@ -865,12 +870,14 @@ class DataLogParser:
         continue
       if base in input_filter:
         continue
+      false_check = False
+      true_check = True
       for patch, value in zip(columns, row["row"]):
-        false_check = False
-        true_check = True
         if patch in remaining_patches:
+          print(f"patch: {patch}, row: {row['row']}, value: {value}")
           false_check = false_check or value
           true_check = true_check and value
+      print(f"base: {base}, row: {row['row']}, false_check: {false_check}, true_check: {true_check}")
       if false_check and not true_check: # can distinguish patches
         remaining_inputs.append(base)
     return (sorted(list(remaining_patches)), remaining_inputs)
@@ -884,13 +891,15 @@ class DataLogParser:
     removed_if_feasible = result["removed_if_feasible"]
     patch_analysis = result["patch_analysis"]
     crash_test_result = result["crash_test_result"]
-    crash_id_to_state = dict()
+    selected_base_state = -1
     for crash_id, state in result["crash_id_to_state"]:
-      crash_id_to_state[crash_id] = state
+      if crash_id == selected_input:
+        selected_base_state = state
+    if selected_base_state < 0:
+      return None
     graph = result["graph"]
     state_map = result["state_map"]
-    print(crash_id_to_state)
-    state_id = crash_id_to_state[selected_input]
+    state_id = selected_base_state
     parent_states = self.get_parent_states(graph, state_id)
     state_filter = set(parent_states)
     state_filter.add(state_id)
