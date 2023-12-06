@@ -20,6 +20,7 @@
   let remaining_inputs: Map<number, boolean[]> = new Map();
   let remaining_patches: Set<number> = new Set();
   let log: string[] = [];
+  let showOriginalTable: boolean = false;
   $: console.log("trace_data", trace_data);
 
   const get_table_header = (): number[] => {
@@ -149,6 +150,11 @@
 <input type="checkbox" bind:checked={selected_feasibility} />
 <button on:click={() => select_input()}> Send feasiblity, get new input </button>
 <button on:click={() => rebuild_table()}> Rebuild table </button>
+<div class="patch-container">
+  {#each remaining_patches as patch}
+    <div class="patch-elem">{patch}</div>
+  {/each}
+</div>
 <table>
   <thead>
     <tr>
@@ -172,6 +178,31 @@
   </tbody>
 </table>
 
+<button on:click={() => showOriginalTable = !showOriginalTable}> Show original table </button>
+{#if showOriginalTable}
+  <table>
+  <thead>
+    <tr>
+      <th>Input</th>
+      {#each original_columns as column}
+        <th>p{column}</th>
+      {/each}
+    </tr>
+  </thead>
+  <tbody>
+    {#each original_rows as row}
+      <tr>
+        <td>i{row.base}</td>
+        {#each row.row as value}
+          {#if remaining_inputs.has(row.base)}
+            <td>{value ? 'O' : 'X'}</td>
+          {/if}
+        {/each}
+      </tr>
+    {/each}
+  </tbody>
+</table>
+{/if}
 
 <style>
   table {
@@ -190,8 +221,9 @@
   }
   .trace-container {
     max-height: 200px; /* Set your desired maximum height */
+    max-width: 80%;
     overflow-y: auto;
-    border: 1px solid #ccc; /* Optional: Add a border for better visibility */
+    border: 1px solid #cc3; /* Optional: Add a border for better visibility */
   }
 
   .trace-list {
@@ -202,6 +234,7 @@
 
   .log-container {
     max-height: 200px; /* Set your desired maximum height */
+    max-width: 80%;
     overflow-y: auto;
     border: 1px solid #3cc; /* Optional: Add a border for better visibility */
   }
@@ -210,6 +243,20 @@
     list-style-type: none;
     padding: 0;
     margin: 0;
+  }
+
+  .patch-container {
+    max-height: 200px; /* Set your desired maximum height */
+    max-width: 80%;
+    overflow-x: auto;
+    border: 1px solid #c3c; /* Optional: Add a border for better visibility */
+    white-space: nowrap;
+  }
+
+  .patch-elem {
+    display: inline-block;
+    padding: 2px;
+    border: 1px solid #33c;
   }
 
   li {
