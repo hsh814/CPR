@@ -1,5 +1,5 @@
 <script lang='ts'>
-  import type { ResultType, AnalysisTableType, DirDataType } from '$lib/store';
+  import type { ResultType, AnalysisTableType, DirDataType, InputSelectType } from '$lib/store';
   import { dirDataStore } from '$lib/store';
   import { onMount } from 'svelte';
   import { fastapi } from '$lib/fastapi';
@@ -9,17 +9,14 @@
   dirDataStore.subscribe(value => {
     dirData = value;
   });
-  let input_feasiblity_map: Map<number, boolean> = new Map();
+  let input_select_list: {input: number, feasibility: boolean, used: boolean}[] = [];
   let localTable: AnalysisTableType = {columns: [], rows: []};
   let selected_input = -1;
-  let prev_inputs: number[] = [];
   let trace_data: {trace: string[], input: object} = {trace: [], input: {}};
-  let selected_feasibility: boolean = false;
   const original_columns: number[] = [...table.columns];
   const original_rows: {base: number, row: boolean[]}[] = [...table.rows];
   let remaining_inputs: Map<number, boolean[]> = new Map();
   let remaining_patches: Set<number> = new Set();
-  let log: string[] = [];
   let showOriginalTable: boolean = false;
   $: console.log("trace_data", trace_data);
 
@@ -68,8 +65,7 @@
   };
 
   const get_input_trace = () => {
-    log = [...log, "get_input_trace " + selected_input];
-    const params = dirData;
+    const params: DirDataType = { dir: dirData.dir, inputs: input_select_list };
     console.log("get_input_trace: " + JSON.stringify(params));
     fastapi("POST", "/meta-data/data-log-parser/explain", params, (data: {trace: string[], input: object}) => {
       console.log("get_input_trace: " + JSON.stringify(data));
@@ -84,17 +80,17 @@
   };
 
   const select_input = () => {
-    log = [...log, "select_input bf " + selected_feasibility];
-    if (dirData.inputs.length > 0) {
-      dirData.feasible_list.push(selected_feasibility);
-    }
-    const params = dirData;
+    input_select_list.forEach((value, index) => {
+      value.used = true;
+    });
+    const params: DirDataType = { dir: dirData.dir, inputs: input_select_list };
     console.log("select_input: " + JSON.stringify(params));
     fastapi("POST", "/meta-data/data-log-parser/select", params, (data: {selected_input: number, remaining_patches: number[], remaining_inputs: number[]}) => {
       console.log("select_input: " + JSON.stringify(data));
-      dirData.inputs.push(data.selected_input);
+      const sel_in: InputSelectType = { input: data.selected_input, feasibility: true, used: false };
+      input_select_list = [...input_select_list, sel_in];
       selected_input = data.selected_input;
-      console.log("selected_input: " + data.selected_input + ", " + selected_input);
+      console.log("select result: ", input_select_list);
       // Update remaining_inputs, remaining_patches
       const remaining_inputs_filter = new Set(data.remaining_inputs);
       for (const key of remaining_inputs.keys()) {
@@ -105,7 +101,6 @@
       remaining_patches = new Set(data.remaining_patches);
       console.log("remaining_inputs: " + JSON.stringify(remaining_inputs));
       console.log("remaining_patches: " + JSON.stringify(remaining_patches));
-      log = [...log, "select_input af " + selected_input];
     }, (error: any) => {
       console.log(error);
     });
@@ -126,13 +121,6 @@
 
 
 <h2>Analysis Table</h2>
-<div class="log-container">
-  <ul class="log-list">
-    {#each log as l}
-      <li>{l}</li>
-    {/each}
-  </ul>
-</div>
 <div class="trace-container">
   Selected input: {selected_input}
   <ul class="trace-list">
@@ -146,10 +134,25 @@
     <tr></tr>
   </thead>
 </table>
-<button on:click={() => get_input_trace()}> Get input trace </button>
-<input type="checkbox" bind:checked={selected_feasibility} />
-<button on:click={() => select_input()}> Send feasiblity, get new input </button>
+
+<div class="sel-input-container">
+  {#each input_select_list as input}
+    <div class="sel-input-elem">
+      {#if input.used}
+        <input type="checkbox" bind:checked={input.feasibility} />
+        <div class="sel-input-input">{input.input}</div>
+      {:else}
+        <input type="checkbox" bind:checked={input.feasibility} />
+        <div class="sel-input-select">{input.input}</div>
+      {/if}
+    </div>
+  {/each}
+</div>
+
 <button on:click={() => rebuild_table()}> Rebuild table </button>
+<button on:click={() => get_input_trace()}> Get input trace </button>
+<button on:click={() => select_input()}> Send feasiblity & get new input </button>
+
 <div class="patch-container">
   {#each remaining_patches as patch}
     <div class="patch-elem">{patch}</div>
@@ -223,23 +226,10 @@
     max-height: 200px; /* Set your desired maximum height */
     max-width: 80%;
     overflow-y: auto;
-    border: 1px solid #cc3; /* Optional: Add a border for better visibility */
-  }
-
-  .trace-list {
-    list-style-type: none;
-    padding: 0;
-    margin: 0;
-  }
-
-  .log-container {
-    max-height: 200px; /* Set your desired maximum height */
-    max-width: 80%;
-    overflow-y: auto;
     border: 1px solid #3cc; /* Optional: Add a border for better visibility */
   }
 
-  .log-list {
+  .trace-list {
     list-style-type: none;
     padding: 0;
     margin: 0;
@@ -257,6 +247,28 @@
     display: inline-block;
     padding: 2px;
     border: 1px solid #33c;
+  }
+
+  .sel-input-container {
+    max-height: 200px; /* Set your desired maximum height */
+    max-width: 80%;
+    overflow-y: auto;
+    display: flex;
+    border: 1px solid #3cc; /* Optional: Add a border for better visibility */
+    padding: 10px;
+  }
+
+  .sel-input-elem {
+    padding: 8px;
+    margin-bottom: 5px;
+    border: 1px solid #c0c; /* Optional: Add a border between list items for better visibility */
+  }
+  .sel-input-input {
+    color: blue;
+  }
+  .sel-input-select {
+    color: red;
+
   }
 
   li {

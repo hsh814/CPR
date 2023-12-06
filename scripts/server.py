@@ -40,10 +40,14 @@ def read_benchmark():
 def read_benchmark_path(path: str):
     return FileResponse(f"frontend/build/benchmark/{path}.html")
 
+class InputSelect(BaseModel):
+    input: int
+    feasibility: bool
+    used: bool
+
 class DirData(BaseModel):
     dir: str
-    inputs: List[int]
-    feasible_list: List[bool]
+    inputs: List[InputSelect]
 
 # APIs
 @app.get("/meta-data/list")
@@ -105,7 +109,7 @@ def meta_data_data_log_parser_result(dir: str = Query("")):
 
 @app.post("/meta-data/data-log-parser/explain")
 def meta_data_data_log_parser_explain(request_data: DirData):
-    if not os.path.exists(request_data.dir):
+    if not os.path.exists(request_data.dir) or len(request_data.inputs) == 0:
         return {"result": ""}
     dp = meta_test.DataLogParser(request_data.dir)
     if os.path.exists(dp.get_cache_file("result.json")):
@@ -114,7 +118,7 @@ def meta_data_data_log_parser_explain(request_data: DirData):
     else:
         dp.read_data_log("data.log")
         ar = dp.generate_table_v2(dp.cluster())
-    return dp.get_trace(ar, request_data.inputs[-1])
+    return dp.get_trace(ar, request_data.inputs[-1].input)
 
 @app.post("/meta-data/data-log-parser/select")
 def meta_data_data_log_parser_select(request_data: DirData):
@@ -128,9 +132,34 @@ def meta_data_data_log_parser_select(request_data: DirData):
     else:
         dp.read_data_log()
         ar = dp.generate_table_v2(dp.cluster())
-    selected_input, remaining_patches, remaining_inputs = dp.select_input(ar, request_data.inputs, request_data.feasible_list)
+    input_list = list()
+    feas_list = list()
+    for i in request_data.inputs:
+        input_list.append(i.input)
+        feas_list.append(i.feasibility)
+    selected_input, remaining_patches, remaining_inputs = dp.select_input(ar, input_list, feas_list)
     return {"selected_input": selected_input, "remaining_patches": remaining_patches, "remaining_inputs": remaining_inputs}
-    
+
+@app.post("/meta-data/data-log-parser/patch/select")
+def meta_data_data_log_parser_patch_select(request_data: DirData):
+    print(f"meta_data_data_log_parser_select: {request_data}")
+    if not os.path.exists(request_data.dir):
+        return {"result": ""}
+    dp = meta_test.DataLogParser(request_data.dir)
+    if os.path.exists(dp.get_cache_file("result.json")):
+        with open(dp.get_cache_file("result.json"), "r") as f:
+            ar = json.load(f)
+    else:
+        dp.read_data_log()
+        ar = dp.generate_table_v2(dp.cluster())
+    input_list = list()
+    feas_list = list()
+    for i in request_data.inputs:
+        input_list.append(i.input)
+        feas_list.append(i.feasibility)
+    selected_input_a, selected_input_b, diff, remaining_patches, remaining_inputs = dp.select_input_by_patch(ar, input_list, feas_list)
+    return {"selected_input_a": selected_input_a, "selected_input_b": selected_input_b, "diff": diff, "remaining_patches": remaining_patches, "remaining_inputs": remaining_inputs}
+
 @app.post("/meta-data/data-log-parser/feasible")
 def meta_data_data_log_parser_feasible(request_data: DirData):
     if not os.path.exists(request_data.dir):

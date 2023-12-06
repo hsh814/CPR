@@ -835,6 +835,30 @@ class DataLogParser:
       break
     print(f"selected_input: {selected_input}")
     return selected_input, remaining_patches, remaining_inputs
+  def select_input_v2(self,  result: dict, prev_inputs: List[int], feasible_list: List[bool]) -> Tuple[int, int, dict, List[int], List[int]]:
+    # Select 2 inputs and generate human-readable diff
+    removed_if_feasible = result["removed_if_feasible"]
+    patch_analysis = result["patch_analysis"]
+    crash_id_to_state = result["crash_id_to_state"]
+    crash_test_result = result["crash_test_result"]
+    graph = result["graph"]
+    state_map = result["state_map"]
+    remaining_patches, remaining_inputs = self.filter_out_patches(result, prev_inputs, feasible_list)
+    table = result["table"]
+    columns = table["columns"]
+    rows = table["rows"]
+    # 1. Select input
+    # TODO: make more intelligent selection
+    print(f"remaining_patches: {remaining_patches}")
+    print(f"remaining_inputs: {remaining_inputs}")
+    selected_input: int = 0
+    for input in remaining_inputs:
+      if input in prev_inputs:
+        continue
+      selected_input = input
+      break
+    print(f"selected_input: {selected_input}")
+    return 
   def filter_out_patches(self, result: dict, selected_inputs: List[int], feasible_list: List[bool]) -> Tuple[List[int], List[int]]:
     removed_if_feasible = result["removed_if_feasible"]
     patch_analysis = result["patch_analysis"]
