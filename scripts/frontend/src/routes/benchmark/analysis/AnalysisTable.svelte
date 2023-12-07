@@ -5,6 +5,21 @@
   import { fastapi } from '$lib/fastapi';
   export let result_data: ResultType;
   export let table: AnalysisTableType;
+  interface InputSummaryType {
+    crashId: number,
+    isCrash: boolean,
+    state: number,
+    symbolic_constraints: {
+      constraint: string,
+      position: string,
+    }[],
+    symbolic_objects: {
+      address: number,
+      name: string,
+      size: number,
+      value: string,
+    }[],
+  }
   let dirData: DirDataType;
   dirDataStore.subscribe(value => {
     dirData = value;
@@ -12,13 +27,13 @@
   let input_select_list: {input: number, feasibility: boolean, used: boolean}[] = [];
   let localTable: AnalysisTableType = {columns: [], rows: []};
   let selected_input = -1;
-  let trace_data: {trace: string[], input: object} = {trace: [], input: {}};
+  let trace_data: {trace: string[], input: InputSummaryType};
   const original_columns: number[] = [...table.columns];
   const original_rows: {base: number, row: boolean[]}[] = [...table.rows];
   let remaining_inputs: Map<number, boolean[]> = new Map();
   let remaining_patches: Set<number> = new Set();
   let showOriginalTable: boolean = false;
-  $: console.log("trace_data", trace_data);
+  $: showTrace = (trace_data != null || trace_data != undefined) && trace_data.trace.length > 0;
 
   const get_table_header = (): number[] => {
     let header: number[] = [];
@@ -67,7 +82,7 @@
   const get_input_trace = () => {
     const params: DirDataType = { dir: dirData.dir, inputs: input_select_list };
     console.log("get_input_trace: " + JSON.stringify(params));
-    fastapi("POST", "/meta-data/data-log-parser/explain", params, (data: {trace: string[], input: object}) => {
+    fastapi("POST", "/meta-data/data-log-parser/explain", params, (data: {trace: string[], input: InputSummaryType}) => {
       console.log("get_input_trace: " + JSON.stringify(data));
       if (data == null) {
         console.log("get_input_trace: data is null");
@@ -121,30 +136,52 @@
 
 
 <h2>Analysis Table</h2>
-<div class="trace-container">
-  Selected input: {selected_input}
-  <ul class="trace-list">
-    {#each trace_data.trace as trace}
-      <li>{trace}</li>
-    {/each}
-  </ul>
-</div>
-<table>
-  <thead>
-    <tr></tr>
-  </thead>
-</table>
 
+{#if showTrace}
+  <p>Trace</p>
+  <div class="trace-container">
+    <table>
+      <thead>
+        <tr>
+          <th>Input</th>
+          <th>State</th>
+          <th>IsCrash</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>{trace_data.input.crashId}</td>
+          <td>{trace_data.input.state}</td>
+          <td>{trace_data.input.isCrash}</td>
+        </tr>
+      </tbody>
+    </table>
+    <p>Symbolic objects</p>
+    <ul class="symbolic_objects">
+      {#each trace_data.input.symbolic_objects as object}
+        <li class="symbolic_objects-elem">{object.name}: {object.value} (size: {object.size})</li>
+      {/each}
+    </ul>
+    <p>Symbolic constraints</p>
+    <ul class="symbolic_constraints">
+      {#each trace_data.input.symbolic_constraints as constraint}
+        <li class="symbolic_constraints-elem">{constraint.constraint}</li>
+      {/each}
+    </ul>
+    <ul class="trace-list">
+      {#each trace_data.trace as trace}
+        <li class="trace-elem">{trace}</li>
+      {/each}
+    </ul>
+  </div>
+{/if}
+
+<p>Selected input & feasibility</p>
 <div class="sel-input-container">
   {#each input_select_list as input}
-    <div class="sel-input-elem">
-      {#if input.used}
-        <input type="checkbox" bind:checked={input.feasibility} />
-        <div class="sel-input-input">{input.input}</div>
-      {:else}
-        <input type="checkbox" bind:checked={input.feasibility} />
-        <div class="sel-input-select">{input.input}</div>
-      {/if}
+    <div class="sel-input-elem {input.used ? '' : 'used'}">
+      <input type="checkbox" bind:checked={input.feasibility} />
+      <input type="number" bind:value={input.input} class="input-input" />
     </div>
   {/each}
 </div>
@@ -153,11 +190,13 @@
 <button on:click={() => get_input_trace()}> Get input trace </button>
 <button on:click={() => select_input()}> Send feasiblity & get new input </button>
 
+<p>Remaining patches</p>
 <div class="patch-container">
   {#each remaining_patches as patch}
     <div class="patch-elem">{patch}</div>
   {/each}
 </div>
+
 <table>
   <thead>
     <tr>
@@ -197,9 +236,7 @@
       <tr>
         <td>i{row.base}</td>
         {#each row.row as value}
-          {#if remaining_inputs.has(row.base)}
-            <td>{value ? 'O' : 'X'}</td>
-          {/if}
+          <td>{value ? 'O' : 'X'}</td>
         {/each}
       </tr>
     {/each}
@@ -211,6 +248,7 @@
   table {
     border-collapse: collapse;
     width: 100%;
+    overflow-x: auto;
   }
 
   th, td {
@@ -233,6 +271,10 @@
     list-style-type: none;
     padding: 0;
     margin: 0;
+  }
+
+  .trace-elem {
+    padding: 1px;
   }
 
   .patch-container {
@@ -260,15 +302,15 @@
 
   .sel-input-elem {
     padding: 8px;
-    margin-bottom: 5px;
-    border: 1px solid #c0c; /* Optional: Add a border between list items for better visibility */
+    border: 1px solid #3cc; /* Optional: Add a border between list items for better visibility */
+    width: 10%;
   }
-  .sel-input-input {
-    color: blue;
-  }
-  .sel-input-select {
+  .used {
     color: red;
-
+    border: 1px solid red;
+  }
+  .input-input {
+    width: 60%;
   }
 
   li {
