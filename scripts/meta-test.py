@@ -867,16 +867,46 @@ class DataLogParser:
       if a != b:
         result += 1
     return result
-  def get_all_adjascent_inputs(self, state_map: Dict[int, dict], graph: Dict[str, list], remaining_inputs: List[int], crash_id_to_state: List[Tuple[int, int]]) -> List[Tuple[int, int]]:
-    result = list()
+  def get_all_adjacent_inputs(self, state_map: Dict[int, dict], graph: Dict[str, list], remaining_inputs: List[int], crash_id_to_state: List[Tuple[int, int]]) -> List[Tuple[int, int]]:
+    def generate_adjacency_list(edges: List[Tuple[int, int, str]]) -> Dict[int, List[int]]:
+      adjacency_list = dict()
+      for edge in edges:
+        source, target, edge_type = edge
+        if edge_type == "merge":
+          continue
+        if source not in adjacency_list:
+          adjacency_list[source] = list()
+        if target not in adjacency_list:
+          adjacency_list[target] = list()
+        adjacency_list[source].append(target)
+      return adjacency_list
+    def dfs(base: int, node: int, remaining_nodes: Set[int], adjacency_list: Dict[int, List[int]], visited: Set[int], result: List[Tuple[int, int]]):
+      visited.add(node)
+      # print(f"base: {base} node: {node} -> {adjacency_list.get(node, [])}")
+      for neighbor in adjacency_list.get(node, []):
+        if neighbor in remaining_nodes and neighbor not in visited:
+          result.append((base, neighbor))
+        else:
+          dfs(base, neighbor, remaining_nodes, adjacency_list, visited, result)
+    state_pairs = list()
     input_filter = set(remaining_inputs)
-    mid_filter = set()
-    for source, target, edge_type in graph["edges"]:
-      if source in input_filter and target in input_filter:
-        result.append((source, target))
-      elif source in input_filter:
-        mid_filter.add(target)
-    return result
+    state_filter = set()
+    for crash_id, state in crash_id_to_state:
+      if crash_id in input_filter:
+        state_filter.add(state)
+    print(f"state_filter: {state_filter}")
+    adjacency_list = generate_adjacency_list(graph["edges"])
+    for node in state_filter:
+      if node not in adjacency_list:
+        continue
+      visited = set()
+      dfs(node, node, state_filter, adjacency_list, visited, state_pairs)
+    print(f"state_pairs: {state_pairs}")
+    input_pairs = list()
+    for source, target in state_pairs:
+      input_pairs.append((state_map[source]["crashId"], state_map[target]["crashId"]))
+    print(f"input_pairs: {input_pairs}")
+    return input_pairs
   def select_input_v2(self,  result: dict, prev_inputs: List[int], feasible_list: List[bool]) -> Tuple[int, int, dict, List[int], List[int]]:
     # Select 2 inputs and generate human-readable diff
     def build_map(d: list) -> dict:
@@ -884,12 +914,12 @@ class DataLogParser:
       for item in d:
         result[item["key"]] = item["value"]
       return result
-    removed_if_feasible = result["removed_if_feasible"]
+    removed_if_feasible = build_map(result["removed_if_feasible"])
     patch_analysis = result["patch_analysis"]
     crash_id_to_state = result["crash_id_to_state"]
     crash_test_result = result["crash_test_result"]
     graph = result["graph"]
-    state_map = result["state_map"]
+    state_map = build_map(result["state_map"])
     remaining_patches, remaining_inputs = self.filter_out_patches(result, prev_inputs, feasible_list)
     table = result["table"]
     columns = table["columns"]
@@ -898,15 +928,22 @@ class DataLogParser:
     # TODO: make more intelligent selection
     print(f"remaining_patches: {remaining_patches}")
     print(f"remaining_inputs: {remaining_inputs}")
+    input_pairs = self.get_all_adjacent_inputs(state_map, graph, remaining_inputs, crash_id_to_state)
     selected_input_a: int = -1
     selected_input_b: int = -1
-    for input in remaining_inputs:
-      if input in prev_inputs:
-        continue
-      selected_input = input
-      break
-    print(f"selected_input: {selected_input}")
-    return 
+    max_diff = -1
+    for ia, ib in input_pairs:
+      diff = self.get_patch_result_diff(removed_if_feasible, remaining_patches, ia, ib)
+      print(f"ia: {ia}, ib: {ib}, diff: {diff}")
+      if diff > max_diff:
+        max_diff = diff
+        selected_input_a = ia
+        selected_input_b = ib
+    print(f"selected_input_a: {selected_input_a}, selected_input_b: {selected_input_b}")
+    # get diff
+    diff = dict()
+    
+    return selected_input_a, selected_input_b, diff, remaining_patches, remaining_inputs
   def filter_out_patches(self, result: dict, selected_inputs: List[int], feasible_list: List[bool]) -> Tuple[List[int], List[int]]:
     removed_if_feasible = result["removed_if_feasible"]
     patch_analysis = result["patch_analysis"]

@@ -140,8 +140,8 @@ def meta_data_data_log_parser_select(request_data: DirData):
     selected_input, remaining_patches, remaining_inputs = dp.select_input(ar, input_list, feas_list)
     return {"selected_input": selected_input, "remaining_patches": remaining_patches, "remaining_inputs": remaining_inputs}
 
-@app.post("/meta-data/data-log-parser/patch/select")
-def meta_data_data_log_parser_patch_select(request_data: DirData):
+@app.post("/meta-data/data-log-parser/multi/select")
+def meta_data_data_log_parser_multi_select(request_data: DirData):
     print(f"meta_data_data_log_parser_select: {request_data}")
     if not os.path.exists(request_data.dir):
         return {"result": ""}
@@ -157,7 +157,7 @@ def meta_data_data_log_parser_patch_select(request_data: DirData):
     for i in request_data.inputs:
         input_list.append(i.input)
         feas_list.append(i.feasibility)
-    selected_input_a, selected_input_b, diff, remaining_patches, remaining_inputs = dp.select_input_by_patch(ar, input_list, feas_list)
+    selected_input_a, selected_input_b, diff, remaining_patches, remaining_inputs = dp.select_input_v2(ar, input_list, feas_list)
     return {"selected_input_a": selected_input_a, "selected_input_b": selected_input_b, "diff": diff, "remaining_patches": remaining_patches, "remaining_inputs": remaining_inputs}
 
 @app.post("/meta-data/data-log-parser/feasible")

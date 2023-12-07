@@ -60,7 +60,7 @@
     border: solid 1px;
   }
   .sidebar {
-    width: 40%;
+    width: 25%;
     height: 100%;
     float: right;
     border: solid 1px;
