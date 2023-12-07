@@ -26,14 +26,13 @@
   });
   let input_select_list: {input: number, feasibility: boolean, used: boolean}[] = [];
   let localTable: AnalysisTableType = {columns: [], rows: []};
-  let selected_input = -1;
   let trace_data: {trace: string[], input: InputSummaryType};
   const original_columns: number[] = [...table.columns];
   const original_rows: {base: number, row: boolean[]}[] = [...table.rows];
   let remaining_inputs: Map<number, boolean[]> = new Map();
   let remaining_patches: Set<number> = new Set();
   let showOriginalTable: boolean = false;
-  $: showTrace = (trace_data != null || trace_data != undefined) && trace_data.trace.length > 0;
+  let showTrace = false;
 
   const get_table_header = (): number[] => {
     let header: number[] = [];
@@ -89,6 +88,7 @@
         return;
       }
       trace_data = data;
+      showTrace = true;
     }, (error: any) => {
       console.log(error);
     });
@@ -104,7 +104,6 @@
       console.log("select_input: " + JSON.stringify(data));
       const sel_in: InputSelectType = { input: data.selected_input, feasibility: true, used: false };
       input_select_list = [...input_select_list, sel_in];
-      selected_input = data.selected_input;
       console.log("select result: ", input_select_list);
       // Update remaining_inputs, remaining_patches
       const remaining_inputs_filter = new Set(data.remaining_inputs);
@@ -156,23 +155,30 @@
         </tr>
       </tbody>
     </table>
-    <p>Symbolic objects</p>
-    <ul class="symbolic_objects">
-      {#each trace_data.input.symbolic_objects as object}
-        <li class="symbolic_objects-elem">{object.name}: {object.value} (size: {object.size})</li>
-      {/each}
-    </ul>
-    <p>Symbolic constraints</p>
-    <ul class="symbolic_constraints">
-      {#each trace_data.input.symbolic_constraints as constraint}
-        <li class="symbolic_constraints-elem">{constraint.constraint}</li>
-      {/each}
-    </ul>
-    <ul class="trace-list">
-      {#each trace_data.trace as trace}
-        <li class="trace-elem">{trace}</li>
-      {/each}
-    </ul>
+    <div>
+      <p>Symbolic objects</p>
+      <ul class="symbolic_objects">
+        {#each trace_data.input.symbolic_objects as object}
+          <li class="symbolic_objects-elem">{object.name}: {object.value} (size: {object.size})</li>
+        {/each}
+      </ul>
+    </div>
+    <div>
+      <p>Symbolic constraints</p>
+      <ul class="symbolic_constraints">
+        {#each trace_data.input.symbolic_constraints as constraint}
+          <li class="symbolic_constraints-elem">{constraint.constraint}</li>
+        {/each}
+      </ul>
+    </div>
+    <div>
+      <p>Trace</p>
+      <ul class="trace-list">
+        {#each trace_data.trace as trace}
+          <li class="trace-elem">{trace}</li>
+        {/each}
+      </ul>
+    </div>
   </div>
 {/if}
 
@@ -220,7 +226,7 @@
   </tbody>
 </table>
 
-<button on:click={() => showOriginalTable = !showOriginalTable}> Show original table </button>
+<button on:click={() => showOriginalTable = !showOriginalTable}> {showOriginalTable ? "Hide" : "Show"} original table </button>
 {#if showOriginalTable}
   <table>
   <thead>

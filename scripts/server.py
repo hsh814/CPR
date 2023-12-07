@@ -201,7 +201,7 @@ def meta_data_run_current(bug_id: str = Query(""), dir: str = Query("")):
         lines = f.readlines()
         if len(lines) < 2:
             return {"message": f"no running process {bug_id}", "running": False, "dir": ""}
-        return {"message": f"running process {bug_id}", "running": True, "dir": lines[2].strip()}
+        return {"message": f"running process {bug_id}", "running": True, "dir": lines[1].strip()}
     return {"message": f"no running process {bug_id}", "running": False, "dir": ""}
 
 @app.post("/benchmark/run")

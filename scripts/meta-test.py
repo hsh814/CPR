@@ -12,6 +12,7 @@ import glob
 import re
 import signal
 import random
+import queue
 
 import graphviz
 
@@ -715,11 +716,16 @@ class DataLogParser:
   def generate_table_v2(self, cluster: Dict[int, list]) -> dict:
     def unpack(data: List[dict]) -> List[Tuple[int, int]]:
       return list(map(lambda x: (x["patch"], x["id"]), data))
+    def to_list(data: dict) -> list:
+      result = list()
+      for key, value in data.items():
+        result.append({"key": key, "value": value})
+      return result
     """ result: {
-      state_map: Record<number, any>
-      removed_if_feasible: Record<number, Array<[number, number]>>
-      removed_if_infeasible: Record<number, Array<[number, number]>>
-      removed: Record<number, Array<[number, number]>>
+      state_map: {key: number, value: object}[],
+      removed_if_feasible: { key: number, value: [number, number]}[]
+      removed_if_infeasible: { key: number, value: [number, number]}[]
+      removed: { key: number, value: [number, number]}[]
       crash_id_to_state: Record<number, number>
       crash_test_result: Record<number, Array<number>>
       graph: {nodes: Set<number>, edges: Set<[number, number, string]>}
@@ -728,10 +734,10 @@ class DataLogParser:
     }
     """
     result = { 
-      "state_map": self.meta_data,
-      "removed_if_feasible": dict(),
-      "removed_if_infeasible": dict(),
-      "removed": dict(),
+      "state_map": to_list(self.meta_data),
+      "removed_if_feasible": list(),
+      "removed_if_infeasible": list(),
+      "removed": list(),
       "crash_id_to_state": list(),
       "crash_test_result": dict(),
       "graph": {
@@ -744,25 +750,31 @@ class DataLogParser:
     patches = set()
     removed = self.analyze_cluster(cluster)
     # 0. Initialize result
+    removed_org = dict()
+    removed_if_feasible = dict()
+    removed_if_infeasible = dict()
     for base, data_list in cluster.items():
       base_state, rm, rm_if_feasible, rm_if_infeasible = removed[base]
-      result["removed"][base] = unpack(rm)
-      result["removed_if_feasible"][base] = unpack(rm_if_feasible)
-      result["removed_if_infeasible"][base] = unpack(rm_if_infeasible)
+      removed_org[base] = unpack(rm)
+      removed_if_feasible[base] = unpack(rm_if_feasible)
+      removed_if_infeasible[base] = unpack(rm_if_infeasible)
       crash_id_to_state[base] = base_state
       result["crash_test_result"][base] = list(map(lambda x: x["state"], data_list))
       for data in data_list:
         patches.add(data["patchId"])
     for base in crash_id_to_state:
       result["crash_id_to_state"].append((base, crash_id_to_state[base]))
+    result["removed"] = to_list(removed_org)
+    result["removed_if_feasible"] = to_list(removed_if_feasible)
+    result["removed_if_infeasible"] = to_list(removed_if_infeasible)
     # Depper analysis
     # 1. Analyze patch
     patch_analysis: Dict[int, List[int]] = dict()
     for patch in patches:
       patch_analysis[patch] = list()
-    for base in result["removed_if_feasible"]:
+    for base in removed_if_feasible:
       base_state = crash_id_to_state[base]
-      for patch_id, state in result["removed_if_feasible"][base]:
+      for patch_id, state in removed_if_feasible[base]:
         if state == base_state:
           continue
         if state not in result["graph"]["nodes"]:
@@ -798,7 +810,7 @@ class DataLogParser:
       for base in cluster:
         base_state = crash_id_to_state[base]
         patch_filter = set()
-        for patch_id, state in result["removed_if_feasible"][base]:
+        for patch_id, state in removed_if_feasible[base]:
           if state == base_state:
             continue
           patch_filter.add(patch_id)
@@ -810,7 +822,7 @@ class DataLogParser:
     table["columns"] = columns
     table["rows"] = rows
     with open(self.get_cache_file("result.json"), "w") as f:
-      json.dump(result, f)
+      json.dump(result, f, indent=2)
     return result
   def select_input(self, result: dict, prev_inputs: List[int], feasible_list: List[bool]) -> Tuple[int, List[int], List[int]]:
     removed_if_feasible = result["removed_if_feasible"]
@@ -835,8 +847,43 @@ class DataLogParser:
       break
     print(f"selected_input: {selected_input}")
     return selected_input, remaining_patches, remaining_inputs
+  def get_patch_result_diff(self, removed_if_feasible: Dict[int, List[List[int]]], remaining_patches: List[int], input_a: int, input_b: int) -> int:
+    def list_to_set(l: List[List[int]]) -> Set[int]:
+      result = set()
+      for item in l:
+        result.add(item[0])
+      return result
+    if input_a not in removed_if_feasible or input_b not in removed_if_feasible:
+      return 0
+    ra = list_to_set(removed_if_feasible[input_a])
+    rb = list_to_set(removed_if_feasible[input_b])
+    remain_a = list()
+    remain_b = list()
+    for patch in remaining_patches:
+      remain_a.append(patch not in ra)
+      remain_b.append(patch not in rb)
+    result = 0
+    for a, b in zip(remain_a, remain_b):
+      if a != b:
+        result += 1
+    return result
+  def get_all_adjascent_inputs(self, state_map: Dict[int, dict], graph: Dict[str, list], remaining_inputs: List[int], crash_id_to_state: List[Tuple[int, int]]) -> List[Tuple[int, int]]:
+    result = list()
+    input_filter = set(remaining_inputs)
+    mid_filter = set()
+    for source, target, edge_type in graph["edges"]:
+      if source in input_filter and target in input_filter:
+        result.append((source, target))
+      elif source in input_filter:
+        mid_filter.add(target)
+    return result
   def select_input_v2(self,  result: dict, prev_inputs: List[int], feasible_list: List[bool]) -> Tuple[int, int, dict, List[int], List[int]]:
     # Select 2 inputs and generate human-readable diff
+    def build_map(d: list) -> dict:
+      result = dict()
+      for item in d:
+        result[item["key"]] = item["value"]
+      return result
     removed_if_feasible = result["removed_if_feasible"]
     patch_analysis = result["patch_analysis"]
     crash_id_to_state = result["crash_id_to_state"]
@@ -851,7 +898,8 @@ class DataLogParser:
     # TODO: make more intelligent selection
     print(f"remaining_patches: {remaining_patches}")
     print(f"remaining_inputs: {remaining_inputs}")
-    selected_input: int = 0
+    selected_input_a: int = -1
+    selected_input_b: int = -1
     for input in remaining_inputs:
       if input in prev_inputs:
         continue
@@ -907,9 +955,15 @@ class DataLogParser:
     return (sorted(list(remaining_patches)), remaining_inputs)
   def get_parent_states(self, graph, state: int) -> List[int]:
     result = list()
-    for source, target, edge_type in graph["edges"]:
-      if target == state:
-        result.append(source)
+    q = queue.Queue()
+    q.put(state)
+    while not q.empty():
+      current = q.get()
+      for source, target, edge_type in graph["edges"]:
+        if edge_type == "fork" and target == current:
+          result.append(source)
+          q.put(source)
+    print(f"get_parent_states: {result}")
     return result
   def get_trace(self, result: dict, selected_input: int) -> dict:
     removed_if_feasible = result["removed_if_feasible"]
@@ -942,6 +996,10 @@ class DataLogParser:
     if os.path.exists(os.path.join(self.dir, f"test{state_id:06d}.input")):
       with open(os.path.join(self.dir, f"test{state_id:06d}.input"), 'r') as f:
         input = json.load(f)
+    for elem in state_map:
+      if elem["key"] == state_id:
+        input["crashId"] = elem["value"]["crashId"]
+        break
     return {"trace": trace, "input": input}
   def generate_markdown_table(self, result: dict) -> str:
     removed_if_feasible = result["removed_if_feasible"]

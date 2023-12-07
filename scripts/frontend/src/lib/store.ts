@@ -8,12 +8,25 @@ export interface AnalysisTableType {
     row: boolean[],
   }[],
 }
+export interface StateType {
+  state: number,
+  crashId: number,
+  patchId: number,
+  stateType: string,
+  isCrash: boolean,
+  actuallyCrashed: boolean,
+  exitLoc: string,
+  exit: string,
+  regressionTrace: string,
+  stackTrace: string,
+}
+
 export interface ResultType {
-  state_map: Record<number, any>
-  removed_if_feasible: Record<number, Array<[number, number]>>
-  removed_if_infeasible: Record<number, Array<[number, number]>>
-  removed: Record<number, Array<[number, number]>>
-  crash_id_to_state: Record<number, number>
+  state_map: { key: number, value: StateType }[]
+  removed_if_feasible: { key: number, value: Array<[number, number]> }[]
+  removed_if_infeasible: { key: number, value: Array<[number, number]> }[]
+  removed: { key: number, value: Array<[number, number]> }[]
+  crash_id_to_state: [number, number][],
   crash_test_result: Record<number, Array<number>>
   graph: { nodes: Set<number>, edges: Set<[number, number, string]> }
   patch_analysis: Record<number, Array<number>>
