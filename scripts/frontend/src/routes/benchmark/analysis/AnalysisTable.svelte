@@ -1,9 +1,8 @@
 <script lang='ts'>
-  import type { ResultType, AnalysisTableType, DirDataType, InputSelectType } from '$lib/store';
+  import type { ResultType, AnalysisTableType, DirDataType, InputSelectType, StateType } from '$lib/store';
   import { dirDataStore } from '$lib/store';
   import { onMount } from 'svelte';
   import { fastapi } from '$lib/fastapi';
-  export let result_data: ResultType;
   export let table: AnalysisTableType;
   interface InputSummaryType {
     crashId: number,
@@ -20,6 +19,31 @@
       value: string,
     }[],
   }
+  interface MultiSelectResultType {
+    selected_input_a: number,
+    selected_input_b: number,
+    diff: {
+      diff: number,
+      state_a: StateType,
+      state_b: StateType,
+      input_a: InputSummaryType,
+      input_b: InputSummaryType,
+      compare: {
+        symbolic_objects: {
+          diff: boolean,
+          a: string[],
+          b: string[],
+        }
+        symbolic_constraints: {
+          diff: boolean,
+          a: string[],
+          b: string[],
+        }
+      }
+    },
+    remaining_inputs: number[],
+    remaining_patches: number[],
+  }
   let dirData: DirDataType;
   dirDataStore.subscribe(value => {
     dirData = value;
@@ -33,6 +57,8 @@
   let remaining_patches: Set<number> = new Set();
   let showOriginalTable: boolean = false;
   let showTrace = false;
+  let multiSelectMode = false;
+  let inputDiff: MultiSelectResultType;
 
   const get_table_header = (): number[] => {
     let header: number[] = [];
@@ -94,6 +120,17 @@
     });
   };
 
+  const update_remainings = (rmi: number[], rmp: number[]) => {
+    const remaining_inputs_filter = new Set(rmi);
+    for (const key of remaining_inputs.keys()) {
+      if (!remaining_inputs_filter.has(key)) {
+        remaining_inputs.delete(key);
+      }
+    }
+    remaining_patches = new Set(rmp);
+    rebuild_table();
+  };
+
   const select_input = () => {
     input_select_list.forEach((value, index) => {
       value.used = true;
@@ -106,19 +143,50 @@
       input_select_list = [...input_select_list, sel_in];
       console.log("select result: ", input_select_list);
       // Update remaining_inputs, remaining_patches
-      const remaining_inputs_filter = new Set(data.remaining_inputs);
-      for (const key of remaining_inputs.keys()) {
-        if (!remaining_inputs_filter.has(key)) {
-          remaining_inputs.delete(key);
-        }
-      }
-      remaining_patches = new Set(data.remaining_patches);
+      update_remainings(data.remaining_inputs, data.remaining_patches);
       console.log("remaining_inputs: " + JSON.stringify(remaining_inputs));
       console.log("remaining_patches: " + JSON.stringify(remaining_patches));
+      multiSelectMode = false;
     }, (error: any) => {
       console.log(error);
     });
   };
+
+  const multi_select_input = () => {
+    input_select_list.forEach((value, index) => {
+      value.used = true;
+    });
+    const params: DirDataType = { dir: dirData.dir, inputs: input_select_list };
+    console.log("select_input_compare: " + JSON.stringify(params));
+    fastapi("POST", "/meta-data/data-log-parser/multi/select", params, (data: MultiSelectResultType) => {
+      console.log("select_input_compare: " + JSON.stringify(data));
+      if (data.selected_input_a == null || data.selected_input_a < 0) {
+        console.log("select_input_compare: data is null");
+        input_select_list = input_select_list;
+        multiSelectMode = false;
+        update_remainings(data.remaining_inputs, data.remaining_patches);
+        return;
+      }
+      if (data.selected_input_b == null || data.selected_input_b < 0) {
+        console.log("select_input_compare: data is null");
+        const sel_in_a: InputSelectType = { input: data.selected_input_a, feasibility: true, used: false };
+        input_select_list = [...input_select_list, sel_in_a];
+        multiSelectMode = false;
+        update_remainings(data.remaining_inputs, data.remaining_patches);
+        return;
+      }
+      multiSelectMode = true;
+      const sel_in_a: InputSelectType = { input: data.selected_input_a, feasibility: true, used: false };
+      const sel_in_b: InputSelectType = { input: data.selected_input_b, feasibility: true, used: false };
+      input_select_list = [...input_select_list, sel_in_a, sel_in_b];
+      console.log("select result: ", input_select_list);
+      // Update remaining_inputs, remaining_patches
+      update_remainings(data.remaining_inputs, data.remaining_patches);
+      inputDiff = data;
+    }, (error: any) => {
+      console.log(error);
+    });
+  }
 
   onMount(() => {
     console.log("AnalysisTable onMount");
@@ -129,7 +197,7 @@
     table.columns.forEach((value, index) => {
       remaining_patches.add(value);
     });
-    select_input();
+    rebuild_table();
   });
 </script>
 
@@ -182,6 +250,83 @@
   </div>
 {/if}
 
+{#if multiSelectMode}
+  <div>
+    <p>Input diff</p>
+    <table>
+      <thead>
+        <tr>
+          <th>Label</th>
+          <th>Input</th>
+          <th>State</th>
+          <th>IsCrash</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>a</td>
+          <td>{inputDiff.selected_input_a}</td>
+          <td>{inputDiff.diff.input_a.state}</td>
+          <td>{inputDiff.diff.input_a.isCrash}</td>
+        </tr>
+        <tr>
+          <td>b</td>
+          <td>{inputDiff.selected_input_b}</td>
+          <td>{inputDiff.diff.input_b.state}</td>
+          <td>{inputDiff.diff.input_b.isCrash}</td>
+        </tr>
+      </tbody>
+    </table>
+    <table>
+      <thead>
+        <tr>
+          <th>Value</th>
+          <th>a({inputDiff.selected_input_a})</th>
+          <th>b({inputDiff.selected_input_b})</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Symbolic objects</td>
+          <td>
+            {#each inputDiff.diff.compare.symbolic_objects.a as obj}
+              <div>{obj}</div>
+            {/each}
+          </td>
+          <td>
+            {#each inputDiff.diff.compare.symbolic_objects.b as obj}
+              <div>{obj}</div>
+            {/each}
+          </td>
+        </tr>
+        <tr>
+          <td>Symbolic constraints</td>
+          <td>
+            {#each inputDiff.diff.compare.symbolic_constraints.a as obj}
+              <div>{obj}</div>
+            {/each}
+          </td>
+          <td>
+            {#each inputDiff.diff.compare.symbolic_constraints.b as obj}
+              <div>{obj}</div>
+            {/each}
+          </td>
+        </tr>
+        <tr>
+          <td>Stack trace</td>
+          <td>{inputDiff.diff.state_a.stackTrace}</td>
+          <td>{inputDiff.diff.state_b.stackTrace}</td>
+        </tr>
+        <tr>
+          <td>Trace diff</td>
+          <td></td>
+          <td></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+{/if}
+
 <p>Selected input & feasibility</p>
 <div class="sel-input-container">
   {#each input_select_list as input}
@@ -194,8 +339,8 @@
 
 <button on:click={() => rebuild_table()}> Rebuild table </button>
 <button on:click={() => get_input_trace()}> Get input trace </button>
+<button on:click={() => multi_select_input()}> Send feasiblity & get new multi input </button>
 <button on:click={() => select_input()}> Send feasiblity & get new input </button>
-
 <p>Remaining patches</p>
 <div class="patch-container">
   {#each remaining_patches as patch}
@@ -253,7 +398,6 @@
 <style>
   table {
     border-collapse: collapse;
-    width: 100%;
     overflow-x: auto;
   }
 
@@ -265,6 +409,10 @@
 
   th {
     background-color: #f2f2f2;
+  }
+  li {
+    padding: 8px;
+    border-bottom: 1px solid #ddd; /* Optional: Add a border between list items for better visibility */
   }
   .trace-container {
     max-height: 200px; /* Set your desired maximum height */
@@ -317,10 +465,5 @@
   }
   .input-input {
     width: 60%;
-  }
-
-  li {
-    padding: 8px;
-    border-bottom: 1px solid #ddd; /* Optional: Add a border between list items for better visibility */
   }
 </style>

@@ -839,7 +839,7 @@ class DataLogParser:
     # TODO: make more intelligent selection
     print(f"remaining_patches: {remaining_patches}")
     print(f"remaining_inputs: {remaining_inputs}")
-    selected_input: int = 0
+    selected_input: int = -1
     for input in remaining_inputs:
       if input in prev_inputs:
         continue
@@ -940,8 +940,49 @@ class DataLogParser:
         selected_input_a = ia
         selected_input_b = ib
     print(f"selected_input_a: {selected_input_a}, selected_input_b: {selected_input_b}")
+    if selected_input_a < 0 or selected_input_b < 0:
+      return -1, -1, {}, remaining_patches, remaining_inputs
     # get diff
     diff = dict()
+    diff["diff"] = max_diff
+    for crash_id, state in crash_id_to_state:
+      if crash_id == selected_input_a:
+        diff["state_a"] = state_map[state]
+        with open(os.path.join(self.dir, f"test{state:06d}.input"), 'r') as f:
+          diff["input_a"] = json.load(f)
+      if crash_id == selected_input_b:
+        diff["state_b"] = state_map[state]
+        with open(os.path.join(self.dir, f"test{state:06d}.input"), 'r') as f:
+          diff["input_b"] = json.load(f)
+    # compare inputs
+    compare = dict()
+    sym_var_a = diff["input_a"]["symbolic_objects"]
+    sym_var_b = diff["input_b"]["symbolic_objects"]
+    var_set_a = set()
+    var_set_b = set()
+    for var in sym_var_a:
+      var_set_a.add(var["name"])
+    for var in sym_var_b:
+      var_set_b.add(var["name"])
+    # check if there is any difference
+    if var_set_a == var_set_b:
+      compare["symbolic_objects"] = { "diff": False, "a": [], "b": [] }
+    else:
+      compare["symbolic_objects"] = { "diff": True, "a": list(var_set_a - var_set_b), "b": list(var_set_b - var_set_a) }
+    sym_con_a = diff["input_a"]["symbolic_constraints"]
+    sym_con_b = diff["input_b"]["symbolic_constraints"]
+    # read smt2 file
+    con_set_a = set()
+    con_set_b = set()
+    for con in sym_con_a:
+      con_set_a.add(con["constraint"])
+    for con in sym_con_b:
+      con_set_b.add(con["constraint"])
+    if con_set_a == con_set_b:
+      compare["symbolic_constraints"] = { "diff": False, "a": [], "b": [] }
+    else:
+      compare["symbolic_constraints"] = { "diff": True, "a": list(con_set_a - con_set_b), "b": list(con_set_b - con_set_a) }
+    diff["compare"] = compare
     
     return selected_input_a, selected_input_b, diff, remaining_patches, remaining_inputs
   def filter_out_patches(self, result: dict, selected_inputs: List[int], feasible_list: List[bool]) -> Tuple[List[int], List[int]]:
@@ -960,10 +1001,12 @@ class DataLogParser:
       return columns, remaining_inputs
     # 1. Filter out patches
     remaining_patches = set(columns)
-    for selected_input in selected_inputs:
+    for selected_input, feasibility in zip(selected_inputs, feasible_list):
       for row in rows:
         base = row["base"]
         if base != selected_input:
+          continue
+        if not feasibility:
           continue
         for patch, value in zip(columns, row["row"]):
           if not value:
