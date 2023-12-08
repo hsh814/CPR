@@ -1,9 +1,8 @@
-
 export interface NodeType {
   data: {
     id: string;
     extra: any;
-  }
+  };
   classes: string[];
   style: any;
 }
@@ -14,7 +13,7 @@ export interface EdgeType {
     source: string;
     target: string;
     extra: any;
-  }
+  };
   classes: string[];
   style: any;
 }

@@ -18,18 +18,18 @@
 //     "target": "readSeparateTilesIntoBuffer"
 //   },
 export interface Metadata {
-    id: number;
-    bug_id: string;
-    benchmark: string;
-    subject: string;
-    vars?: string[];
-    buggy?: {
-        code: string;
-        id: string;
-    };
-    correct?: {
-        code: string;
-        id: string;
-    };
-    target?: string;
+  id: number;
+  bug_id: string;
+  benchmark: string;
+  subject: string;
+  vars?: string[];
+  buggy?: {
+    code: string;
+    id: string;
+  };
+  correct?: {
+    code: string;
+    id: string;
+  };
+  target?: string;
 }

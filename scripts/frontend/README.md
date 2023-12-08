@@ -2,9 +2,10 @@
 
 Everything you need to build a Svelte project, powered by [`create-svelte`](https://github.com/sveltejs/kit/tree/master/packages/create-svelte).
 
-
 ## Install nodejs
+
 Use [nvm](https://github.com/nvm-sh/nvm)
+
 ```bash
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.5/install.sh | bash
 source ~/.bashrc
@@ -13,11 +14,11 @@ nvm install 18.18.2
 ```
 
 ## Build
+
 ```bash
 npm install
 npm run build
 ```
-
 
 ## Creating a project
 
