@@ -408,7 +408,7 @@ class Runner:
 class DataLogParser:
   dir: str
   fork_map_nodes: Set[int]
-  fork_map_edges: Set[Tuple[int, int, str]]
+  fork_map_edges: Dict[Tuple[int, int], dict]
   fork_map: Dict[int, List[int]]
   fork_graph: Dict[int, List[int]]
   state_type_map: Dict[int, str]
@@ -418,7 +418,7 @@ class DataLogParser:
   def __init__(self, dir: str):
     self.dir = dir
     self.fork_map_nodes = set()
-    self.fork_map_edges = set()
+    self.fork_map_edges = dict()
     self.fork_map = dict()
     self.fork_graph = dict()
     self.state_type_map = dict()
@@ -436,7 +436,7 @@ class DataLogParser:
       key, value = item.split(":", 1)
       result[key.strip()] = value.strip()
     return result
-  def parser_level_1(self, line: str) -> list:
+  def parser_level_1(self, line: str) -> List[str]:
     # input: "[fork-map] [fork] [state 1] 1 [base 0] 1 [state 5] 1 [fork-count 5/-1]"
     # output: ["fork-map", "fork", "state 1", "1", "base 0", "1", "state 5", "1", "fork-count 5/-1"]
     result = list()
@@ -501,7 +501,12 @@ class DataLogParser:
     self.fork_graph[source_state].append(target_state)
     self.fork_map_nodes.add(source_state)
     self.fork_map_nodes.add(target_state)
-    self.fork_map_edges.add((source_state, target_state, "fork"))
+    self.fork_map_edges[(source_state, target_state)] = {
+      "type": "fork",
+      "source": source_state,
+      "target": target_state,
+      "loc": dict(),
+    }
   def add_fork_map(self, line: str):
     # [fork-map] [fork] [state 1] 1 [base 0] 1 [state 5] 1 [fork-count 5/-1]
     # fork_map_pattern = r"\[fork-map\] \[fork\] \[state (\d+)\] (\d+) \[base (\d+)\] (\d+) \[state (\d+)\] (\d+) \[fork-count .+\]"
@@ -519,7 +524,12 @@ class DataLogParser:
       forked_state = self.parse_state_id(tokens[6])
       self.fork_map_nodes.add(state)
       self.fork_map_nodes.add(forked_state)
-      self.fork_map_edges.add((state, forked_state, "fork"))
+      self.fork_map_edges[(state, forked_state)] = {
+        "type": "fork",
+        "source": state,
+        "target": forked_state,
+        "loc": dict(),
+      }
       if base_state not in self.fork_map:
         self.fork_map[base_state] = list()
       self.fork_map[base_state].append(forked_state)
@@ -538,7 +548,73 @@ class DataLogParser:
       self.merge_patch_map[target_state] = patch_id
       self.fork_map_nodes.add(source_state)
       self.fork_map_nodes.add(target_state)
-      self.fork_map_edges.add((source_state, target_state, "merge"))
+      self.fork_map_edges[(source_state, target_state)] = {
+        "type": "merge",
+        "source": source_state,
+        "target": target_state,
+        "loc": dict(),
+      }
+  def add_fork_loc(self, line: str):
+    # [fork-loc] [br | sw | lazy]
+    tokens = self.parser_level_1(line)
+    if len(tokens) < 3:
+      print(f"Unknown fork-loc: {line}")
+      return
+    opt = tokens[1]
+    if opt == "br":
+      # [fork-loc] [br] [state 2] [/root/projects/CPR/patches/extractfix/libtiff/CVE-2016-5314/src/libtiff/tif_pixarlog.c:799:5:28680] -> [state 2] [/root/projects/CPR/patches/extractfix/libtiff/CVE-2016-5314/src/libtiff/tif_pixarlog.c:799:43:28683] [state 23] [/root/projects/CPR/patches/extractfix/libtiff/CVE-2016-5314/src/libtiff/tif_pixarlog.c:800:2:28687]
+      if len(tokens) < 9:
+        print(f"Unknown fork-loc: {line}")
+        return
+      state_from = self.parse_state_id(tokens[2])
+      loc_from = tokens[3]
+      state_to_a = self.parse_state_id(tokens[5])
+      loc_to_a = tokens[6]
+      state_to_b = self.parse_state_id(tokens[7])
+      loc_to_b = tokens[8]
+      key = (state_to_a, state_to_b)
+      if key not in self.fork_map_edges:
+        print(f"fork-loc: key error: {line}")
+        return
+      self.fork_map_edges[key]["loc"] = {
+        "type": "br",
+        "from": loc_from,
+        "to_a": loc_to_a,
+        "to_b": loc_to_b,
+      }
+    elif opt == "lazy":
+      if len(tokens) < 7:
+        print(f"Unknown fork-loc: {line}")
+        return
+      state_from = self.parse_state_id(tokens[2])
+      state_to = self.parse_state_id(tokens[4])
+      loc = tokens[5]
+      key = (state_from, state_to)
+      if key not in self.fork_map_edges:
+        print(f"fork-loc: key error: {line}")
+        return
+      self.fork_map_edges[key]["loc"] = {
+        "type": "lazy",
+        "from": loc,
+      }
+    elif opt == "sw":
+      if len(tokens) < 7:
+        print(f"Unknown fork-loc: {line}")
+        return
+      state_from = self.parse_state_id(tokens[2])
+      loc_from = tokens[3]
+      state_to = self.parse_state_id(tokens[5])
+      loc_to = tokens[6]
+      key = (state_from, state_to)
+      if key not in self.fork_map_edges:
+        print(f"fork-loc: key error: {line}")
+        return
+      self.fork_map_edges[key]["loc"] = {
+        "type": "sw",
+        "from": loc_from,
+        "to": loc_to,
+      }
+      
   def add_regression(self, line: str):
     # reg_pattern = r"\[regression\] \[state (\d+)\] \[([^\]]*)\]"
     tokens = self.parser_level_1(line)
@@ -792,7 +868,10 @@ class DataLogParser:
       if meta_data["stateType"] == "2":
         filtered_nodes.append(node)
     filtered_edges = list()
-    for source, target, edge_type in self.fork_map_edges:
+    for key, value in self.fork_map_edges.items():
+      source = key[0]
+      target = key[1]
+      edge_type = value["type"]
       if source in filtered_nodes and target in filtered_nodes:
         filtered_edges.append((source, target, edge_type))
     clusters = self.cluster_forest(filtered_nodes, filtered_edges, result["crash_id_to_state"])
@@ -907,6 +986,25 @@ class DataLogParser:
       input_pairs.append((state_map[source]["crashId"], state_map[target]["crashId"]))
     print(f"input_pairs: {input_pairs}")
     return input_pairs
+  
+  def get_input_pair_fork_loc(self, input_a: int, input_b: int, graph: Dict[str, list]) -> List[str]:
+    # Start from input_b, reverse search to input_a
+    cur = input_b
+    state_list = [input_b]
+    while True:
+      if len(set(state_list)) != len(state_list):
+        print(f"state_list: {state_list}")
+        raise Exception("Duplicate state")
+      if cur == input_a:
+        return state_list        
+      for source, target, edge_type in graph["edges"]:
+        if edge_type != "fork":
+          continue
+        if target == cur:
+          cur = source
+          state_list.append(cur)
+          break
+
   def select_input_v2(self,  result: dict, prev_inputs: List[int], feasible_list: List[bool]) -> Tuple[int, int, dict, List[int], List[int]]:
     # Select 2 inputs and generate human-readable diff
     def build_map(d: list) -> dict:
@@ -954,6 +1052,11 @@ class DataLogParser:
         diff["state_b"] = state_map[state]
         with open(os.path.join(self.dir, f"test{state:06d}.input"), 'r') as f:
           diff["input_b"] = json.load(f)
+    
+    state_list = self.get_input_pair_fork_loc(diff["state_a"]["state"], diff["state_b"]["state"], graph)
+    original_state = state_list[-1]
+    forked_state = state_list[-2]
+    
     # compare inputs
     compare = dict()
     sym_var_a = diff["input_a"]["symbolic_objects"]
