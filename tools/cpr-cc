@@ -6,7 +6,7 @@ CPR_RUNTIME_H="$SCRIPT_DIR/../lib/cpr_runtime.h"
 CPR_RUNTIME_LIB="$SCRIPT_DIR/../lib/"
 KLEE_DIR=${KLEE_DIR:-"/root/projects/uni-klee"}
 KLEE_LIB="$KLEE_DIR/build/lib/"
-if [ -e "$KLEE_LIB/libkleeRuntest.a" ]; then
+if [ ! -e "$KLEE_LIB/libkleeRuntest.so.1.0"  ]; then
   pushd "$KLEE_LIB"
     ar rcs libkleeRuntest.a libkleeRuntest.so.1.0
   popd
