@@ -11,6 +11,12 @@ python3 scripts/meta-test.py run 5321:0,1,2,3,4
 ```
 
 ## Test
+First, filter out patches that fails on test
+```shell
+python3 scripts/meta-program.py filter 5321
+```
+
+
 ```shell
 python3 scripts/meta-test.py run 5321:0,1,2,3,4
 ```

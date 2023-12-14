@@ -124,8 +124,15 @@ class GloablConfig:
       config.init("buggy", False, "", "w")
       config.conf_files.set_out_dir("", prefix, data, "snapshot")
       return config
-    return None      
-
+    return None
+  def get_meta_program_patch_list(self, id: int) -> List[dict]:
+    if id in self.meta_data_indexed:
+      data = self.meta_data_indexed[id]
+      conf_files = ConfigFiles()
+      conf_files.set(data)
+      meta_program = conf_files.read_meta_program()
+      return meta_program["patches"]
+    return list()
 global_config = GloablConfig()
 
 
@@ -176,10 +183,10 @@ class ConfigFiles:
     self.out_dir = os.path.join(self.out_base_dir, f"{out_dir_prefix}-{no}")
     self.snapshot_dir = os.path.join(self.out_base_dir, self.snapshot_prefix)
     if "snapshot" in bug_info:
-      print(f"Use snapshot {bug_info['snapshot']}")
+      print(f"Use snapshot {self.bid} {bug_info['snapshot']}")
       self.snapshot_file = os.path.join(self.snapshot_dir, bug_info["snapshot"])
     else:
-      print(f"Use snapshot {self.bid}-last.json ...")
+      print(f"Use snapshot {self.bid} snapshot-last.json ...")
       self.snapshot_file = os.path.join(self.snapshot_dir, "snapshot-last.json")
   def find_num(self, dir: str, name: str) -> int:
     result = 0
@@ -311,6 +318,10 @@ class Config:
   def append_snapshot_cmd(self, cmd: List[str]):
     snapshot_dir = self.conf_files.snapshot_dir
     patch_str = ",".join(self.snapshot_patch_ids)
+    if self.cmd == "filter":
+      cmd.append("--no-exit-on-error")
+      all_patches = [str(patch["id"]) for patch in self.meta_program["patches"]]
+      patch_str = ",".join(all_patches)
     cmd.append(f"--output-dir={snapshot_dir}")
     cmd.append(f"--patch-id={patch_str}")
   
@@ -379,7 +390,7 @@ class Runner:
         pass
     return proc.returncode
   def execute_snapshot(self, cmd: str, dir: str, env: dict = None):
-    if self.config.cmd in ["rerun", "snapshot"]:
+    if self.config.cmd in ["rerun", "snapshot", "filter"]:
       self.execute("rm -rf " + self.config.conf_files.snapshot_dir, dir, "rm")
     if not os.path.exists(self.config.conf_files.snapshot_file):
       if self.config.debug:
@@ -393,9 +404,12 @@ class Runner:
     lock_file = global_config.get_lock_file(self.config.bug_info["bug_id"])
     lock = acquire_lock(lock_file, self.config.lock, self.config.conf_files.out_dir)
     try:
+      if lock < 0:
+        print(f"Cannot acquire lock {lock_file}")
+        return
       cmd = self.config.get_cmd_opts(True)
       self.execute_snapshot(cmd, self.config.workdir)
-      if self.config.cmd != "snapshot":
+      if self.config.cmd not in ["snapshot", "filter"]:
         cmd = self.config.get_cmd_opts(False)
         self.execute(cmd, self.config.workdir, "uni-klee")
         analyzer = Analyzer(self.config)
@@ -598,21 +612,24 @@ class DataLogParser:
         "from": loc,
       }
     elif opt == "sw":
-      if len(tokens) < 7:
+      if len(tokens) < 9:
         print(f"Unknown fork-loc: {line}")
         return
       state_from = self.parse_state_id(tokens[2])
       loc_from = tokens[3]
-      state_to = self.parse_state_id(tokens[5])
-      loc_to = tokens[6]
-      key = (state_from, state_to)
+      state_to_a = self.parse_state_id(tokens[5])
+      loc_to_a = tokens[6]
+      state_to_b = self.parse_state_id(tokens[7])
+      loc_to_b = tokens[8]
+      key = (state_from, state_to_b)
       if key not in self.fork_map_edges:
         print(f"fork-loc: key error: {line}")
         return
       self.fork_map_edges[key]["loc"] = {
         "type": "sw",
         "from": loc_from,
-        "to": loc_to,
+        "to_a": loc_to_a,
+        "to_b": loc_to_b,
       }
       
   def add_regression(self, line: str):
@@ -1587,10 +1604,12 @@ def acquire_lock(lock_file: str, lock_behavior: str, message: str = "") -> int:
         os.remove(lock_file)
         continue
       if time.time() - start_time > timeout:
-        return None  # Lock not acquired within the timeout
+        return -1  # Lock not acquired within the timeout
       time.sleep(interval)
 
 def release_lock(lock_file: str, lock_fd: int):
+  if lock_fd < 0:
+    return
   os.close(lock_fd)
   os.remove(lock_file)
 
@@ -1611,6 +1630,9 @@ def log(args: List[str]):
   os.makedirs("logs/.meta-test", exist_ok=True)
   lock = acquire_lock(lock_file, "w", log_file)
   try:
+    if lock < 0:
+      print(f"Cannot acquire lock for {log_file}")
+      return
     with open(log_file, "a") as f:
       f.write("meta-test.py " + " ".join(args[1:]) + "\n")
   except:
@@ -1633,6 +1655,8 @@ def arg_parser(argv: List[str]) -> Config:
   parser.add_argument("-k", "--lock", help="Handle lock behavior", default="i", choices=["i", "w", "f"])
   parser.add_argument("-r", "--rerun", help="Rerun last command with same option", action="store_true")
   args = parser.parse_args(argv[1:])
+  if args.cmd == "filter" and args.snapshot_prefix == "snapshot":
+    args.snapshot_prefix = "filter"
   conf = Config(args.cmd, args.query, args.debug, args.sym_level, args.max_fork)
   conf.init(args.snapshot_base_patch, args.rerun, args.additional, args.lock)
   conf.conf_files.set_out_dir(args.outdir, args.outdir_prefix, conf.bug_info, args.snapshot_prefix)
