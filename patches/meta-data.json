@@ -220,7 +220,16 @@
       "x",
       "y",
       "z"
-    ]
+    ],
+    "buggy": {
+      "code": "(0)",
+      "id": "buggy"
+    },
+    "correct": {
+      "code": "(x > (y + z))",
+      "id": "20-0"
+    },
+    "target": "process_cu_tu_index"
   },
   {
     "id": 13,
@@ -237,7 +246,7 @@
     },
     "correct": {
       "code": "(x == 0)",
-      "id": ""
+      "id": "6-10"
     },
     "target": "quantize_ord_dither"
   },
@@ -389,7 +398,17 @@
     "vars": [
       "x",
       "t"
-    ]
+    ],
+    "buggy": {
+      "code": "(0)",
+      "id": "buggy"
+    },
+    "correct": {
+      "code": "((x == 0) && (t > 0))",
+      "id": "26-10",
+      "no": "336"
+    },
+    "target": "quantize_ord_dither"
   },
   {
     "id": 22,
@@ -399,7 +418,17 @@
     "vars": [
       "x",
       "t"
-    ]
+    ],
+    "buggy": {
+      "code": "(1)",
+      "id": "buggy"
+    },
+    "correct": {
+      "code": "(x > t)",
+      "id": "4-0",
+      "no": "4"
+    },
+    "target": "get_sos"
   },
   {
     "id": 23,
