@@ -2,6 +2,13 @@
   "base": "  long long size = rvals[0];\n  long long i = rvals[1];\n  long long constant_a;\n",
   "patches": [
     {
+      "name": "buggy",
+      "id": 0,
+      "num": 0,
+      "local_id": 0,
+      "code": "    result = (size > i);\n"
+    },
+    {
       "name": "1-0",
       "id": 1,
       "num": 1,
@@ -6643,6 +6650,13 @@
       "num": 85,
       "local_id": 20,
       "code": "    constant_a = 10;\n    result = ((constant_a / size) <= size);\n"
+    },
+    {
+      "name": "correct",
+      "id": 951,
+      "num": 0,
+      "local_id": 1,
+      "code": "    result = (size >= i);\n"
     }
   ]
 }

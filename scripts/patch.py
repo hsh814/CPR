@@ -155,7 +155,7 @@ def lazy_compile(dir: str, cmd: str, file_a: str, file_b: str):
   if os.path.exists(file_b):
     if os.path.getmtime(file_a) <= os.path.getmtime(file_b):
       os.chdir(cwd)
-      print(f"Skip {cmd}")
+      # print(f"Skip {cmd}")
       return
   print(f"Run {cmd}")
   os.system(f"{cmd}")

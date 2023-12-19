@@ -14,7 +14,8 @@
     },
     "correct": {
       "code": "(x < y)",
-      "id": "2-0"
+      "id": "2-0",
+      "no": 2
     },
     "target": "readSeparateTilesIntoBuffer"
   },
@@ -33,7 +34,8 @@
     },
     "correct": {
       "code": "(x < y)",
-      "id": "3-0"
+      "id": "3-0",
+      "no": 3
     },
     "target": "setImage1"
   },
@@ -52,7 +54,8 @@
     },
     "correct": {
       "code": "(x >= 0)",
-      "id": "11-0"
+      "id": "11-0",
+      "no": 45
     },
     "target": "readextension"
   },
@@ -72,7 +75,8 @@
     },
     "correct": {
       "code": "(y > x)",
-      "id": "2-0"
+      "id": "2-0",
+      "no": 2
     },
     "target": "PixarLogDecode"
   },
@@ -91,7 +95,8 @@
     },
     "correct": {
       "code": "(x > 0)",
-      "id": "11-10"
+      "id": "11-10",
+      "no": 41
     },
     "target": "TIFFNumberOfStrips",
     "snapshot": "snapshot-0-r0-e0e-p0.ret.json"
@@ -111,7 +116,8 @@
     },
     "correct": {
       "code": "(x <= 0)",
-      "id": "8-2"
+      "id": "8-2",
+      "no": 25
     },
     "target": "PSDataColorContig"
   },
@@ -130,7 +136,8 @@
     },
     "correct": {
       "code": "(x > 4)",
-      "id": "6-0"
+      "id": "6-0",
+      "no": 16
     },
     "target": "t2p_readwrite_pdf_image_tile"
   },
@@ -149,7 +156,8 @@
     },
     "correct": {
       "code": "(x > 16)",
-      "id": "2-26"
+      "id": "2-26",
+      "no": 28
     },
     "target": "JPEGSetupEncode"
 
@@ -169,7 +177,8 @@
     },
     "correct": {
       "code": "(x == 0)",
-      "id": "1-0"
+      "id": "1-0",
+      "no": 1
     },
     "target": "cvtRaster"
   },
@@ -188,7 +197,8 @@
     },
     "correct": {
       "code": "(x == 0)",
-      "id": "1-0"
+      "id": "1-0",
+      "no": 1
     },
     "target": "JPEGSetupEncode"
   },
@@ -207,7 +217,8 @@
     },
     "correct": {
       "code": "(x == 0)",
-      "id": "1-0"
+      "id": "1-0",
+      "no": 1
     },
     "target": "OJPEGDecodeRaw"
   },
@@ -227,7 +238,8 @@
     },
     "correct": {
       "code": "(x > (y + z))",
-      "id": "20-0"
+      "id": "20-0",
+      "no": 20
     },
     "target": "process_cu_tu_index"
   },
@@ -246,7 +258,8 @@
     },
     "correct": {
       "code": "(x == 0)",
-      "id": "6-10"
+      "id": "6-10",
+      "no": 36
     },
     "target": "quantize_ord_dither"
   },
@@ -265,7 +278,8 @@
     },
     "correct": {
       "code": "(x<0)",
-      "id": "12-10"
+      "id": "12-10",
+      "no": 82
     },
     "target": "xmlStrncat",
     "snapshot": "snapshot-0-r0-c0-p0.ret.json"
@@ -286,7 +300,8 @@
     },
     "correct": {
       "code": "(x>=y)",
-      "id": "10-0"
+      "id": "10-0",
+      "no": 10
     },
     "target": "xmlParseEndTag2"
   },
@@ -306,7 +321,8 @@
     },
     "correct": {
       "code": "(y>(x-z))",
-      "id": "18-0"
+      "id": "18-0",
+      "no": 18
     },
     "target": "htmlParseNameComplex"
   },
@@ -345,6 +361,7 @@
     "correct": {
       "code": "(x == y)",
       "id": "1-0",
+      "no": 1,
       "ids": [
         "1-0", "3-0"
       ]
@@ -367,7 +384,8 @@
     },
     "correct": {
       "code": "(t >= x)",
-      "id": "2-0"
+      "id": "2-0",
+      "no": 2
     },
     "target": "get_8bit_row"
   },
@@ -386,7 +404,8 @@
     },
     "correct": {
       "code": "(x == 0)",
-      "id": "10-10"
+      "id": "10-10",
+      "no": 58
     },
     "target": "jinit_write_bmp"
   },
@@ -406,7 +425,7 @@
     "correct": {
       "code": "((x == 0) && (t > 0))",
       "id": "26-10",
-      "no": "336"
+      "no": 336
     },
     "target": "quantize_ord_dither"
   },
@@ -426,7 +445,7 @@
     "correct": {
       "code": "(x > t)",
       "id": "4-0",
-      "no": "4"
+      "no": 4
     },
     "target": "get_sos"
   },
@@ -438,7 +457,17 @@
     "vars": [
       "size",
       "i"
-    ]
+    ],
+    "buggy": {
+      "code": "(size > i)",
+      "id": "buggy"
+    },
+    "correct": {
+      "code": "(size >= i)",
+      "id": "6-0",
+      "no": 6
+    },
+    "target": "fillpattern"
   },
   {
     "id": 24,
@@ -478,7 +507,16 @@
     "vars": [
       "x",
       "y"
-    ]
+    ],
+    "buggy": {
+      "code": "(0)",
+      "id": "buggy"
+    },
+    "correct": {
+      "code": "((x == 0) || (x > 255) || (y == 0) || (y > 255))",
+      "id": "no"
+    },
+    "target": "jpc_siz_getparms"
   },
   {
     "id": 28,
@@ -489,7 +527,16 @@
       "x",
       "y",
       "z"
-    ]
+    ],
+    "buggy": {
+      "code": "(0)",
+      "id": "buggy"
+    },
+    "correct": {
+      "code": "(x <= y)",
+      "id": "no"
+    },
+    "target": "jpc_dec_process_siz"
   },
   {
     "id": 29,

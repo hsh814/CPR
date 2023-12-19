@@ -21,7 +21,7 @@ import difflib
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 
-FILE_LOC = os.path.abspath(__file__) if not os.path.islink(os.path.abspath(__file__)) else os.path.abspath(os.readlink(os.path.abspath(__file__)))
+FILE_LOC = os.path.abspath(__file__) # if not os.path.islink(os.path.abspath(__file__)) else os.path.abspath(os.readlink(os.path.abspath(__file__)))
 
 ROOT_DIR = os.path.dirname(os.path.dirname(FILE_LOC)) 
 
@@ -667,6 +667,8 @@ class DataLogParser:
           self.add_fork(line)
         elif line.startswith("[fork-map]"):
           self.add_fork_map(line)
+        elif line.startswith("[fork-loc]"):
+          self.add_fork_loc(line)
         elif line.startswith("[meta-data]"):
           self.add_meta_data(line)
         elif line.startswith("[regression]"):
@@ -893,12 +895,12 @@ class DataLogParser:
         filtered_edges.append((source, target, edge_type))
     clusters = self.cluster_forest(filtered_nodes, filtered_edges, result["crash_id_to_state"])
     print(f"clusters: {clusters}")
-    input_analysis: Dict[int, List[int]] = dict()
-    input_analysis[base] = {
-      "state": base_state,
-      "removed_if_feasible": patches,
-      "group": clusters,
-    }
+    # input_analysis: Dict[int, List[int]] = dict()
+    # input_analysis[base] = {
+    #   "state": base_state,
+    #   "removed_if_feasible": patches,
+    #   "group": clusters,
+    # }
     table: dict = result["table"]
     columns = sorted(list(patches))
     rows: List[int] = list()
@@ -1284,7 +1286,10 @@ class DataLogParser:
           nodes.append({"data": self.get_node(node), "attributes": {"style": "filled", "fillcolor": "red"}})
       else:
         nodes.append({"data": self.get_node(node), "attributes": {"style": "filled", "fillcolor": "white"}})
-    for source, target, edge_type in self.fork_map_edges:
+    for key, value in self.fork_map_edges.items():
+      source = key[0]
+      target = key[1]
+      edge_type = value["type"]
       attributes = {"style": "solid", "color": "black"}
       if edge_type == "merge":
         attributes = {"style": "dashed", "color": "red", "label": f"patch {self.merge_patch_map[target]}"}
@@ -1304,7 +1309,10 @@ class DataLogParser:
             nodes_set.add(node)
             nodes.append({"data": self.get_node(node, input_data), "classes": ["base"], 
                           "attributes": {"style": "filled", "fillcolor": "green"}})
-    for source, target, edge_type in self.fork_map_edges:
+    for key, value in self.fork_map_edges.items():
+      source = key[0]
+      target = key[1]
+      edge_type = value["type"]
       if edge_type == "fork" and source in nodes_set and target in nodes_set:
         edges.append({"data": self.get_edge(source, target, edge_type), "classes": ["base_edge"],
                       "attributes": {"style": "solid", "color": "black"}})
