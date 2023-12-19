@@ -816,6 +816,11 @@ class DataLogParser:
       for key, value in data.items():
         result.append({"key": key, "value": value})
       return result
+    def to_edge_list(edges: Dict[Tuple[int, int], dict]) -> list:
+      result = list()
+      for key, value in edges.items():
+        result.append({"source": key[0], "target": key[1], "data": value})
+      return result
     """ result: {
       state_map: {key: number, value: object}[],
       removed_if_feasible: { key: number, value: [number, number]}[]
@@ -837,7 +842,7 @@ class DataLogParser:
       "crash_test_result": dict(),
       "graph": {
         "nodes": list(self.fork_map_nodes),
-        "edges": list(self.fork_map_edges),
+        "edges": to_edge_list(self.fork_map_edges),
       },
       "table": dict(),
     }
@@ -969,7 +974,9 @@ class DataLogParser:
     def generate_adjacency_list(edges: List[Tuple[int, int, str]]) -> Dict[int, List[int]]:
       adjacency_list = dict()
       for edge in edges:
-        source, target, edge_type = edge
+        source = edge["source"]
+        target = edge["target"]
+        edge_type = edge["data"]["type"]
         if edge_type == "merge":
           continue
         if source not in adjacency_list:
@@ -1016,7 +1023,10 @@ class DataLogParser:
         raise Exception("Duplicate state")
       if cur == input_a:
         return state_list        
-      for source, target, edge_type in graph["edges"]:
+      for edge in graph["edges"]:
+        source = edge["source"]
+        target = edge["target"]
+        edge_type = edge["data"]["type"]
         if edge_type != "fork":
           continue
         if target == cur:
@@ -1072,9 +1082,9 @@ class DataLogParser:
         with open(os.path.join(self.dir, f"test{state:06d}.input"), 'r') as f:
           diff["input_b"] = json.load(f)
     
-    state_list = self.get_input_pair_fork_loc(diff["state_a"]["state"], diff["state_b"]["state"], graph)
-    original_state = state_list[-1]
-    forked_state = state_list[-2]
+    # state_list = self.get_input_pair_fork_loc(diff["state_a"]["state"], diff["state_b"]["state"], graph)
+    # original_state = state_list[-1]
+    # forked_state = state_list[-2]
     
     # compare inputs
     compare = dict()
@@ -1161,7 +1171,10 @@ class DataLogParser:
     q.put(state)
     while not q.empty():
       current = q.get()
-      for source, target, edge_type in graph["edges"]:
+      for edge in graph["edges"]:
+        source = edge["source"]
+        target = edge["target"]
+        edge_type = edge["data"]["type"]
         if edge_type == "fork" and target == current:
           result.append(source)
           q.put(source)
