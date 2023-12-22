@@ -443,9 +443,9 @@
       "id": "buggy"
     },
     "correct": {
-      "code": "(x > t)",
-      "id": "4-0",
-      "no": 4
+      "code": "(x < t)",
+      "id": "3-0",
+      "no": 3
     },
     "target": "get_sos"
   },

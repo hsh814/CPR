@@ -401,6 +401,24 @@ class Runner:
       analyzer = Analyzer(self.config)
       analyzer.analyze()
       return
+    if self.config.cmd == "clean":
+      # 1. Find all processes
+      processes = global_config.get_current_processes()
+      for proc in processes:
+        if proc == self.config.bug_info["id"]:
+          with open(global_config.get_lock_file(self.config.bug_info["bug_id"]), "r") as f:
+            lines = f.readlines()
+            if len(lines) > 1:
+              print(f"Kill process {lines[0]}")
+              os.kill(int(lines[0]), signal.SIGTERM)
+          # 2. Remove lock file
+          os.remove(global_config.get_lock_file(self.config.bug_info["bug_id"]))
+      # 3. Remove output directory
+      out_dirs = self.config.conf_files.find_all_nums(self.config.conf_files.out_base_dir, self.config.conf_files.out_dir_prefix)
+      for out_dir in out_dirs:
+        print(f"Remove {out_dir[0]}")
+        os.system(f"rm -rf {os.path.join(self.config.conf_files.out_base_dir, out_dir[0])}")
+      return
     lock_file = global_config.get_lock_file(self.config.bug_info["bug_id"])
     lock = acquire_lock(lock_file, self.config.lock, self.config.conf_files.out_dir)
     try:
@@ -1663,7 +1681,7 @@ def log(args: List[str]):
 
 def arg_parser(argv: List[str]) -> Config:
   parser = argparse.ArgumentParser(description="Test script for uni-klee")
-  parser.add_argument("cmd", help="Command to execute", choices=["run", "rerun", "cmp", "fork", "snapshot", "batch", "filter", "analyze"])
+  parser.add_argument("cmd", help="Command to execute", choices=["run", "rerun", "cmp", "fork", "snapshot", "clean", "filter", "analyze"])
   parser.add_argument("query", help="Query for bugid and patch ids: <bugid>[:<patchid>] # ex) 5321:1,2,3")
   parser.add_argument("-a", "--additional", help="Additional arguments", default="")
   parser.add_argument("-d", "--debug", help="Debug mode", action="store_true")

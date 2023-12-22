@@ -41,6 +41,9 @@ def execute(cmd: str, dir: str, log_file: str, log_dir: str, prefix: str, lock: 
     return False
   return True
 
+def execute_wrapper(args):
+  return execute(*args)
+
 class RunSingle():
   meta: dict = None
   meta_program: dict = None
@@ -91,9 +94,27 @@ def main():
   print(f"Total meta data: {len(meta_data)}")
   m = mp.Manager()
   lock = m.Lock()
+  run_clean = False
+  if run_clean:
+    pool = mp.Pool(core)
+    args_list = list()
+    for meta in meta_data:
+      if not check_correct_exists(meta):
+        continue
+      cmd = f"meta-test.py clean {meta['bug_id']} --lock=w"
+      if cmd is None:
+        continue
+      args_list.append((cmd, ROOT_DIR, f"{meta['id']}.log", "clean", f"clean,{meta['id']}", lock))
+    print(f"Total clean: {len(args_list)}")
+    pool.map(execute_wrapper, args_list)
+    pool.close()
+    pool.join()
+    print(f"Cleaning done")
+    return
   run_filter = False
   if run_filter:
     pool = mp.Pool(core)
+    args_list = list()
     for meta in meta_data:
       if not check_correct_exists(meta):
         continue
@@ -101,11 +122,14 @@ def main():
       cmd = rs.get_filter_cmd()
       if cmd is None:
         continue
-      pool.apply_async(execute, args=(cmd, ROOT_DIR, f"{meta['id']}.log", "filter", f"filter,{meta['id']}", lock))
+      args_list.append((cmd, ROOT_DIR, f"{meta['id']}.log", "filter", f"filter,{meta['id']}", lock))
+    print(f"Total filter: {len(args_list)}")
+    pool.map(execute_wrapper, args_list)
     pool.close()
     pool.join()
     print(f"Filtering done")
-  pool = mp.Pool(core) 
+  pool = mp.Pool(core)
+  args_list = list()
   for meta in meta_data:
     if not check_correct_exists(meta):
       continue
@@ -113,7 +137,9 @@ def main():
     cmd = rs.get_cmd()
     if cmd is None:
       continue
-    pool.apply_async(execute, args=(cmd, ROOT_DIR, f"{meta['id']}.log", "experiment-100-re", f"experiment-100,{meta['id']}", lock))
+    args_list.append((cmd, ROOT_DIR, f"{meta['id']}.log", "experiment-100", f"experiment-100,{meta['id']}", lock))
+  print(f"Total experiment: {len(args_list)}")
+  pool.map(execute_wrapper, args_list)
   pool.close()
   pool.join()
 
