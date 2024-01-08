@@ -10,12 +10,10 @@ import time
 
 # import importlib
 # PARENT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-# import module from ../meta-test.py
-# sys.path.append(PARENT_DIR)
-# meta_test = importlib.import_module("meta-test", package=None)
-import meta_test
+# import module from uni_klee.py
+import uni_klee
 
-ROOT_DIR = meta_test.ROOT_DIR
+ROOT_DIR = uni_klee.ROOT_DIR
 GLOBAL_LOG_DIR = os.path.join(ROOT_DIR, "logs")
 
 def execute(cmd: str, dir: str, log_file: str, log_dir: str, prefix: str, lock: mp.Lock):
@@ -50,14 +48,14 @@ class RunSingle():
   meta_program: dict = None
   conf: dict = None  
   def __init__(self, id: int):
-    res = meta_test.global_config.get_meta_data_info_by_id(id)
+    res = uni_klee.global_config.get_meta_data_info_by_id(id)
     self.meta = res["meta"]
     self.meta_program = res["meta_program"]
     self.conf = res["conf"]
   def get_clean_cmd(self) -> str:
-    return f"meta-test.py clean {self.meta['bug_id']} --lock=w"
+    return f"uni-klee.py clean {self.meta['bug_id']} --lock=w"
   def get_filter_cmd(self) -> str:
-    return f"meta-test.py filter {self.meta['bug_id']} --lock=w"
+    return f"uni-klee.py filter {self.meta['bug_id']} --lock=w"
   def get_exp_cmd(self) -> str:
     correct = self.meta["correct"]["no"]
     patches = list()
@@ -74,7 +72,7 @@ class RunSingle():
         break
     print(patches)
     query = self.meta["bug_id"] + ":" + ",".join([str(x) for x in patches])
-    cmd = f"meta-test.py rerun {query} --lock=w"
+    cmd = f"uni-klee.py rerun {query} --lock=w"
     return cmd
   def get_cmd(self, opt: str) -> str:
     if "correct" not in self.meta:
@@ -124,7 +122,7 @@ def main(argv: List[str]):
   cmd = "exp"
   if len(argv) > 0:
     cmd = argv[0]
-  meta_data = meta_test.global_config.get_meta_data_list()
+  meta_data = uni_klee.global_config.get_meta_data_list()
   print(f"Total meta data: {len(meta_data)}")
   run_cmd(cmd, meta_data)
 

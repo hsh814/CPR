@@ -12,10 +12,8 @@ import json
 
 # import importlib
 # PARENT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-# import module from ../meta-test.py
-# sys.path.append(PARENT_DIR)
-# meta_test = importlib.import_module("meta-test", package=None)
-import meta_test
+# import module from uni-klee.py
+import uni_klee
 
 app = FastAPI()
 
@@ -52,17 +50,17 @@ class DirData(BaseModel):
 # APIs
 @app.get("/meta-data/list")
 def meta_data_list():
-    return meta_test.global_config.get_meta_data_list()
+    return uni_klee.global_config.get_meta_data_list()
 
 @app.get("/meta-data/info/{id}")
 def meta_data_info(id: str):
     print(f"meta_data_info: {id}")
-    return meta_test.global_config.get_meta_data_info_by_id(id)
+    return uni_klee.global_config.get_meta_data_info_by_id(id)
 
 @app.get("/meta-data/out-dir")
 def meta_data_out_dir(id: int = Query(0), prefix = Query("uni-m-out")):
     print(f"meta_data_out_dir: {id} & {prefix}")
-    config = meta_test.global_config.get_config_for_analyzer(id, prefix)
+    config = uni_klee.global_config.get_config_for_analyzer(id, prefix)
     print(f"meta_data_out_dir: {config.conf_files.out_base_dir}, {config.conf_files.out_dir_prefix}")
     dirs = config.conf_files.find_all_nums(config.conf_files.out_base_dir, config.conf_files.out_dir_prefix)
     result = list()
@@ -75,7 +73,7 @@ def meta_data_data_log_parser(dir: str = Query("")):
     print(f"meta_data_data_log_parser: {dir}")
     if not os.path.exists(dir):
         return {"table": ""}
-    dp = meta_test.DataLogParser(dir)
+    dp = uni_klee.DataLogParser(dir)
     dp.read_data_log("data.log")
     result_table = dp.generate_table(dp.cluster())
     with open(result_table, "r") as f:
@@ -98,7 +96,7 @@ def meta_data_data_log_parser_result(dir: str = Query("")):
     print(f"meta_data_data_log_parser_result: {dir}")
     if not os.path.exists(dir):
         return {"result": ""}
-    dp = meta_test.DataLogParser(dir)
+    dp = uni_klee.DataLogParser(dir)
     if os.path.exists(dp.get_cache_file("result.json")):
         with open(dp.get_cache_file("result.json"), "r") as f:
             ar = json.load(f)
@@ -111,7 +109,7 @@ def meta_data_data_log_parser_result(dir: str = Query("")):
 def meta_data_data_log_parser_explain(request_data: DirData):
     if not os.path.exists(request_data.dir) or len(request_data.inputs) == 0:
         return {"result": ""}
-    dp = meta_test.DataLogParser(request_data.dir)
+    dp = uni_klee.DataLogParser(request_data.dir)
     if os.path.exists(dp.get_cache_file("result.json")):
         with open(dp.get_cache_file("result.json"), "r") as f:
             ar = json.load(f)
@@ -125,7 +123,7 @@ def meta_data_data_log_parser_select(request_data: DirData):
     print(f"meta_data_data_log_parser_select: {request_data}")
     if not os.path.exists(request_data.dir):
         return {"result": ""}
-    dp = meta_test.DataLogParser(request_data.dir)
+    dp = uni_klee.DataLogParser(request_data.dir)
     if os.path.exists(dp.get_cache_file("result.json")):
         with open(dp.get_cache_file("result.json"), "r") as f:
             ar = json.load(f)
@@ -145,7 +143,7 @@ def meta_data_data_log_parser_multi_select(request_data: DirData):
     print(f"meta_data_data_log_parser_select: {request_data}")
     if not os.path.exists(request_data.dir):
         return {"result": ""}
-    dp = meta_test.DataLogParser(request_data.dir)
+    dp = uni_klee.DataLogParser(request_data.dir)
     if os.path.exists(dp.get_cache_file("result.json")):
         with open(dp.get_cache_file("result.json"), "r") as f:
             ar = json.load(f)
@@ -164,7 +162,7 @@ def meta_data_data_log_parser_multi_select(request_data: DirData):
 def meta_data_data_log_parser_feasible(request_data: DirData):
     if not os.path.exists(request_data.dir):
         return {"result": ""}
-    dp = meta_test.DataLogParser(request_data.dir)
+    dp = uni_klee.DataLogParser(request_data.dir)
     if os.path.exists(dp.get_cache_file("result.json")):
         with open(dp.get_cache_file("result.json"), "r") as f:
             ar = json.load(f)
@@ -175,26 +173,26 @@ def meta_data_data_log_parser_feasible(request_data: DirData):
 
 def run_cmd(cmd: List[str]):
     final_cmd = cmd
-    final_cmd[0] = "meta-test.py"
+    final_cmd[0] = "uni-klee.py"
     if "--lock=f" not in final_cmd and "--lock=w" not in final_cmd:
         final_cmd.append("--lock=w")
-    process = mp.Process(target=meta_test.main, args=(final_cmd,))
+    process = mp.Process(target=uni_klee.main, args=(final_cmd,))
     process.start()
     process.join()
 
 @app.get("/benchmark/run/status")
 def meta_data_run_status():
-    return meta_test.global_config.get_current_processes()
+    return uni_klee.global_config.get_current_processes()
 
 @app.get("/benchmark/run/cmds")
 def meta_data_run_cmds(id: int = Query(0), limit: int = Query(10)):
-    return meta_test.global_config.get_last_command(id, limit)
+    return uni_klee.global_config.get_last_command(id, limit)
 
 @app.get("/benchmark/run/current")
 def meta_data_run_current(bug_id: str = Query(""), dir: str = Query("")):
     if bug_id == "" or dir == "":
         return {"message": "bug_id or dir is not provided", "running": False, "dir": ""}
-    lock_file = meta_test.global_config.get_lock_file(bug_id)
+    lock_file = uni_klee.global_config.get_lock_file(bug_id)
     if not os.path.exists(lock_file):
         return {"message": f"no running process {bug_id}", "running": False, "dir": ""}
     with open(lock_file, "r") as f:

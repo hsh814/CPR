@@ -41,7 +41,7 @@ class GloablConfig:
     self.meta_data_indexed = dict()
     for data in self.meta_data:
       self.meta_data_indexed[data["id"]] = data
-    self.log_dir = os.path.join(self.root_dir, "logs", ".meta-test")
+    self.log_dir = os.path.join(self.root_dir, "logs", ".uni-klee")
     os.makedirs(self.log_dir, exist_ok=True)
   def get_bug_info(self, query: str) -> dict:
     for data in self.meta_data:
@@ -1680,14 +1680,14 @@ def log(args: List[str]):
         for line in lines[-10:]:
           print(line.strip())
     exit(0)
-  os.makedirs("logs/.meta-test", exist_ok=True)
+  os.makedirs("logs/.uni-klee", exist_ok=True)
   lock = acquire_lock(lock_file, "w", log_file)
   try:
     if lock < 0:
       print(f"Cannot acquire lock for {log_file}")
       return
     with open(log_file, "a") as f:
-      f.write("meta-test.py " + " ".join(args[1:]) + "\n")
+      f.write("uni-klee.py " + " ".join(args[1:]) + "\n")
   except:
     print("Cannot write log")
   finally:
