@@ -121,7 +121,7 @@ class GloablConfig:
     if id in self.meta_data_indexed:
       data = self.meta_data_indexed[id]
       config = Config("analyze", f"{data['bug_id']}:buggy", False, "0", "0")
-      config.init("buggy", False, "", "w")
+      config.init("buggy", False, "", "w", False)
       config.conf_files.set_out_dir("", prefix, data, "snapshot")
       return config
     return None
@@ -262,6 +262,7 @@ class Config:
   max_fork: str
   lock: str
   rerun: bool
+  run_analysis: bool
   
   def get_patch_ids(self, patch_ids: list) -> List[str]:
     self.meta_program = self.conf_files.read_meta_program()
@@ -298,7 +299,7 @@ class Config:
       self.snapshot_patch_ids = list()
     print(f"query: {self.query} => bugid {self.bug_info}, patchid {self.patch_ids}")
     
-  def init(self, snapshot_patch_ids: str, rerun: bool, additional: str, lock: str):
+  def init(self, snapshot_patch_ids: str, rerun: bool, additional: str, lock: str, run_analysis: bool):
     self.meta = self.conf_files.read_meta_data()
     self.parse_query(snapshot_patch_ids)
     self.project_conf = self.conf_files.read_conf_file()
@@ -306,6 +307,7 @@ class Config:
     self.rerun = rerun
     self.additional = additional
     self.lock = lock
+    self.run_analysis = run_analysis
   
   def __init__(self, cmd: str, query: str, debug: bool, sym_level: str, max_fork: str):
     self.cmd = cmd
@@ -946,7 +948,9 @@ class DataLogParser:
       json.dump(result, f, indent=2)
     return result
   def select_input(self, result: dict, prev_inputs: List[int], feasible_list: List[bool]) -> Tuple[int, List[int], List[int]]:
-    removed_if_feasible = result["removed_if_feasible"]
+    removed_if_feasible = dict()
+    for elem in result["removed_if_feasible"]:
+      removed_if_feasible[elem["key"]] = elem["value"]
     patch_analysis = result["patch_analysis"]
     crash_id_to_state = result["crash_id_to_state"]
     crash_test_result = result["crash_test_result"]
@@ -957,15 +961,25 @@ class DataLogParser:
     columns = table["columns"]
     rows = table["rows"]
     # 1. Select input
+    # 
     # TODO: make more intelligent selection
     print(f"remaining_patches: {remaining_patches}")
     print(f"remaining_inputs: {remaining_inputs}")
     selected_input: int = -1
+    min_remaining_patches = len(remaining_patches) + 1
     for input in remaining_inputs:
       if input in prev_inputs:
         continue
-      selected_input = input
-      break
+      # Calculate the number of remaining patches
+      tmp = set()
+      for item in removed_if_feasible[input]:
+        tmp.add(item[0])
+      rp = 0
+      for patch in remaining_patches:
+        if patch not in tmp:
+          rp += 1
+      if rp < min_remaining_patches:
+        selected_input = input
     print(f"selected_input: {selected_input}")
     return selected_input, remaining_patches, remaining_inputs
   def get_patch_result_diff(self, removed_if_feasible: Dict[int, List[List[int]]], remaining_patches: List[int], input_a: int, input_b: int) -> int:
@@ -1680,6 +1694,7 @@ def log(args: List[str]):
     release_lock(lock_file, lock)
 
 def arg_parser(argv: List[str]) -> Config:
+  # Remaining: c, e, g, h, i, j, m, n, q, t, u, v, w, x, y
   parser = argparse.ArgumentParser(description="Test script for uni-klee")
   parser.add_argument("cmd", help="Command to execute", choices=["run", "rerun", "cmp", "fork", "snapshot", "clean", "filter", "analyze"])
   parser.add_argument("query", help="Query for bugid and patch ids: <bugid>[:<patchid>] # ex) 5321:1,2,3")
@@ -1693,11 +1708,12 @@ def arg_parser(argv: List[str]) -> Config:
   parser.add_argument("-f", "--max-fork", help="Max fork", default="64,64,4")
   parser.add_argument("-k", "--lock", help="Handle lock behavior", default="i", choices=["i", "w", "f"])
   parser.add_argument("-r", "--rerun", help="Rerun last command with same option", action="store_true")
+  parser.add_argument("-z", "--no-analyze", help="Do not analyze", action="store_true")
   args = parser.parse_args(argv[1:])
   if args.cmd == "filter" and args.snapshot_prefix == "snapshot":
     args.snapshot_prefix = "filter"
   conf = Config(args.cmd, args.query, args.debug, args.sym_level, args.max_fork)
-  conf.init(args.snapshot_base_patch, args.rerun, args.additional, args.lock)
+  conf.init(args.snapshot_base_patch, args.rerun, args.additional, args.lock, not args.no_analyze)
   conf.conf_files.set_out_dir(args.outdir, args.outdir_prefix, conf.bug_info, args.snapshot_prefix)
   return conf
 
