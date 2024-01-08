@@ -23,6 +23,7 @@ def execute(cmd: str, dir: str, log_file: str, log_dir: str, prefix: str, lock: 
   start = time.time()
   proc = subprocess.run(cmd, shell=True, cwd=dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
   end = time.time()
+  print(f"Done {prefix}: {end - start}s")
   with lock:
     with open(os.path.join(GLOBAL_LOG_DIR, "time.log"), "a") as f:
       f.write(f"{prefix},{end - start}\n")
@@ -53,15 +54,11 @@ class RunSingle():
     self.meta = res["meta"]
     self.meta_program = res["meta_program"]
     self.conf = res["conf"]
+  def get_clean_cmd(self) -> str:
+    return f"meta-test.py clean {self.meta['bug_id']} --lock=w"
   def get_filter_cmd(self) -> str:
     return f"meta-test.py filter {self.meta['bug_id']} --lock=w"
-  def get_cmd(self) -> str:
-    if "correct" not in self.meta:
-      print("No correct patch")
-      return None
-    if "no" not in self.meta["correct"]:
-      print("No correct patch")
-      return None
+  def get_exp_cmd(self) -> str:
     correct = self.meta["correct"]["no"]
     patches = list()
     cnt = 0
@@ -78,8 +75,22 @@ class RunSingle():
     print(patches)
     query = self.meta["bug_id"] + ":" + ",".join([str(x) for x in patches])
     cmd = f"meta-test.py rerun {query} --lock=w"
-    print(cmd)
     return cmd
+  def get_cmd(self, opt: str) -> str:
+    if "correct" not in self.meta:
+      print("No correct patch")
+      return None
+    if "no" not in self.meta["correct"]:
+      print("No correct patch")
+      return None
+    if opt == "filter":
+      return self.get_filter_cmd()
+    if opt == "clean":
+      return self.get_clean_cmd()
+    if opt == "exp":
+      return self.get_exp_cmd()
+    print(f"Unknown opt: {opt}")
+    return None
 
 def check_correct_exists(meta: dict) -> bool:
   if "correct" not in meta:
@@ -88,60 +99,34 @@ def check_correct_exists(meta: dict) -> bool:
     return False
   return True
 
-def main():
+def run_cmd(opt: str, meta_data: List[dict]):
   core = 32
-  meta_data = meta_test.global_config.get_meta_data_list()
-  print(f"Total meta data: {len(meta_data)}")
   m = mp.Manager()
   lock = m.Lock()
-  run_clean = False
-  if run_clean:
-    pool = mp.Pool(core)
-    args_list = list()
-    for meta in meta_data:
-      if not check_correct_exists(meta):
-        continue
-      cmd = f"meta-test.py clean {meta['bug_id']} --lock=w"
-      if cmd is None:
-        continue
-      args_list.append((cmd, ROOT_DIR, f"{meta['id']}.log", "clean", f"clean,{meta['id']}", lock))
-    print(f"Total clean: {len(args_list)}")
-    pool.map(execute_wrapper, args_list)
-    pool.close()
-    pool.join()
-    print(f"Cleaning done")
-    return
-  run_filter = False
-  if run_filter:
-    pool = mp.Pool(core)
-    args_list = list()
-    for meta in meta_data:
-      if not check_correct_exists(meta):
-        continue
-      rs = RunSingle(meta["id"])
-      cmd = rs.get_filter_cmd()
-      if cmd is None:
-        continue
-      args_list.append((cmd, ROOT_DIR, f"{meta['id']}.log", "filter", f"filter,{meta['id']}", lock))
-    print(f"Total filter: {len(args_list)}")
-    pool.map(execute_wrapper, args_list)
-    pool.close()
-    pool.join()
-    print(f"Filtering done")
   pool = mp.Pool(core)
   args_list = list()
   for meta in meta_data:
     if not check_correct_exists(meta):
       continue
     rs = RunSingle(meta["id"])
-    cmd = rs.get_cmd()
+    cmd = rs.get_cmd(opt)
     if cmd is None:
       continue
-    args_list.append((cmd, ROOT_DIR, f"{meta['id']}.log", "experiment-100", f"experiment-100,{meta['id']}", lock))
-  print(f"Total experiment: {len(args_list)}")
+    args_list.append((cmd, ROOT_DIR, f"{meta['bug_id']}.log", opt, f"{opt},{meta['subject']}/{meta['bug_id']}", lock))
+  print(f"Total {opt}: {len(args_list)}")
   pool.map(execute_wrapper, args_list)
   pool.close()
   pool.join()
+  print(f"{opt} done")
+
+
+def main(argv: List[str]):
+  cmd = "exp"
+  if len(argv) > 0:
+    cmd = argv[0]
+  meta_data = meta_test.global_config.get_meta_data_list()
+  print(f"Total meta data: {len(meta_data)}")
+  run_cmd(cmd, meta_data)
 
 if __name__ == "__main__":
-  main()
+  main(sys.argv[1:])

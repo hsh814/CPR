@@ -261,7 +261,7 @@
       "id": "6-10",
       "no": 36
     },
-    "target": "quantize_ord_dither"
+    "target": "decode_line_info"
   },
   {
     "id": 14,
@@ -281,8 +281,7 @@
       "id": "12-10",
       "no": 82
     },
-    "target": "xmlStrncat",
-    "snapshot": "snapshot-0-r0-c0-p0.ret.json"
+    "target": "xmlStrncat"
   },
   {
     "id": 15,
@@ -366,8 +365,7 @@
         "1-0", "3-0"
       ]
     },
-    "target": "xmlDumpElementContent",
-    "snapshot": "snapshot-0-r2-c0-p0.ret.json"
+    "target": "xmlDumpElementContent"
   },
   {
     "id": 19,
