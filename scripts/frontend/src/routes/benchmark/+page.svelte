@@ -27,7 +27,7 @@
 
 </script>
 
-<h1>Web UI of uni-klee</h1>
+<h1><a href="/">Web UI of uni-klee</a></h1>
 <h2>Id: {data.id}</h2>
 <h3>Bug id is {meta_data ? meta_data.bug_id : ''}</h3>
 <div class="benchmark">

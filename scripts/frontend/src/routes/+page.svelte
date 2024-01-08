@@ -20,7 +20,7 @@
 
 </script>
 
-<h1>Web UI of uni-klee</h1>
+<h1><a href="/">Web UI of uni-klee</a></h1>
 <MetaTestStatus />
 <MetaDataTable data={meta_data} />
 

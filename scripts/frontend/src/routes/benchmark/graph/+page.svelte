@@ -15,7 +15,7 @@
   });
 </script>
 
-<h1>Web UI of uni-klee</h1>
+<h1><a href="/">Web UI of uni-klee</a></h1>
 <a href="/benchmark?id={meta_data.id}">Goto benchmark</a>
 <a href="/benchmark/table">Goto table</a>
 <a href="/benchmark/graph">Goto graph</a>
