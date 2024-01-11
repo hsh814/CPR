@@ -27,6 +27,8 @@
 <a href="/benchmark/graph">Goto graph</a>
 <a href="/benchmark/analysis">Goto analysis</a>
 
+<div>Current benchmark (id {meta_data.id}): {meta_data.subject}/{meta_data.bug_id}</div>
+
 {#if data && data.table.columns.length > 0}
   <AnalysisTable table={data.table}/>
 {/if}
