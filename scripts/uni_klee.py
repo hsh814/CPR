@@ -262,7 +262,6 @@ class Config:
   max_fork: str
   lock: str
   rerun: bool
-  run_analysis: bool
   
   def get_patch_ids(self, patch_ids: list) -> List[str]:
     self.meta_program = self.conf_files.read_meta_program()
@@ -299,7 +298,7 @@ class Config:
       self.snapshot_patch_ids = list()
     print(f"query: {self.query} => bugid {self.bug_info}, patchid {self.patch_ids}")
     
-  def init(self, snapshot_patch_ids: str, rerun: bool, additional: str, lock: str, run_analysis: bool):
+  def init(self, snapshot_patch_ids: str, rerun: bool, additional: str, lock: str):
     self.meta = self.conf_files.read_meta_data()
     self.parse_query(snapshot_patch_ids)
     self.project_conf = self.conf_files.read_conf_file()
@@ -307,7 +306,6 @@ class Config:
     self.rerun = rerun
     self.additional = additional
     self.lock = lock
-    self.run_analysis = run_analysis
   
   def __init__(self, cmd: str, query: str, debug: bool, sym_level: str, max_fork: str):
     self.cmd = cmd
@@ -1259,6 +1257,8 @@ class DataLogParser:
     md += "| " + " | ".join(map(lambda x: x["label"], removed_if_feasible_colums)) + " |\n"
     
   def generate_fork_graph(self, name: str, format: str = "all"):
+    if len(self.fork_map_nodes) > 1000 or len(self.fork_map_edges) > 10000:
+      return
     dot = graphviz.Digraph()
     done = set(self.meta_data.keys())
     for state in done:
@@ -1294,6 +1294,8 @@ class DataLogParser:
   # nodes: List[{id: int, attributes: Dict[str, any]}]
   # edges: List[{id: str, source: int, target: int, attributes: Dict[str, any]}]
   def draw_graph(self, nodes: List[Dict[str, any]], edges: List[Dict[str, any]], name: str, format: str = "all"):
+    if len(nodes) > 1000 or len(edges) > 10000:
+      return
     dot = graphviz.Digraph()
     for node in nodes:
       key = node["data"]["id"]
@@ -1694,7 +1696,7 @@ def log(args: List[str]):
     release_lock(lock_file, lock)
 
 def arg_parser(argv: List[str]) -> Config:
-  # Remaining: c, e, g, h, i, j, m, n, q, t, u, v, w, x, y
+  # Remaining: c, e, g, h, i, j, m, n, q, t, u, v, w, x, y, z
   parser = argparse.ArgumentParser(description="Test script for uni-klee")
   parser.add_argument("cmd", help="Command to execute", choices=["run", "rerun", "cmp", "fork", "snapshot", "clean", "filter", "analyze"])
   parser.add_argument("query", help="Query for bugid and patch ids: <bugid>[:<patchid>] # ex) 5321:1,2,3")
@@ -1708,12 +1710,11 @@ def arg_parser(argv: List[str]) -> Config:
   parser.add_argument("-f", "--max-fork", help="Max fork", default="64,64,4")
   parser.add_argument("-k", "--lock", help="Handle lock behavior", default="i", choices=["i", "w", "f"])
   parser.add_argument("-r", "--rerun", help="Rerun last command with same option", action="store_true")
-  parser.add_argument("-z", "--no-analyze", help="Do not analyze", action="store_true")
   args = parser.parse_args(argv[1:])
   if args.cmd == "filter" and args.snapshot_prefix == "snapshot":
     args.snapshot_prefix = "filter"
   conf = Config(args.cmd, args.query, args.debug, args.sym_level, args.max_fork)
-  conf.init(args.snapshot_base_patch, args.rerun, args.additional, args.lock, not args.no_analyze)
+  conf.init(args.snapshot_base_patch, args.rerun, args.additional, args.lock)
   conf.conf_files.set_out_dir(args.outdir, args.outdir_prefix, conf.bug_info, args.snapshot_prefix)
   return conf
 
