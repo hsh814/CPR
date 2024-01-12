@@ -4,6 +4,7 @@ import time
 import sys
 from typing import List, Set, Dict, Tuple
 import json
+import toml
 import csv
 import subprocess
 import argparse
@@ -35,9 +36,10 @@ class GloablConfig:
   def __init__(self):
     self.root_dir = ROOT_DIR
     self.patch_dir = os.path.join(self.root_dir, "patches")
-    self.meta_data_file = os.path.join(self.patch_dir, "meta-data.json")
+    self.meta_data_file = os.path.join(self.patch_dir, "meta-data.toml")
     with open(self.meta_data_file, "r") as f:
-      self.meta_data = json.load(f)
+      data = toml.load(f)
+      self.meta_data = data["meta_data"]
     self.meta_data_indexed = dict()
     for data in self.meta_data:
       self.meta_data_indexed[data["id"]] = data
@@ -974,6 +976,8 @@ class DataLogParser:
         tmp.add(item[0])
       rp = 0
       for patch in remaining_patches:
+        if patch == 0:
+          continue
         if patch not in tmp:
           rp += 1
       if rp < min_remaining_patches:

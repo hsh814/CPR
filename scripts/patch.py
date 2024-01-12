@@ -4,6 +4,7 @@ import os
 import re
 from typing import List, Set, Dict, Tuple
 import json
+import toml
 import multiprocessing as mp
 
 UNI_KLEE_RUNTIME = ""
@@ -224,8 +225,9 @@ def main(args: List[str]):
   if opt == "single":
     compile(patch_dir)
     sys.exit(0)
-  with open(os.path.join(patch_dir, "meta-data.json"), "r") as f:
-    meta_data = json.load(f)
+  with open(os.path.join(patch_dir, "meta-data.toml"), "r") as f:
+    data = toml.load(f)
+  meta_data = data["meta_data"]
   # search_files(meta_data, patch_dir)
   # exit(0)
   for meta in meta_data:
