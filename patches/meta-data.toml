@@ -75,9 +75,9 @@ snapshot = "snapshot-0-r0-e0e-p0.ret.json"
   code = "(0)"
   id = "buggy"
   [meta_data.correct]
-  code = "(x > 0)"
-  id = "11-10"
-  no = 41
+  code = "(x == 0)"
+  id = "8-0"
+  no = 8
 
 [[meta_data]]
 id = 6

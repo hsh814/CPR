@@ -123,7 +123,7 @@ class GloablConfig:
     if id in self.meta_data_indexed:
       data = self.meta_data_indexed[id]
       config = Config("analyze", f"{data['bug_id']}:buggy", False, "0", "0")
-      config.init("buggy", False, "", "w", False)
+      config.init("buggy", False, "", "w")
       config.conf_files.set_out_dir("", prefix, data, "snapshot")
       return config
     return None
@@ -980,7 +980,9 @@ class DataLogParser:
           continue
         if patch not in tmp:
           rp += 1
-      if rp < min_remaining_patches:
+      # print(f"input: {input}, rp: {rp}")
+      if rp > 0 and rp < min_remaining_patches:
+        min_remaining_patches = rp
         selected_input = input
     print(f"selected_input: {selected_input}")
     return selected_input, remaining_patches, remaining_inputs
@@ -1298,7 +1300,7 @@ class DataLogParser:
   # nodes: List[{id: int, attributes: Dict[str, any]}]
   # edges: List[{id: str, source: int, target: int, attributes: Dict[str, any]}]
   def draw_graph(self, nodes: List[Dict[str, any]], edges: List[Dict[str, any]], name: str, format: str = "all"):
-    if len(nodes) > 1000 or len(edges) > 10000:
+    if len(nodes) > 200 or len(edges) > 1000:
       return
     dot = graphviz.Digraph()
     for node in nodes:
