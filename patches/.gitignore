@@ -9,4 +9,5 @@ error-log
 concrete/
 */*/*/src
 */*/*/patched
+*/*/*/*-bak
 !concrete.tar.gz

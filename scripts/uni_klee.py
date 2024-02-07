@@ -330,8 +330,7 @@ class Config:
   def append_cmd(self, cmd: List[str], patch_str: str, opts: List[str]):
     out_dir = self.conf_files.out_dir
     default_opts = ["--no-exit-on-error", "--simplify-sym-indices", 
-                    f"--symbolize-level={self.sym_level}", f"--max-forks-per-phases={self.max_fork}", 
-                     "--max-memory=0"]
+                    f"--symbolize-level={self.sym_level}", f"--max-forks-per-phases={self.max_fork}"]
     cmd.extend(default_opts)
     cmd.extend(opts)
     cmd.append(f"--output-dir={out_dir}")
@@ -343,6 +342,7 @@ class Config:
     link_opt = f"--link-llvm-lib={self.conf_files.meta_patch_obj_file}"
     result = ["uni-klee", "--libc=uclibc", "--posix-runtime", "--external-calls=all",
               "--allocate-determ", "--write-smt2s", "--write-kqueries", "--log-trace",
+              "--max-memory=0",
               f"--target-function={target_function}", link_opt]
     if "klee_flags" in self.project_conf:
       link_opt = self.project_conf['klee_flags']
