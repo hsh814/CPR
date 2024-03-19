@@ -496,7 +496,9 @@ class DataLogParser:
       result.append(current.strip())
     return result
   def parse_state_id(self, state: str, prefix: str = "state") -> int:
-    return int(state.removeprefix(prefix).strip())
+    if state.startswith(prefix):
+      state = state[len(prefix):]
+    return int(state.strip())
   def add_meta_data(self, line: str):
     # metadata_pattern = r"\[meta-data\] \[state (\d+)\] \[crashId: (\d+), patchId: (\d+), stateType: (\w+), isCrash: (\w+), actuallyCrashed: (\d+), exitLoc: ([^,]+), exit: ([^\]]+)\]"
     tokens = self.parser_level_1(line)
@@ -1572,7 +1574,6 @@ class RegressionAnalysis:
       if bit1 != bit2:
         distance += 1
     return distance
-
     
 class TableGenerator:
   result_dir: str
@@ -1582,7 +1583,9 @@ class TableGenerator:
     self.state_names = state_names
   def parse_name(self, name: str) -> Dict[str, str]:
     # name = "snapshot-8-r0-c5c-p0.overshift.err.json"
-    name = name.removeprefix("snapshot-")
+    prefix = "snapshot-"
+    if name.startswith(prefix):
+      name = name[len(prefix):]
     name = name.replace(".json", "")
     tokens = name.split("-")
     if len(tokens) < 4:
