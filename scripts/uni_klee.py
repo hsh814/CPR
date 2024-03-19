@@ -403,7 +403,7 @@ class Runner:
       analyzer = Analyzer(self.config)
       analyzer.analyze()
       return
-    if self.config.cmd == "clean":
+    if self.config.cmd in ["clean", "kill"]:
       # 1. Find all processes
       processes = global_config.get_current_processes()
       for proc in processes:
@@ -416,10 +416,11 @@ class Runner:
           # 2. Remove lock file
           os.remove(global_config.get_lock_file(self.config.bug_info["bug_id"]))
       # 3. Remove output directory
-      out_dirs = self.config.conf_files.find_all_nums(self.config.conf_files.out_base_dir, self.config.conf_files.out_dir_prefix)
-      for out_dir in out_dirs:
-        print(f"Remove {out_dir[0]}")
-        os.system(f"rm -rf {os.path.join(self.config.conf_files.out_base_dir, out_dir[0])}")
+      if self.config.cmd == "clean":
+        out_dirs = self.config.conf_files.find_all_nums(self.config.conf_files.out_base_dir, self.config.conf_files.out_dir_prefix)
+        for out_dir in out_dirs:
+          print(f"Remove {out_dir[0]}")
+          os.system(f"rm -rf {os.path.join(self.config.conf_files.out_base_dir, out_dir[0])}")
       return
     lock_file = global_config.get_lock_file(self.config.bug_info["bug_id"])
     lock = acquire_lock(lock_file, self.config.lock, self.config.conf_files.out_dir)
@@ -699,8 +700,8 @@ class DataLogParser:
           self.add_lazy_trace(line)
         elif line.startswith("[stack-trace]"):
           self.add_stack_trace(line)
-        else:
-          print(f"Unknown line: {line}")
+        # else:
+        #   print(f"Unknown line: {line}")
   def cluster(self) -> Dict[int, list]:
     cluster_by_crash_id = dict()
     for state, data in self.meta_data.items():
@@ -1704,7 +1705,7 @@ def log(args: List[str]):
 def arg_parser(argv: List[str]) -> Config:
   # Remaining: c, e, g, h, i, j, m, n, q, t, u, v, w, x, y, z
   parser = argparse.ArgumentParser(description="Test script for uni-klee")
-  parser.add_argument("cmd", help="Command to execute", choices=["run", "rerun", "cmp", "fork", "snapshot", "clean", "filter", "analyze"])
+  parser.add_argument("cmd", help="Command to execute", choices=["run", "rerun", "cmp", "fork", "snapshot", "clean", "kill", "filter", "analyze"])
   parser.add_argument("query", help="Query for bugid and patch ids: <bugid>[:<patchid>] # ex) 5321:1,2,3")
   parser.add_argument("-a", "--additional", help="Additional arguments", default="")
   parser.add_argument("-d", "--debug", help="Debug mode", action="store_true")

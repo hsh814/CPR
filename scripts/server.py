@@ -68,6 +68,21 @@ def meta_data_out_dir(id: int = Query(0), prefix = Query("uni-m-out")):
         result.append({"id": dir, "full": os.path.join(config.conf_files.out_base_dir, dir)})
     return result
 
+def check_and_get_result(dp: uni_klee.DataLogParser) -> dict:
+    cache_file = dp.get_cache_file("result.json")
+    data_log_file = dp.get_cache_file("data.log")
+    if os.path.exists(cache_file):
+        if os.path.exists(data_log_file):
+            cache_time = os.path.getmtime(cache_file)
+            data_log_time = os.path.getmtime(data_log_file)
+            if cache_time > data_log_time:
+                with open(cache_file, "r") as f:
+                    ar = json.load(f)
+                return ar
+    dp.read_data_log()
+    ar = dp.generate_table_v2(dp.cluster())
+    return ar
+
 @app.get("/meta-data/data-log-parser/parse")
 def meta_data_data_log_parser(dir: str = Query("")):
     print(f"meta_data_data_log_parser: {dir}")
@@ -80,11 +95,7 @@ def meta_data_data_log_parser(dir: str = Query("")):
         result = f.read()
     fork_map_nodes, fork_map_edges = dp.generate_fork_graph_v2()
     input_map_nodes, input_map_edges = dp.generate_input_graph()
-    if os.path.exists(dp.get_cache_file("result.json")):
-        with open(dp.get_cache_file("result.json"), "r") as f:
-            ar = json.load(f)
-    else:
-        ar = dp.generate_table_v2(dp.cluster())
+    ar = check_and_get_result(dp)
     return {"table": result, 
             "fork_graph": {"nodes": fork_map_nodes, "edges": fork_map_edges}, 
             "input_graph": {"nodes": input_map_nodes, "edges": input_map_edges},
@@ -97,12 +108,7 @@ def meta_data_data_log_parser_result(dir: str = Query("")):
     if not os.path.exists(dir):
         return {"result": ""}
     dp = uni_klee.DataLogParser(dir)
-    if os.path.exists(dp.get_cache_file("result.json")):
-        with open(dp.get_cache_file("result.json"), "r") as f:
-            ar = json.load(f)
-    else:
-        dp.read_data_log("data.log")
-        ar = dp.generate_table_v2(dp.cluster())
+    ar = check_and_get_result(dp)
     return {"result": ar}
 
 @app.post("/meta-data/data-log-parser/explain")
@@ -110,12 +116,7 @@ def meta_data_data_log_parser_explain(request_data: DirData):
     if not os.path.exists(request_data.dir) or len(request_data.inputs) == 0:
         return {"result": ""}
     dp = uni_klee.DataLogParser(request_data.dir)
-    if os.path.exists(dp.get_cache_file("result.json")):
-        with open(dp.get_cache_file("result.json"), "r") as f:
-            ar = json.load(f)
-    else:
-        dp.read_data_log("data.log")
-        ar = dp.generate_table_v2(dp.cluster())
+    ar = check_and_get_result(dp)
     return dp.get_trace(ar, request_data.inputs[-1].input)
 
 @app.post("/meta-data/data-log-parser/select")
@@ -124,12 +125,7 @@ def meta_data_data_log_parser_select(request_data: DirData):
     if not os.path.exists(request_data.dir):
         return {"result": ""}
     dp = uni_klee.DataLogParser(request_data.dir)
-    if os.path.exists(dp.get_cache_file("result.json")):
-        with open(dp.get_cache_file("result.json"), "r") as f:
-            ar = json.load(f)
-    else:
-        dp.read_data_log()
-        ar = dp.generate_table_v2(dp.cluster())
+    ar = check_and_get_result(dp)
     input_list = list()
     feas_list = list()
     for i in request_data.inputs:
@@ -144,12 +140,7 @@ def meta_data_data_log_parser_multi_select(request_data: DirData):
     if not os.path.exists(request_data.dir):
         return {"result": ""}
     dp = uni_klee.DataLogParser(request_data.dir)
-    if os.path.exists(dp.get_cache_file("result.json")):
-        with open(dp.get_cache_file("result.json"), "r") as f:
-            ar = json.load(f)
-    else:
-        dp.read_data_log()
-        ar = dp.generate_table_v2(dp.cluster())
+    ar = check_and_get_result(dp)
     input_list = list()
     feas_list = list()
     for i in request_data.inputs:
@@ -163,12 +154,7 @@ def meta_data_data_log_parser_feasible(request_data: DirData):
     if not os.path.exists(request_data.dir):
         return {"result": ""}
     dp = uni_klee.DataLogParser(request_data.dir)
-    if os.path.exists(dp.get_cache_file("result.json")):
-        with open(dp.get_cache_file("result.json"), "r") as f:
-            ar = json.load(f)
-    else:
-        dp.read_data_log()
-        ar = dp.generate_table_v2(dp.cluster())
+    ar = check_and_get_result(dp)
     return dp.filter_out_patches(ar, request_data.inputs, request_data.feasible_list)
 
 def run_cmd(cmd: List[str]):

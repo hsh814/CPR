@@ -16,11 +16,12 @@ pushd src
   cp ../${patched_file} ${patched_dir}/${patched_file}
   # Build
   ./bootstrap
-  pushd gnulib
-    git checkout 39da61d3c3fb1774295705295c72d73a53dce9b1
+  rm -rf build
+  mkdir build
+  pushd build
+    FORCE_UNSAFE_CONFIGURE=1 LD=lld CC=cpr-cc CXX=cpr-cxx ../configure CFLAGS='-g -O0 -static -fPIE -fPIC' CXXFLAGS="$CFLAGS"
+    make -j16
   popd
-  FORCE_UNSAFE_CONFIGURE=1 LD=lld CC=cpr-cc CXX=cpr-cxx ./configure CFLAGS='-g -O0 -static -fPIE -fPIC' CXXFLAGS="$CFLAGS"
-  make -j16
   # cp
   cp ${patched_dir}/${patched_file} ../patched
   cp ${bin_dir}/${bin_file} ../patched

@@ -7,6 +7,7 @@ import os
 import sys
 import json
 import time
+import datetime
 
 # import importlib
 # PARENT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -57,6 +58,17 @@ class RunSingle():
   def get_filter_cmd(self) -> str:
     return f"uni-klee.py filter {self.meta['bug_id']} --lock=w"
   def get_exp_cmd(self) -> str:
+    if "correct" not in self.meta:
+      print("No correct patch")
+      return None
+    if "no" not in self.meta["correct"]:
+      for patch in self.meta_program["patches"]:
+        if patch["name"] == "correct":
+          self.meta["correct"]["no"] = patch["id"]
+          break
+    if "no" not in self.meta["correct"]:
+      print("No correct patch")
+      return None
     correct = self.meta["correct"]["no"]
     patches = list()
     cnt = 0
@@ -72,12 +84,12 @@ class RunSingle():
         break
     print(patches)
     query = self.meta["bug_id"] + ":" + ",".join([str(x) for x in patches])
-    cmd = f"uni-klee.py rerun {query} --lock=w"
+    cmd = f"uni-klee.py rerun {query} --lock=f --additional='--max-time=12h'"
     return cmd
   def get_cmd(self, opt: str) -> str:
-    if "correct" not in self.meta:
-      print("No correct patch")
-      return None
+    # if "correct" not in self.meta:
+    #   print("No correct patch")
+    #   return None
     if "no" not in self.meta["correct"]:
       print("No correct patch")
       return None
@@ -122,6 +134,8 @@ def main(argv: List[str]):
   cmd = "exp"
   if len(argv) > 0:
     cmd = argv[0]
+  with open(os.path.join(GLOBAL_LOG_DIR, "time.log"), "a") as f:
+    f.write(f"\n#{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
   meta_data = uni_klee.global_config.get_meta_data_list()
   print(f"Total meta data: {len(meta_data)}")
   run_cmd(cmd, meta_data)
