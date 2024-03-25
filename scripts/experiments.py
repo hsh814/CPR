@@ -56,7 +56,7 @@ class RunSingle():
   def get_clean_cmd(self) -> str:
     return f"uni-klee.py clean {self.meta['bug_id']} --lock=w"
   def get_filter_cmd(self) -> str:
-    return f"uni-klee.py filter {self.meta['bug_id']} --lock=w"
+    return f"uni-klee.py filter {self.meta['bug_id']} --lock=f"
   def get_exp_cmd(self) -> str:
     if "correct" not in self.meta:
       print("No correct patch")

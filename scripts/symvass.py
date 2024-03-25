@@ -3,8 +3,10 @@ import os
 import sys
 import argparse
 from typing import List, Tuple, Set, Dict
+import multiprocessing as mp
 
 import uni_klee
+
 
 def get_trace(dir: str, id: int):
     dp = uni_klee.DataLogParser(dir)
@@ -56,14 +58,17 @@ class PatchSorter:
     # patch_ids: list
     # meta_data: dict
     dp: uni_klee.DataLogParser
+    dp_filter: uni_klee.DataLogParser
     cluster: Dict[int, Dict[int, List[Tuple[int, bool]]]]
     patch_ids: List[int]
+    patch_filter: Set[int]
     
-    def __init__(self, dp: uni_klee.DataLogParser):
+    def __init__(self, dp: uni_klee.DataLogParser, dp_filter: uni_klee.DataLogParser = None):
         # self.dir = dir
         # self.patch_ids = patch_ids
         # self.meta_data = config.bug_info
         self.dp = dp
+        self.dp_filter = dp_filter
         self.cluster = dict()
         self.patch_ids = list()
     
@@ -74,10 +79,33 @@ class PatchSorter:
         patch_trace = patch["lazyTrace"].split() if "lazyTrace" in patch else []
         return base_trace == patch_trace
     
+    def filter_patch(self) -> Dict[int, bool]:
+        self.patch_filter = dict()
+        result = dict()
+        for state_id, data in self.dp_filter.meta_data.items():
+            patch_id = data["patchId"]
+            if data["stateType"] == '3':
+                self.patch_filter[patch_id] = data
+                result[patch_id] = not data["actuallyCrashed"]
+        # original = self.patch_filter[0]
+        # if not original["actuallyCrashed"]:
+        #     print("Original patch does not crash")
+        return result
+    
     def analyze_cluster(self) -> Dict[int, Dict[int, List[Tuple[int, bool]]]]:
         self.cluster: Dict[int, Dict[int, List[Tuple[int, bool]]]] = dict()
+        self.cluster[0] = dict()
+        filter_result = self.filter_patch()
+        patch_set = set()
+        for patch_id, result in filter_result.items():
+            if result:
+                patch_set.add(patch_id)
+            self.cluster[0][patch_id] = [(-1, result)]
+            print(f"Patch {patch_id} crashed: {result}")
         temp_patches = set()
         for crash_id, data_list in self.dp.cluster().items():
+            if crash_id == 0:
+                continue
             self.cluster[crash_id] = dict()
             base = data_list[0]
             for data in data_list:
@@ -103,6 +131,9 @@ class PatchSorter:
         score = 0.0
         for crash_id, patch_map in self.cluster.items():
             patch_score = 0.0
+            if patch not in patch_map:
+                print(f"Patch {patch} not found in crash {crash_id}")
+                continue
             for patch_result in patch_map[patch]:
                 if patch_result[1]:
                     patch_score += 1.0
@@ -121,6 +152,7 @@ class PatchSorter:
 class Analyzer:
     config: uni_klee.Config
     dir: str
+    filter_dir: str
     
     def __init__(self, conf: uni_klee.Config):
         self.config = conf
@@ -146,6 +178,7 @@ class Analyzer:
     
     def set_dir(self):
         self.dir = self.config.conf_files.out_dir
+        self.filter_dir = self.config.conf_files.filter_dir
         if not os.path.exists(self.dir):
             print(f"{self.dir} does not exist")
             out_dirs = self.config.conf_files.find_all_nums(self.config.conf_files.out_base_dir, self.config.conf_files.out_dir_prefix)
@@ -162,8 +195,23 @@ class Analyzer:
             f.write("## Patch Rank\n")
             f.write(f"| Rank | Patch | Score |\n")
             f.write(f"|------|-------|-------|\n")
-            for i, (patch, score) in enumerate(sorted_patches):
-                f.write(f"| {i+1} | {patch} | {score:.2f} |\n")
+            rank = 1
+            patch_filter = set()
+            for patch_id, result in cluster[0].items():
+                if result[0][1]:
+                    patch_filter.add(patch_id)
+            for (patch, score) in sorted_patches:
+                if patch in patch_filter:
+                    f.write(f"| {rank} | {patch} | {score:.2f} |\n")
+                    rank += 1
+            f.write(f"\n## Removed patch list\n")
+            f.write(f"| Rank | Patch | Score |\n")
+            f.write(f"|------|-------|-------|\n")
+            rank = 1
+            for (patch, score) in sorted_patches:
+                if patch not in patch_filter:
+                    f.write(f"| {rank} | {patch} | {score:.2f} |\n")
+                    rank += 1
             f.write("\n## Patch Result\n")
             cluster_list = list(cluster.items())
             cluster_list.sort(key=lambda x: x[0])
@@ -176,15 +224,26 @@ class Analyzer:
                     local_input_id = 0
                     for patch_result in result:
                         state = patch_result[0]
-                        actually_crashed = dp.meta_data[state]["actuallyCrashed"]
-                        f.write(f"| {patch}-{local_input_id} | {patch} | {state} | {'O' if patch_result[1] else 'X'} | {actually_crashed} |\n")
+                        if state < 0:
+                            f.write(f"| {patch}-{local_input_id} | {patch} | {state} | {'O' if patch_result[1] else 'X'} | - |\n")
+                        else:
+                            actually_crashed = dp.meta_data[state]["actuallyCrashed"]
+                            f.write(f"| {patch}-{local_input_id} | {patch} | {state} | {'O' if patch_result[1] else 'X'} | {actually_crashed} |\n")
                         local_input_id += 1
         print(f"Saved to {os.path.join(self.dir, 'patch-rank.md')}")
 
     def analyze(self):
+        run_filter = not os.path.exists(self.filter_dir)
+        if run_filter:
+            print(f"{self.filter_dir} does not exist")
+            proc = mp.Process(target=uni_klee.main, args=(["uni-klee.py", "filter", self.config.query, f"-f={self.config.conf_files.filter_prefix}", "--lock=w"],))
+            proc.start()
+            proc.join()
         dp = uni_klee.DataLogParser(self.dir)
         dp.read_data_log()
-        ps = PatchSorter(dp)
+        dp_filter = uni_klee.DataLogParser(self.filter_dir)
+        dp_filter.read_data_log()
+        ps = PatchSorter(dp, dp_filter)
         cluster = ps.analyze_cluster()
         print("Cluster analyzed", cluster)
         sorted_patches = ps.sort()
@@ -197,11 +256,12 @@ def arg_parser(argv: List[str]) -> uni_klee.Config:
     parser.add_argument("query", type=str, help="Query for bugid and patch ids: <bugid>[:<patchid>] # ex) 5321:1,2,3")
     parser.add_argument("-a", "--additional", help="Additional options for the command", default="")
     parser.add_argument("-p", "--outdir-prefix", help="Output directory prefix(\"out\" for out dir)", default="uni-m-out")
-    
+    parser.add_argument("-o", "--output", help="Output directory", default="")
+    parser.add_argument("-f", "--filter-prefix", help="Filter prefix for output directory", default="filter")
     args = parser.parse_args(argv[1:])
     conf = uni_klee.Config(args.cmd, args.query, False, "medium", "64,64,0")
     conf.init("buggy", False, args.additional, "w")
-    conf.conf_files.set_out_dir("", args.outdir_prefix, conf.bug_info, "snapshot")
+    conf.conf_files.set_out_dir("", args.outdir_prefix, conf.bug_info, "snapshot", args.filter_prefix)
     return conf
 
 def main(argv: list) -> int:

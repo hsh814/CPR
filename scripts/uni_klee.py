@@ -124,7 +124,7 @@ class GloablConfig:
       data = self.meta_data_indexed[id]
       config = Config("analyze", f"{data['bug_id']}:buggy", False, "0", "0")
       config.init("buggy", False, "", "w")
-      config.conf_files.set_out_dir("", prefix, data, "snapshot")
+      config.conf_files.set_out_dir("", prefix, data, "snapshot", "filter")
       return config
     return None
   def get_meta_program_patch_list(self, id: int) -> List[dict]:
@@ -153,9 +153,11 @@ class ConfigFiles:
   out_base_dir: str
   out_dir: str
   out_dir_prefix: str
+  snapshot_prefix: str
   snapshot_dir: str
   snapshot_file: str
-  snapshot_prefix: str
+  filter_prefix: str
+  filter_dir: str
   
   def __init__(self):
     self.root_dir = ROOT_DIR
@@ -171,9 +173,10 @@ class ConfigFiles:
     self.meta_program = os.path.join(self.project_dir, "meta-program.json")
     patch.compile(os.path.join(self.project_dir, "concrete"))
     self.meta_patch_obj_file = os.path.join(self.project_dir, "concrete", "libuni_klee_runtime.bca")
-  def set_out_dir(self, out_dir: str, out_dir_prefix: str, bug_info: dict, snapshot_prefix: str):
+  def set_out_dir(self, out_dir: str, out_dir_prefix: str, bug_info: dict, snapshot_prefix: str, filter_prefix: str):
     self.out_dir_prefix = out_dir_prefix
     self.snapshot_prefix = snapshot_prefix
+    self.filter_prefix = filter_prefix
     if out_dir == "":
       self.out_base_dir = self.work_dir
     elif out_dir == "out":
@@ -184,6 +187,7 @@ class ConfigFiles:
     no = self.find_num(self.out_base_dir, out_dir_prefix)
     self.out_dir = os.path.join(self.out_base_dir, f"{out_dir_prefix}-{no}")
     self.snapshot_dir = os.path.join(self.out_base_dir, self.snapshot_prefix)
+    self.filter_dir = os.path.join(self.out_base_dir, filter_prefix)
     if "snapshot" in bug_info:
       print(f"Use snapshot {self.bid} {bug_info['snapshot']}")
       self.snapshot_file = os.path.join(self.snapshot_dir, bug_info["snapshot"])
@@ -322,6 +326,7 @@ class Config:
     patch_str = ",".join(self.snapshot_patch_ids)
     if self.cmd == "filter":
       cmd.append("--no-exit-on-error")
+      snapshot_dir = self.conf_files.filter_dir
       all_patches = [str(patch["id"]) for patch in self.meta_program["patches"]]
       patch_str = ",".join(all_patches)
     cmd.append(f"--output-dir={snapshot_dir}")
@@ -392,8 +397,12 @@ class Runner:
         pass
     return proc.returncode
   def execute_snapshot(self, cmd: str, dir: str, env: dict = None):
-    if self.config.cmd in ["rerun", "snapshot", "filter"]:
+    if self.config.cmd in ["rerun", "snapshot"]:
       self.execute("rm -rf " + self.config.conf_files.snapshot_dir, dir, "rm")
+    if self.config.cmd == "filter":
+      self.execute("rm -rf " + self.config.conf_files.filter_dir, dir, "rm")
+      self.execute(cmd, dir, "filter", env)
+      return
     if not os.path.exists(self.config.conf_files.snapshot_file):
       if self.config.debug:
         print(f"snapshot file {self.config.conf_files.snapshot_file} does not exist")
@@ -1706,7 +1715,7 @@ def log(args: List[str]):
     release_lock(lock_file, lock)
 
 def arg_parser(argv: List[str]) -> Config:
-  # Remaining: c, e, g, h, i, j, m, n, q, t, u, v, w, x, y, z
+  # Remaining: c, e, g, h, i, j, n, q, t, u, v, w, x, y, z
   parser = argparse.ArgumentParser(description="Test script for uni-klee")
   parser.add_argument("cmd", help="Command to execute", choices=["run", "rerun", "cmp", "fork", "snapshot", "clean", "kill", "filter", "analyze"])
   parser.add_argument("query", help="Query for bugid and patch ids: <bugid>[:<patchid>] # ex) 5321:1,2,3")
@@ -1716,16 +1725,15 @@ def arg_parser(argv: List[str]) -> Config:
   parser.add_argument("-p", "--outdir-prefix", help="Output directory prefix(\"out\" for out dir)", default="uni-m-out")
   parser.add_argument("-b", "--snapshot-base-patch", help="Patches for snapshot", default="buggy")
   parser.add_argument("-s", "--snapshot-prefix", help="Snapshot directory prefix", default="snapshot")
+  parser.add_argument("-f", "--filter-prefix", help="Filter directory prefix", default="filter")
   parser.add_argument("-l", "--sym-level", help="Symbolization level", default="medium")
-  parser.add_argument("-f", "--max-fork", help="Max fork", default="64,64,4")
+  parser.add_argument("-m", "--max-fork", help="Max fork", default="64,64,4")
   parser.add_argument("-k", "--lock", help="Handle lock behavior", default="i", choices=["i", "w", "f"])
   parser.add_argument("-r", "--rerun", help="Rerun last command with same option", action="store_true")
   args = parser.parse_args(argv[1:])
-  if args.cmd == "filter" and args.snapshot_prefix == "snapshot":
-    args.snapshot_prefix = "filter"
   conf = Config(args.cmd, args.query, args.debug, args.sym_level, args.max_fork)
   conf.init(args.snapshot_base_patch, args.rerun, args.additional, args.lock)
-  conf.conf_files.set_out_dir(args.outdir, args.outdir_prefix, conf.bug_info, args.snapshot_prefix)
+  conf.conf_files.set_out_dir(args.outdir, args.outdir_prefix, conf.bug_info, args.snapshot_prefix, args.filter_prefix)
   return conf
 
 def main(args: List[str]):
