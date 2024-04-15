@@ -269,10 +269,15 @@ class Config:
   lock: str
   rerun: bool
   
-  def get_patch_ids(self, patch_ids: list) -> List[str]:
+  def get_patch_ids(self, patch_ids: List[str]) -> List[str]:
     self.meta_program = self.conf_files.read_meta_program()
     result = list()
     for patch_id in patch_ids:
+      if patch_id.startswith("r") and "-" in patch_id:
+        start, end = patch_id.split("-")
+        for i in range(int(start), int(end) + 1):
+          result.append(str(i))
+        continue
       for patch in self.meta_program["patches"]:
         if str(patch["id"]) == patch_id:
           result.append(str(patch["id"]))
@@ -930,8 +935,8 @@ class DataLogParser:
       edge_type = value["type"]
       if source in filtered_nodes and target in filtered_nodes:
         filtered_edges.append((source, target, edge_type))
-    clusters = self.cluster_forest(filtered_nodes, filtered_edges, result["crash_id_to_state"])
-    print(f"clusters: {clusters}")
+    # clusters = self.cluster_forest(filtered_nodes, filtered_edges, result["crash_id_to_state"])
+    # print(f"clusters: {clusters}")
     # input_analysis: Dict[int, List[int]] = dict()
     # input_analysis[base] = {
     #   "state": base_state,
@@ -941,19 +946,18 @@ class DataLogParser:
     table: dict = result["table"]
     columns = sorted(list(patches))
     rows: List[int] = list()
-    for cluster in clusters:
-      for base in cluster:
-        base_state = crash_id_to_state[base]
-        patch_filter = set()
-        for patch_id, state in removed_if_feasible[base]:
-          if state == base_state:
-            continue
-          patch_filter.add(patch_id)
-        row = list()
-        for patch in columns:
-          row.append(patch not in patch_filter)
-        print(f"base: {base}, row: {row}, patch_filter: {patch_filter}")
-        rows.append({"base": base, "row": row})
+    for base in cluster:
+      base_state = crash_id_to_state[base]
+      patch_filter = set()
+      for patch_id, state in removed_if_feasible[base]:
+        if state == base_state:
+          continue
+        patch_filter.add(patch_id)
+      row = list()
+      for patch in columns:
+        row.append(patch not in patch_filter)
+      print(f"base: {base}, row: {row}, patch_filter: {patch_filter}")
+      rows.append({"base": base, "row": row})
     table["columns"] = columns
     table["rows"] = rows
     with open(self.get_cache_file("result.json"), "w") as f:
@@ -1312,8 +1316,8 @@ class DataLogParser:
   # nodes: List[{id: int, attributes: Dict[str, any]}]
   # edges: List[{id: str, source: int, target: int, attributes: Dict[str, any]}]
   def draw_graph(self, nodes: List[Dict[str, any]], edges: List[Dict[str, any]], name: str, format: str = "all"):
-    if len(nodes) > 200 or len(edges) > 1000:
-      return
+    # if len(nodes) > 200 or len(edges) > 1000:
+    #   return
     dot = graphviz.Digraph()
     for node in nodes:
       key = node["data"]["id"]
@@ -1718,7 +1722,7 @@ def arg_parser(argv: List[str]) -> Config:
   # Remaining: c, e, g, h, i, j, n, q, t, u, v, w, x, y, z
   parser = argparse.ArgumentParser(description="Test script for uni-klee")
   parser.add_argument("cmd", help="Command to execute", choices=["run", "rerun", "cmp", "fork", "snapshot", "clean", "kill", "filter", "analyze"])
-  parser.add_argument("query", help="Query for bugid and patch ids: <bugid>[:<patchid>] # ex) 5321:1,2,3")
+  parser.add_argument("query", help="Query for bugid and patch ids: <bugid>[:<patchid>] # ex) 5321:1,2,3,r5-10")
   parser.add_argument("-a", "--additional", help="Additional arguments", default="")
   parser.add_argument("-d", "--debug", help="Debug mode", action="store_true")
   parser.add_argument("-o", "--outdir", help="Output directory", default="")

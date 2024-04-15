@@ -34,6 +34,8 @@ def get_trace(dir: str, id: int):
                     if state in done:
                         continue
                     if prev != state:
+                        if prev > state:
+                            continue
                         trace.append(f"[state {prev}] -> [state {state}]")
                         done.add(prev)
                         prev = state
@@ -266,11 +268,14 @@ def arg_parser(argv: List[str]) -> uni_klee.Config:
 
 def main(argv: list) -> int:
     os.chdir(uni_klee.ROOT_DIR)
-    conf = arg_parser(argv)
-    analyzer = Analyzer(conf)
-    analyzer.set_dir()
-    analyzer.analyze()
-    
+    cmd = argv[1]
+    if cmd == "analyze":
+        conf = arg_parser(argv)
+        analyzer = Analyzer(conf)
+        analyzer.set_dir()
+        analyzer.analyze()
+    elif cmd == "trace":
+        get_trace(argv[2], int(argv[3]))
     
 if __name__ == "__main__":
     main(sys.argv)
