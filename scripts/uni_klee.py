@@ -274,7 +274,7 @@ class Config:
     result = list()
     for patch_id in patch_ids:
       if patch_id.startswith("r") and "-" in patch_id:
-        start, end = patch_id.split("-")
+        start, end = patch_id.removeprefix("r").split("-")
         for i in range(int(start), int(end) + 1):
           result.append(str(i))
         continue
@@ -388,12 +388,14 @@ class Runner:
       env = os.environ
     proc = subprocess.run(cmd, shell=True, cwd=dir, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if self.config.debug or proc.returncode != 0:
+      log_file = os.path.join(self.config.conf_files.get_log_dir(), f"{log_prefix}.log")
       if proc.returncode != 0:
         print("!!!!! Error !!!!")
+        print("Save error log to " + log_file)
       try:
         print(proc.stderr.decode("utf-8", errors="ignore"))
         os.makedirs(self.config.conf_files.get_log_dir(), exist_ok=True)
-        with open(os.path.join(self.config.conf_files.get_log_dir(), f"{log_prefix}.log"), "w") as f:
+        with open(log_file, "w") as f:
           f.write(proc.stderr.decode("utf-8", errors="ignore"))
           f.write("\n###############\n")
           f.write(proc.stdout.decode("utf-8", errors="ignore"))
@@ -625,7 +627,7 @@ class DataLogParser:
       loc_to_b = tokens[8]
       key = (state_to_a, state_to_b)
       if key not in self.fork_map_edges:
-        print(f"fork-loc: key error: {line}")
+        # print(f"fork-loc: key error: {line}")
         return
       self.fork_map_edges[key]["loc"] = {
         "type": "br",
@@ -642,7 +644,7 @@ class DataLogParser:
       loc = tokens[5]
       key = (state_from, state_to)
       if key not in self.fork_map_edges:
-        print(f"fork-loc: key error: {line}")
+        # print(f"fork-loc: key error: {line}")
         return
       self.fork_map_edges[key]["loc"] = {
         "type": "lazy",
@@ -660,7 +662,7 @@ class DataLogParser:
       loc_to_b = tokens[8]
       key = (state_from, state_to_b)
       if key not in self.fork_map_edges:
-        print(f"fork-loc: key error: {line}")
+        # print(f"fork-loc: key error: {line}")
         return
       self.fork_map_edges[key]["loc"] = {
         "type": "sw",
@@ -1316,8 +1318,8 @@ class DataLogParser:
   # nodes: List[{id: int, attributes: Dict[str, any]}]
   # edges: List[{id: str, source: int, target: int, attributes: Dict[str, any]}]
   def draw_graph(self, nodes: List[Dict[str, any]], edges: List[Dict[str, any]], name: str, format: str = "all"):
-    # if len(nodes) > 200 or len(edges) > 1000:
-    #   return
+    if len(nodes) > 600 or len(edges) > 6000:
+      return
     dot = graphviz.Digraph()
     for node in nodes:
       key = node["data"]["id"]
