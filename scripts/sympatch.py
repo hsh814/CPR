@@ -36,11 +36,11 @@ def get_basics(vars: List[str]) -> str:
 def get_concrete(formula: str, concrete_range: list) -> List[str]:
   result = list()
   if len(concrete_range) == 0:
-    code = f"    result = {formula};\n"
+    code = f"  result = {formula};\n"
     result.append(code)
   for i in concrete_range:
-    tmp = f"    constant_a = {i};\n"
-    tmp += f"    result = {formula};\n"
+    tmp = f"  constant_a = {i};\n"
+    tmp += f"  result = {formula};\n"
     result.append(tmp)
   return result
 
@@ -51,16 +51,11 @@ def write_meta_program(meta_program: list, conc_dir: str):
   patches = meta_program["patches"]
   lines = UNI_KLEE_RUNTIME.splitlines()
   codes = list()
-  flag = True
+  codes.append(f"  int patch_results[{len(patches)}];\n")
   for patch in patches:
     codes.append(f"  // Patch {patch['name']} # {patch['id']}\n")
-    if flag:
-      codes.append(f"  if (uni_klee_patch_id == {patch['id']}) {{\n")
-      flag = False
-    else:
-      codes.append(f"  else if (uni_klee_patch_id == {patch['id']}) {{\n")
     codes.append(patch['code'])
-    codes.append("  }\n")
+    codes.append(f"  uni_klee_add_patch(patch_results, {patch['id']}, result);\n")
   contents = list()
   for line in lines:
     if "// REPLACE" in line:
@@ -68,7 +63,7 @@ def write_meta_program(meta_program: list, conc_dir: str):
       contents.extend(codes)
     else:
       contents.append(line + "\n")
-  with open(f"{conc_dir}/uni_klee_runtime.c", "w") as f:
+  with open(f"{conc_dir}/uni_klee_runtime_new.c", "w") as f:
     f.writelines(contents)
   with open(f"{conc_dir}/uni_klee_runtime.h", "w") as f:
     f.write(UNI_KLEE_RUNTIME_H)
@@ -81,7 +76,7 @@ def to_meta_program(patch_list: list, meta: dict) -> dict:
   meta_program = { "base": base_code, "patches": patches }
   if "buggy" in meta:
     formula = meta["buggy"]["code"]
-    obj = { "name": "buggy", "id": 0, "num": 0, "local_id": 0, "code": f"    result = {formula};\n" }
+    obj = { "name": "buggy", "id": 0, "num": 0, "local_id": 0, "code": f"  result = {formula};\n" }
     patches.append(obj)
   for patch in patch_list:
     concrete_range = list()
@@ -102,7 +97,7 @@ def to_meta_program(patch_list: list, meta: dict) -> dict:
       patches.append(obj)
   if "correct" in meta:
     formula = meta["correct"]["code"]
-    obj = { "name": "correct", "id": id, "num": 0, "local_id": 1, "code": f"    result = {formula};\n" }
+    obj = { "name": "correct", "id": id, "num": 0, "local_id": 1, "code": f"  result = {formula};\n" }
     patches.append(obj)
   return meta_program
 
@@ -135,7 +130,7 @@ def apply_patch_to_file(outdir, code):
       contents.append(code)
     else:
       contents.append(line + "\n")
-  with open(os.path.join(outdir, "uni_klee_runtime.c"), "w") as f:
+  with open(os.path.join(outdir, "uni_klee_runtime_new.c"), "w") as f:
     f.writelines(contents)
   with open(os.path.join(outdir, "uni_klee_runtime.h"), "w") as f:
     f.write(UNI_KLEE_RUNTIME_H)
@@ -164,14 +159,14 @@ def lazy_compile(dir: str, cmd: str, file_a: str, file_b: str):
 
 def compile(dir: str):
   KLEE_INCLUDE_PATH = "/root/projects/uni-klee/include"
-  cmd = f"wllvm -g -fPIC -O0 -c -o uni_klee_runtime.o uni_klee_runtime.c -I{KLEE_INCLUDE_PATH}"
-  lazy_compile(dir, cmd, "uni_klee_runtime.c", "uni_klee_runtime.o")
-  cmd = "llvm-ar rcs libuni_klee_runtime.a uni_klee_runtime.o"
-  lazy_compile(dir, cmd, "uni_klee_runtime.o", "libuni_klee_runtime.a")
-  cmd = "extract-bc libuni_klee_runtime.a"
-  lazy_compile(dir, cmd, "libuni_klee_runtime.a", "libuni_klee_runtime.bca")
-  cmd = "wllvm -fPIC -shared -o libcpr_runtime.so uni_klee_runtime.o"
-  lazy_compile(dir, cmd, "uni_klee_runtime.o", "libcpr_runtime.so")
+  cmd = f"wllvm -g -fPIC -O0 -c -o uni_klee_runtime_new.o uni_klee_runtime_new.c -I{KLEE_INCLUDE_PATH}"
+  lazy_compile(dir, cmd, "uni_klee_runtime_new.c", "uni_klee_runtime_new.o")
+  cmd = "llvm-ar rcs libuni_klee_runtime_new.a uni_klee_runtime_new.o"
+  lazy_compile(dir, cmd, "uni_klee_runtime_new.o", "libuni_klee_runtime_new.a")
+  cmd = "extract-bc libuni_klee_runtime_new.a"
+  lazy_compile(dir, cmd, "libuni_klee_runtime_new.a", "libuni_klee_runtime_new.bca")
+  cmd = "wllvm -fPIC -shared -o libcpr_runtime_new.so uni_klee_runtime_new.o"
+  lazy_compile(dir, cmd, "uni_klee_runtime_new.o", "libcpr_runtime_new.so")
 
 def move_files(meta_data: dict, experiments: str, patches: str):
   for meta in meta_data:
@@ -216,7 +211,7 @@ def main(args: List[str]):
       print(f"  {k}: {v}")
     sys.exit(1)
   global UNI_KLEE_RUNTIME, UNI_KLEE_RUNTIME_H
-  with open(os.path.join(root_dir, "lib", "uni_klee_runtime.c"), "r") as f:
+  with open(os.path.join(root_dir, "lib", "uni_klee_runtime_new.c"), "r") as f:
     UNI_KLEE_RUNTIME = f.read()
   with open(os.path.join(root_dir, "lib", "uni_klee_runtime.h"), "r") as f:
     UNI_KLEE_RUNTIME_H = f.read()
@@ -232,11 +227,11 @@ def main(args: List[str]):
   # exit(0)
   for meta in meta_data:
     bug_id = meta["bug_id"]
-    # if bug_id != "CVE-2012-5134":
-    #   continue
     benchmark = meta["benchmark"]
     subject = meta["subject"]
     outdir = os.path.join(patch_dir, benchmark, subject, bug_id)
+    if not os.path.exists(outdir + "/patch-set-ranked"):
+      continue
     if "vars" not in meta:
       continue
     vars = meta["vars"]
@@ -247,26 +242,14 @@ def main(args: List[str]):
       os.chdir(dir)
       continue
     if opt == "meta":
-      if os.path.exists(f"{outdir}/meta-program.json"):
-        with open(f"{outdir}/abs-patches.json", "r") as f:
-          patch_list = json.load(f)
-          meta_program = to_meta_program(patch_list, meta)
-          write_meta_program(meta_program, os.path.join(outdir, "concrete"))
-          with open(f"{outdir}/meta-program.json", "w") as f:
-            print(f"Writing to {outdir}/meta-program.json")
-            json.dump(meta_program, f, indent=2)
-          continue
-    # if "buggy" in meta:
-    #   buggy_dir = os.path.join(concrete_dir, "buggy")
-    #   os.system(f"cp /root/projects/CPR/lib/uni_klee_runtime.c {buggy_dir}")
-    #   os.system(f"cp /root/projects/CPR/lib/uni_klee_runtime.h {buggy_dir}")
-    #   concrete = formula_to_code(meta["buggy"]["code"], [], vars)
-    #   print(f"Bug: {bug_id}")
-    #   print(concrete)
-    #   apply_patch_to_file(buggy_dir, concrete[0])
-    #   compile(buggy_dir)
-    #   if opt == "buggy":
-    #     continue
+      with open(f"{outdir}/abs-patches.json", "r") as f:
+        patch_list = json.load(f)
+        meta_program = to_meta_program(patch_list, meta)
+        write_meta_program(meta_program, os.path.join(outdir, "concrete"))
+        with open(f"{outdir}/meta-program.json", "w") as f:
+          print(f"Writing to {outdir}/meta-program.json")
+          json.dump(meta_program, f, indent=2)
+        continue
     
     # option == concrete
     patch_file = os.path.join(outdir, "patch-set-ranked")
@@ -308,21 +291,6 @@ def main(args: List[str]):
     with open(f"{outdir}/abs-patches.json", "w") as f:
       print(f"Writing to {outdir}/abs-patches.json")
       json.dump(patch_list, f, indent=2)
-    final_patch_list = list()
-    if opt == "meta":
-      meta_program = to_meta_program(patch_list, meta)
-      write_meta_program(meta_program, os.path.join(outdir, "concrete"))
-      with open(f"{outdir}/meta-program.json", "w") as f:
-        print(f"Writing to {outdir}/meta-program.json")
-        json.dump(meta_program, f, indent=2)
-      continue
-    for patch in patch_list:
-      concrete_patches = to_concrete_patch(patch, meta)
-      final_patch_list.append(concrete_patches)
-    with open(f"{outdir}/concrete-patches.json", "w") as f:
-      print(f"Writing to {outdir}/concrete-patches.json")
-      json.dump(final_patch_list, f, indent=2)    
-    # save_to_file(concrete_dir, final_patch_list)
 
 if __name__ == "__main__":
   main(sys.argv)
