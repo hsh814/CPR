@@ -1680,7 +1680,10 @@ def acquire_lock(lock_file: str, lock_behavior: str, message: str = "") -> int:
         with open(lock_file, "r") as f:
           lines = f.readlines()
           pid = int(lines[0].strip())
-          os.kill(pid, signal.SIGKILL)
+          try:
+            os.kill(pid, signal.SIGKILL)
+          except OSError as e:
+            print(e)
         os.remove(lock_file)
         continue
       if time.time() - start_time > timeout:

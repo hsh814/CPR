@@ -4,8 +4,15 @@ import sys
 import argparse
 from typing import List, Tuple, Set, Dict
 import multiprocessing as mp
+import subprocess
+import json
+import re
+import signal
+
+import traceback
 
 import uni_klee
+import sympatch
 
 
 def get_trace(dir: str, id: int):
@@ -44,16 +51,419 @@ def get_trace(dir: str, id: int):
         for line in trace:
             f.write(line + "\n")
 
+
 def convert_to_sbsv(dir: str):
     with open(f"{dir}/run.stats", "r") as f:
         lines = f.readlines()
-        header = lines[0].strip().replace('(', '').replace(')', '').split(",")
+        header = lines[0].strip().replace("(", "").replace(")", "").split(",")
         with open(f"{dir}/run.stats.sbsv", "w") as f:
             for i in range(1, len(lines)):
-                line = lines[i].strip().replace('(', '').replace(')', '')
+                line = lines[i].strip().replace("(", "").replace(")", "")
                 tokens = line.split(",")
-                f.write(f"[stats] [inst {tokens[0]}] [fb {tokens[1]}] [pb {tokens[2]}] [nb {tokens[3]}] [ut {tokens[4]}] [ns {tokens[5]}] [mu {tokens[6]}] [nq {tokens[7]}] [nqc {tokens[8]}] [no {tokens[9]}] [wt {tokens[10]}] [ci {tokens[11]}] [ui {tokens[12]}] [qt {tokens[13]}] [st {tokens[14]}] [cct {tokens[15]}] [ft {tokens[16]}] [rt {tokens[17]}] [qccm {tokens[18]}] [ccch {tokens[19]}]\n")
+                f.write(
+                    f"[stats] [inst {tokens[0]}] [fb {tokens[1]}] [pb {tokens[2]}] [nb {tokens[3]}] [ut {tokens[4]}] [ns {tokens[5]}] [mu {tokens[6]}] [nq {tokens[7]}] [nqc {tokens[8]}] [no {tokens[9]}] [wt {tokens[10]}] [ci {tokens[11]}] [ui {tokens[12]}] [qt {tokens[13]}] [st {tokens[14]}] [cct {tokens[15]}] [ft {tokens[16]}] [rt {tokens[17]}] [qccm {tokens[18]}] [ccch {tokens[19]}]\n"
+                )
+
+
+class ConfigFiles(uni_klee.ConfigFiles):
+    def __init__(self):
+        self.root_dir = uni_klee.ROOT_DIR
+        self.global_config = uni_klee.global_config
+
+    def set(self, bug_info: dict):
+        patches_dir = os.path.join(self.root_dir, "patches")
+        self.bid = bug_info["bug_id"]
+        self.benchmark = bug_info["benchmark"]
+        self.subject = bug_info["subject"]
+        self.project_dir = os.path.join(
+            patches_dir, self.benchmark, self.subject, self.bid
+        )
+        self.work_dir = os.path.join(self.project_dir, "patched")
+        self.repair_conf = os.path.join(self.project_dir, "repair.conf")
+        self.meta_program = os.path.join(self.project_dir, "meta-program.json")
+        sympatch.compile(os.path.join(self.project_dir, "concrete"))
+        self.meta_patch_obj_file = os.path.join(
+            self.project_dir, "concrete", "libuni_klee_runtime_new.bca"
+        )
+
+
+class Config(uni_klee.Config):
+
+    def __init__(
+        self, cmd: str, query: str, debug: bool, sym_level: str, max_fork: str
+    ):
+        self.cmd = cmd
+        self.query = query
+        self.debug = debug
+        self.sym_level = sym_level
+        self.max_fork = max_fork
+        self.conf_files = ConfigFiles()
+
+    def append_snapshot_cmd(self, cmd: List[str]):
+        snapshot_dir = self.conf_files.snapshot_dir
+        patch_str = ",".join(self.snapshot_patch_ids)
+        if self.cmd == "filter":
+            cmd.append("--no-exit-on-error")
+            snapshot_dir = self.conf_files.filter_dir
+            all_patches = [str(patch["id"]) for patch in self.meta_program["patches"]]
+            patch_str = ",".join(all_patches)
+        cmd.append(f"--output-dir={snapshot_dir}")
+        cmd.append(f"--patch-id={patch_str}")
+
+    def append_cmd(self, cmd: List[str], patch_str: str, opts: List[str]):
+        out_dir = self.conf_files.out_dir
+        default_opts = [
+            "--no-exit-on-error",
+            "--simplify-sym-indices",
+            f"--symbolize-level={self.sym_level}",
+            f"--max-forks-per-phases={self.max_fork}",
+        ]
+        cmd.extend(default_opts)
+        cmd.extend(opts)
+        cmd.append(f"--output-dir={out_dir}")
+        cmd.append(f"--patch-id={patch_str}")
+        cmd.append(f"--snapshot={self.conf_files.snapshot_file}")
+
+    def get_cmd_opts(self, is_snapshot: bool) -> str:
+        target_function = self.bug_info["target"]
+        link_opt = f"--link-llvm-lib={self.conf_files.meta_patch_obj_file}"
+        result = [
+            "uni-klee",
+            "--libc=uclibc",
+            "--posix-runtime",
+            "--external-calls=all",
+            "--allocate-determ",
+            "--write-smt2s",
+            "--write-kqueries",
+            "--log-trace",
+            "--max-memory=0",
+            "--lazy-patch",
+            f"--target-function={target_function}",
+            link_opt,
+        ]
+        if "klee_flags" in self.project_conf:
+            link_opt = self.project_conf["klee_flags"]
+            result.append(link_opt)
+        if self.additional != "":
+            result.extend(self.additional.split(" "))
+        if is_snapshot:
+            self.append_snapshot_cmd(result)
+        else:
+            add_opts = list()
+            if self.cmd == "cmp":
+                add_opts.append("--start-from-snapshot")
+            self.append_cmd(result, ",".join(self.patch_ids), add_opts)
+        bin_file = os.path.basename(self.project_conf["binary_path"])
+        target = bin_file + ".bc"
+        result.append(target)
+        if "test_input_list" in self.project_conf:
+            poc_path = "exploit"
+            if "poc_path" in self.project_conf:
+                poc_path = self.project_conf["poc_path"]
+            target_cmd = self.project_conf["test_input_list"].replace("$POC", poc_path)
+            result.append(target_cmd)
+        return " ".join(result)
+
+
+class SymvassDataLogParser():
+    dir: str
+    data: Dict[str, List[dict]]
+    index: int
+    def __init__(self, dir: str):
+        self.dir = dir
+        self.data = dict()
+        self.index = 0
+    
+    def parse_dict(self, line: str) -> dict:
+        result = dict()
+        for item in line.split(","):
+            item = item.strip()
+            if len(item) == 0:
+                continue
+            key, value = item.split(":", 1)
+            result[key.strip()] = value.strip()
+        return result
+    
+    def parse_state_id(self, state: str, prefix: str = "state") -> int:
+        if state.startswith(prefix):
+            state = state[len(prefix) :]
+        return int(state.strip())
+    
+    def tokenize(self, line: str) -> List[str]:
+        # input: "[fork-map] [fork] [state 1] 1 [base 0] 1 [state 5] 1 [fork-count 5/-1]"
+        # output: ["fork-map", "fork", "state 1", "1", "base 0", "1", "state 5", "1", "fork-count 5/-1"]
+        result = list()
+        level = 0
+        current = ""
+        for char in line:
+            if char == '[':
+                level += 1
+                if level == 1:
+                    if len(current.strip()) > 0:
+                        result.append(current.strip())
+                    current = ""
+                    continue
+            elif char == ']':
+                level -= 1
+                if level == 0:
+                    result.append(current.strip())
+                    current = ""
+                    continue
+            current += char
+        if len(current.strip()) > 0:
+            result.append(current.strip())
+        return result
+    
+    def add_fork(self, line: str):
+        tokens = self.tokenize(line)
+        if len(tokens) < 4:
+            print(f"Unknown fork: {line}")
+            return
+        source_state = self.parse_state_id(tokens[1])
+        target_state = self.parse_state_id(tokens[3])
+        self.data["fork"].append({
+            "source": source_state,
+            "target": target_state,
+            "type": "fork",
+            "loc": dict()
+        })
+    
+    def add_fork_loc(self, line: str):
+        tokens = self.tokenize(line)
+        if len(tokens) < 3:
+            print(f"Unknown fork-loc: {line}")
+            return
+        opt = tokens[1]
+        if opt == "br":
+            # [fork-loc] [br] [state 2] [/root/projects/CPR/patches/extractfix/libtiff/CVE-2016-5314/src/libtiff/tif_pixarlog.c:799:5:28680] -> [state 2] [/root/projects/CPR/patches/extractfix/libtiff/CVE-2016-5314/src/libtiff/tif_pixarlog.c:799:43:28683] [state 23] [/root/projects/CPR/patches/extractfix/libtiff/CVE-2016-5314/src/libtiff/tif_pixarlog.c:800:2:28687]
+            if len(tokens) < 9:
+                print(f"Unknown fork-loc: {line}")
+                return
+            state_from = self.parse_state_id(tokens[2])
+            loc_from = tokens[3]
+            state_to_a = self.parse_state_id(tokens[5])
+            loc_to_a = tokens[6]
+            state_to_b = self.parse_state_id(tokens[7])
+            loc_to_b = tokens[8]
+            self.data["fork-loc"]["br"].append({
+                "state": state_from,
+                "loc": loc_from,
+                "to": [
+                    { "state": state_to_a, "loc": loc_to_a },
+                    { "state": state_to_b, "loc": loc_to_b },
+                ]
+            })
+
+        elif opt == "lazy":
+            if len(tokens) < 7:
+                print(f"Unknown fork-loc: {line}")
+                return
+            state_from = self.parse_state_id(tokens[2])
+            state_to = self.parse_state_id(tokens[4])
+            loc = tokens[5]
+            name = tokens[6]
+            self.data["fork-loc"]["lazy"].append({
+                "state": state_from,
+                "to": state_to,
+                "loc": loc,
+                "name": name
+            })
+
+        elif opt == "sw":
+            if len(tokens) < 9:
+                print(f"Unknown fork-loc: {line}")
+                return
+            state_from = self.parse_state_id(tokens[2])
+            loc_from = tokens[3]
+            state_to_a = self.parse_state_id(tokens[5])
+            loc_to_a = tokens[6]
+            state_to_b = self.parse_state_id(tokens[7])
+            loc_to_b = tokens[8]
+            self.data["fork-loc"]["sw"].append({
+                "state": state_from,
+                "loc": loc_from,
+                "to": [
+                    { "state": state_to_a, "loc": loc_to_a },
+                    { "state": state_to_b, "loc": loc_to_b },
+                ]
+            })
+    
+    def add_fork_map(self, line: str):
+        tokens = self.tokenize(line)
+        if len(tokens) < 4:
+            print(f"Unknown fork-map: {line}")
+            return
+        if tokens[1] == "fork":
+            state = self.parse_state_id(tokens[2])
+            state_type = tokens[3]
+            base_state = self.parse_state_id(tokens[4], "base")
+            base_state_type = tokens[5]
+            forked_state = self.parse_state_id(tokens[6])
+            forked_state_type = tokens[7]
+            self.data["fork-map"]["fork"].append({
+                "state": state,
+                "state_type": state_type,
+                "base": base_state,
+                "base_type": base_state_type,
+                "forked": forked_state,
+                "forked_type": forked_state_type,
+            })
+        elif tokens[1] == "merge":
+            source_state = self.parse_state_id(tokens[2])
+            target_state = self.parse_state_id(tokens[4])
+            patch_id = self.parse_state_id(tokens[5], "patch")
+            self.data["fork-map"]["merge"].append({
+                "source": source_state,
+                "target": target_state,
+                "patch": patch_id
+            })
+        elif tokens[1] == "fork-parent":
+            state = self.parse_state_id(tokens[2])
+            state_type = tokens[3]
+            self.data["fork-map"]["fork-parent"].append({
+                "state": state,
+                "type": state_type
+            })
+    
+    def add_meta_data(self, line: str):
+        tokens = self.tokenize(line)
+        if len(tokens) < 3:
+            print(f"Unknown meta-data: {line}")
+            return
+        state = self.parse_state_id(tokens[1])
+        data = self.parse_dict(tokens[2])
+        crash_id = int(data["crashId"])
+        patch_id = int(data["patchId"])
+        state_type = data["stateType"]
+        is_crash = data["isCrash"] == "true"
+        actually_crashed = data["actuallyCrashed"] == "true"
+        exit_loc = data["exitLoc"]
+        exit_code = data["exit"]
+        self.data["meta-data"].append({
+            "state": state,
+            "crash_id": crash_id,
+            "patch_id": patch_id,
+            "state_type": state_type,
+            "is_crash": is_crash,
+            "actually_crashed": actually_crashed,
+            "exit_loc": exit_loc,
+            "exit_code": exit_code
+        })
+    
+    def add_regression(self, line: str):
+        tokens = self.tokenize(line)
+        if len(tokens) < 3:
+            print(f"Unknown regression: {line}")
+            return
+        state = self.parse_state_id(tokens[1])
+        reg = tokens[2]
+        self.data["regression"].append({
+            "state": state,
+            "trace": reg
+        })
+    
+    def add_lazy_trace(self, line: str):
+        tokens = self.tokenize(line)
+        if len(tokens) < 3:
+            print(f"Unknown lazy-trace: {line}")
+            return
+        state = self.parse_state_id(tokens[1])
+        trace = tokens[2]
+        self.data["lazy-trace"].append({
+            "state": state,
+            "trace": trace
+        })
+    
+    def add_stack_trace(self, line: str):
+        tokens = self.tokenize(line)
+        if len(tokens) < 3:
+            print(f"Unknown stack-trace: {line}")
+            return
+        state = self.parse_state_id(tokens[1])
+        trace = tokens[2]
+        self.data["stack-trace"].append({
+            "state": state,
+            "trace": trace
+        })
         
+    def add_patch(self, line: str):
+        tokens = self.tokenize(line)
+        opt = tokens[1]
+        if opt == "fork":
+            state_true = self.parse_state_id(tokens[2])
+            state_false = self.parse_state_id(tokens[3])
+            patches = tokens[4]
+            patches_data = patches[patches.find('[')+1 : patches.find(']')]
+            elements = patches_data.split(",")
+            patches_map = dict()
+            for element in elements:
+                tokens = element.strip().split(":")
+                patch_id = int(tokens[0])
+                patch_state = int(tokens[1])
+                patches_map[patch_id] = patch_state
+            self.data["patch"]["fork"].append({
+                "state_true": state_true,
+                "state_false": state_false,
+                "patches": patches_map
+            })
+        elif opt == "trace":
+            state = self.parse_state_id(tokens[2])
+            trace = tokens[3]
+            patches = tokens[4]
+            patches_data = patches[patches.find('[')+1 : patches.find(']')]
+            elements = patches_data.split(",")
+            patches_map = dict()
+            for element in elements:
+                tokens = element.strip().split(":")
+                patch_id = int(tokens[0])
+                patch_state = int(tokens[1])
+                patches_map[patch_id] = patch_state
+            self.data["patch"]["trace"].append({
+                "state": state,
+                "trace": trace,
+                "patches": patches_map
+            })
+        
+    def parse_line(self, line: str):
+        if line.startswith("[fork]"):
+            self.add_fork(line)
+        elif line.startswith("[fork-map]"):
+            self.add_fork_map(line)
+        elif line.startswith("[fork-loc]"):
+            self.add_fork_loc(line)
+        elif line.startswith("[meta-data]"):
+            self.add_meta_data(line)
+        elif line.startswith("[regression]"):
+            self.add_regression(line)
+        elif line.startswith("[regression-trace]"):
+            pass
+        elif line.startswith("[lazy-trace]"):
+            self.add_lazy_trace(line)
+        elif line.startswith("[stack-trace]"):
+            self.add_stack_trace(line)
+        elif line.startswith("[patch]"):
+            self.add_patch(line)
+        elif line.startswith("[stats]"):
+            pass
+        
+    def read_data_log(self, name: str = "data.log"):
+        self.data["fork"] = list()
+        self.data["fork-map"] = { "fork": [], "merge": [], "fork-parent": [] }
+        self.data["fork-loc"] = { "br": [], "lazy": [], "sw": [] }
+        self.data["meta-data"] = list()
+        self.data["regression"] = list()
+        self.data["regression-trace"] = list()
+        self.data["lazy-trace"] = list()
+        self.data["stack-trace"] = list()
+        self.data["patch"] = { "fork": [], "trace": [] }
+        with open(os.path.join(self.dir, name), "r") as f:
+            lines = f.readlines()
+            for line in lines:
+                line = line.strip()
+                if len(line) == 0 or line.startswith("#"):
+                    continue
+                self.parse_line(line)
+
 
 class PatchSorter:
     # dir: str
@@ -64,8 +474,10 @@ class PatchSorter:
     cluster: Dict[int, Dict[int, List[Tuple[int, bool]]]]
     patch_ids: List[int]
     patch_filter: Set[int]
-    
-    def __init__(self, dp: uni_klee.DataLogParser, dp_filter: uni_klee.DataLogParser = None):
+
+    def __init__(
+        self, dp: uni_klee.DataLogParser, dp_filter: uni_klee.DataLogParser = None
+    ):
         # self.dir = dir
         # self.patch_ids = patch_ids
         # self.meta_data = config.bug_info
@@ -73,27 +485,27 @@ class PatchSorter:
         self.dp_filter = dp_filter
         self.cluster = dict()
         self.patch_ids = list()
-    
+
     def check_correctness(self, base: dict, patch: dict) -> bool:
         if base["isCrash"]:
             return not patch["actuallyCrashed"]
         base_trace = base["lazyTrace"].split() if "lazyTrace" in base else []
         patch_trace = patch["lazyTrace"].split() if "lazyTrace" in patch else []
         return base_trace == patch_trace
-    
+
     def filter_patch(self) -> Dict[int, bool]:
         self.patch_filter = dict()
         result = dict()
         for state_id, data in self.dp_filter.meta_data.items():
             patch_id = data["patchId"]
-            if data["stateType"] == '3':
+            if data["stateType"] == "3":
                 self.patch_filter[patch_id] = data
                 result[patch_id] = not data["actuallyCrashed"]
         # original = self.patch_filter[0]
         # if not original["actuallyCrashed"]:
         #     print("Original patch does not crash")
         return result
-    
+
     def analyze_cluster(self) -> Dict[int, Dict[int, List[Tuple[int, bool]]]]:
         self.cluster: Dict[int, Dict[int, List[Tuple[int, bool]]]] = dict()
         self.cluster[0] = dict()
@@ -111,11 +523,11 @@ class PatchSorter:
             self.cluster[crash_id] = dict()
             base = data_list[0]
             for data in data_list:
-                if data["stateType"] == '2':
+                if data["stateType"] == "2":
                     base = data
                     break
             for data in data_list:
-                if data["stateType"] == '2':
+                if data["stateType"] == "2":
                     continue
                 patch = data["patchId"]
                 temp_patches.add(patch)
@@ -128,7 +540,7 @@ class PatchSorter:
             self.patch_ids = list(temp_patches)
             self.patch_ids.sort()
         return self.cluster
-    
+
     def get_score(self, patch: int) -> float:
         score = 0.0
         for crash_id, patch_map in self.cluster.items():
@@ -151,18 +563,18 @@ class PatchSorter:
         return scores
 
 
-class Analyzer:
-    config: uni_klee.Config
+class SymvassAnalyzer:
+    config: Config
     dir: str
     filter_dir: str
-    
-    def __init__(self, conf: uni_klee.Config):
+
+    def __init__(self, conf: Config):
         self.config = conf
-    
+
     def print_list(self, l: List[Tuple[str, int]]):
         for item, index in l:
             print(f"{index}) {item}")
-    
+
     def interactive_select(self, l: List[Tuple[str, int]], msg: str) -> Tuple[str, int]:
         print("Select from here: ")
         self.print_list(l)
@@ -177,21 +589,30 @@ class Analyzer:
             for item, index in l:
                 if res == index:
                     return (item, index)
-    
+
     def set_dir(self):
+        print("Set_dir")
         self.dir = self.config.conf_files.out_dir
         self.filter_dir = self.config.conf_files.filter_dir
         if not os.path.exists(self.dir):
             print(f"{self.dir} does not exist")
-            out_dirs = self.config.conf_files.find_all_nums(self.config.conf_files.out_base_dir, self.config.conf_files.out_dir_prefix)
+            out_dirs = self.config.conf_files.find_all_nums(
+                self.config.conf_files.out_base_dir,
+                self.config.conf_files.out_dir_prefix,
+            )
             out_dir = self.interactive_select(out_dirs, "dir")[0]
             if out_dir == "":
                 print("Exit")
                 return
             self.dir = os.path.join(self.config.conf_files.out_base_dir, out_dir)
         print(f"Using {self.dir}")
-        
-    def save_sorted_patches(self, dp: uni_klee.DataLogParser, sorted_patches: List[Tuple[int, float]], cluster: Dict[int, Dict[int, List[Tuple[int, bool]]]]):
+
+    def save_sorted_patches(
+        self,
+        dp: uni_klee.DataLogParser,
+        sorted_patches: List[Tuple[int, float]],
+        cluster: Dict[int, Dict[int, List[Tuple[int, bool]]]],
+    ):
         patch_list = sorted([patch for patch, score in sorted_patches])
         with open(os.path.join(self.dir, "patch-rank.md"), "w") as f:
             f.write("## Patch Rank\n")
@@ -202,7 +623,7 @@ class Analyzer:
             for patch_id, result in cluster[0].items():
                 if result[0][1]:
                     patch_filter.add(patch_id)
-            for (patch, score) in sorted_patches:
+            for patch, score in sorted_patches:
                 if patch in patch_filter:
                     f.write(f"| {rank} | {patch} | {score:.2f} |\n")
                     rank += 1
@@ -210,7 +631,7 @@ class Analyzer:
             f.write(f"| Rank | Patch | Score |\n")
             f.write(f"|------|-------|-------|\n")
             rank = 1
-            for (patch, score) in sorted_patches:
+            for patch, score in sorted_patches:
                 if patch not in patch_filter:
                     f.write(f"| {rank} | {patch} | {score:.2f} |\n")
                     rank += 1
@@ -227,10 +648,14 @@ class Analyzer:
                     for patch_result in result:
                         state = patch_result[0]
                         if state < 0:
-                            f.write(f"| {patch}-{local_input_id} | {patch} | {state} | {'O' if patch_result[1] else 'X'} | - |\n")
+                            f.write(
+                                f"| {patch}-{local_input_id} | {patch} | {state} | {'O' if patch_result[1] else 'X'} | - |\n"
+                            )
                         else:
                             actually_crashed = dp.meta_data[state]["actuallyCrashed"]
-                            f.write(f"| {patch}-{local_input_id} | {patch} | {state} | {'O' if patch_result[1] else 'X'} | {actually_crashed} |\n")
+                            f.write(
+                                f"| {patch}-{local_input_id} | {patch} | {state} | {'O' if patch_result[1] else 'X'} | {actually_crashed} |\n"
+                            )
                         local_input_id += 1
         print(f"Saved to {os.path.join(self.dir, 'patch-rank.md')}")
 
@@ -238,7 +663,11 @@ class Analyzer:
         run_filter = not os.path.exists(self.filter_dir)
         if run_filter:
             print(f"{self.filter_dir} does not exist")
-            proc = mp.Process(target=uni_klee.main, args=(["uni-klee.py", "filter", self.config.query, f"-f={self.config.conf_files.filter_prefix}", "--lock=w"],))
+            proc = mp.Process(
+                target=uni_klee.main,
+                args=(["uni-klee.py", "filter", self.config.query,
+                        f"-f={self.config.conf_files.filter_prefix}",
+                        "--lock=w",], ))
             proc.start()
             proc.join()
         dp = uni_klee.DataLogParser(self.dir)
@@ -251,31 +680,148 @@ class Analyzer:
         sorted_patches = ps.sort()
         print("Sorted patches", sorted_patches)
         self.save_sorted_patches(dp, sorted_patches, cluster)
-        
-def arg_parser(argv: List[str]) -> uni_klee.Config:
-    parser = argparse.ArgumentParser(description="SymVass")
-    parser.add_argument("cmd", type=str, choices=["analyze"], help="Command")
-    parser.add_argument("query", type=str, help="Query for bugid and patch ids: <bugid>[:<patchid>] # ex) 5321:1,2,3")
-    parser.add_argument("-a", "--additional", help="Additional options for the command", default="")
+
+
+def arg_parser(argv: List[str]) -> Config:
+    # Remaining: c, e, g, h, i, j, n, q, t, u, v, w, x, y, z
+    parser = argparse.ArgumentParser(description="Test script for uni-klee")
+    parser.add_argument("cmd", help="Command to execute", choices=["run", "rerun", "snapshot", "clean", "kill", "filter", "analyze"])
+    parser.add_argument("query", help="Query for bugid and patch ids: <bugid>[:<patchid>] # ex) 5321:1,2,3,r5-10")
+    parser.add_argument("-a", "--additional", help="Additional arguments", default="")
+    parser.add_argument("-d", "--debug", help="Debug mode", action="store_true")
+    parser.add_argument("-o", "--outdir", help="Output directory", default="")
     parser.add_argument("-p", "--outdir-prefix", help="Output directory prefix(\"out\" for out dir)", default="uni-m-out")
-    parser.add_argument("-o", "--output", help="Output directory", default="")
-    parser.add_argument("-f", "--filter-prefix", help="Filter prefix for output directory", default="filter")
+    parser.add_argument("-b", "--snapshot-base-patch", help="Patches for snapshot", default="buggy")
+    parser.add_argument("-s", "--snapshot-prefix", help="Snapshot directory prefix", default="snapshot")
+    parser.add_argument("-f", "--filter-prefix", help="Filter directory prefix", default="filter")
+    parser.add_argument("-l", "--sym-level", help="Symbolization level", default="medium")
+    parser.add_argument("-m", "--max-fork", help="Max fork", default="64,64,4")
+    parser.add_argument("-k", "--lock", help="Handle lock behavior", default="i", choices=["i", "w", "f"])
+    parser.add_argument("-r", "--rerun", help="Rerun last command with same option", action="store_true")
     args = parser.parse_args(argv[1:])
-    conf = uni_klee.Config(args.cmd, args.query, False, "medium", "64,64,0")
-    conf.init("buggy", False, args.additional, "w")
-    conf.conf_files.set_out_dir("", args.outdir_prefix, conf.bug_info, "snapshot", args.filter_prefix)
+    conf = Config(args.cmd, args.query, args.debug, args.sym_level, args.max_fork)
+    conf.init(args.snapshot_base_patch, args.rerun, args.additional, args.lock)
+    conf.conf_files.set_out_dir(args.outdir, args.outdir_prefix, conf.bug_info, args.snapshot_prefix, args.filter_prefix)
     return conf
+
+
+class Runner(uni_klee.Runner):
+    config: Config
+
+    def __init__(self, conf: Config):
+        self.config = conf
+
+    def execute(self, cmd: str, dir: str, log_prefix: str, env: dict = None):
+        print(f"Change directory to {dir}")
+        print(f"Executing: {cmd}")
+        if env is None:
+            env = os.environ
+        proc = subprocess.run(cmd, shell=True, cwd=dir, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if self.config.debug or proc.returncode != 0:
+            log_file = os.path.join(
+                self.config.conf_files.get_log_dir(), f"{log_prefix}.log"
+            )
+            if proc.returncode != 0:
+                print("!!!!! Error !!!!")
+                print("Save error log to " + log_file)
+            try:
+                print(proc.stderr.decode("utf-8", errors="ignore"))
+                os.makedirs(self.config.conf_files.get_log_dir(), exist_ok=True)
+                with open(log_file, "w") as f:
+                    f.write(proc.stderr.decode("utf-8", errors="ignore"))
+                    f.write("\n###############\n")
+                    f.write(proc.stdout.decode("utf-8", errors="ignore"))
+                print(
+                    f"Save error log to {self.config.conf_files.get_log_dir()}/{log_prefix}.log"
+                )
+            except:
+                pass
+        return proc.returncode
+
+    def execute_snapshot(self, cmd: str, dir: str, env: dict = None):
+        if self.config.cmd in ["rerun", "snapshot"]:
+            self.execute("rm -rf " + self.config.conf_files.snapshot_dir, dir, "rm")
+        if self.config.cmd == "filter":
+            self.execute("rm -rf " + self.config.conf_files.filter_dir, dir, "rm")
+            self.execute(cmd, dir, "filter", env)
+            return
+        if not os.path.exists(self.config.conf_files.snapshot_file):
+            if self.config.debug:
+                print(
+                    f"snapshot file {self.config.conf_files.snapshot_file} does not exist"
+                )
+            self.execute(cmd, dir, "snapshot", env)
+
+    def run(self):
+        if self.config.cmd == "analyze":
+            analyzer = SymvassAnalyzer(self.config)
+            analyzer.set_dir()
+            analyzer.analyze()
+            return
+        if self.config.cmd in ["clean", "kill"]:
+            # 1. Find all processes
+            processes = uni_klee.global_config.get_current_processes()
+            for proc in processes:
+                if proc == self.config.bug_info["id"]:
+                    with open(uni_klee.global_config.get_lock_file(self.config.bug_info["bug_id"]),"r") as f:
+                        lines = f.readlines()
+                        if len(lines) > 1:
+                            print(f"Kill process {lines[0]}")
+                            try:
+                                os.kill(int(lines[0]), signal.SIGTERM)
+                            except OSError as e:
+                                print(e.errno)
+                    # 2. Remove lock file
+                    os.remove(
+                        uni_klee.global_config.get_lock_file(
+                            self.config.bug_info["bug_id"]
+                        )
+                    )
+            # 3. Remove output directory
+            if self.config.cmd == "clean":
+                out_dirs = self.config.conf_files.find_all_nums(
+                    self.config.conf_files.out_base_dir,
+                    self.config.conf_files.out_dir_prefix,
+                )
+                for out_dir in out_dirs:
+                    print(f"Remove {out_dir[0]}")
+                    os.system(
+                        f"rm -rf {os.path.join(self.config.conf_files.out_base_dir, out_dir[0])}"
+                    )
+            return
+        lock_file = uni_klee.global_config.get_lock_file(self.config.bug_info["bug_id"])
+        lock = uni_klee.acquire_lock(
+            lock_file, self.config.lock, self.config.conf_files.out_dir
+        )
+        try:
+            if lock < 0:
+                print(f"Cannot acquire lock {lock_file}")
+                return
+            cmd = self.config.get_cmd_opts(True)
+            self.execute_snapshot(cmd, self.config.workdir)
+            if self.config.cmd not in ["snapshot", "filter"]:
+                cmd = self.config.get_cmd_opts(False)
+                self.execute(cmd, self.config.workdir, "uni-klee")
+                analyzer = SymvassAnalyzer(self.config)
+                analyzer.set_dir()
+                analyzer.analyze()
+        except Exception as e:
+            print(f"Exception: {e}")
+            print(traceback.format_exc())
+        finally:
+            uni_klee.release_lock(lock_file, lock)
+
 
 def main(argv: list) -> int:
     os.chdir(uni_klee.ROOT_DIR)
     cmd = argv[1]
-    if cmd == "analyze":
+    if cmd != "trace":
         conf = arg_parser(argv)
-        analyzer = Analyzer(conf)
-        analyzer.set_dir()
-        analyzer.analyze()
+        runner = Runner(conf)
+        runner.run()
     elif cmd == "trace":
         get_trace(argv[2], int(argv[3]))
-    
+
+
 if __name__ == "__main__":
     main(sys.argv)
