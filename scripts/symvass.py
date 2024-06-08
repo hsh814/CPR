@@ -10,6 +10,9 @@ import re
 import signal
 
 import traceback
+import networkx as nx
+import graphviz
+import sbsv
 
 import uni_klee
 import sympatch
@@ -164,6 +167,38 @@ class Config(uni_klee.Config):
             result.append(target_cmd)
         return " ".join(result)
 
+class SymvassDataLogSbsvParser():
+    dir: str
+    parser: sbsv.parser
+    data: Dict[str, List[dict]]
+
+    def __init__(self, dir: str, name: str = "data.log"):
+        self.dir = dir
+        self.parser = sbsv.parser()
+        self.set_schema(self.parser)
+        with open(os.path.join(dir, name), "r") as f:
+            self.data = self.parser.load(f)
+
+    def set_schema(self, parser: sbsv.parser):
+        parser.add_schema("[meta-data] [state: int] [crashId: int] [patchId: int] [stateType: str] [isCrash: bool] [actuallyCrashed: bool] [exitLoc: str] [exit: str]")
+        parser.add_schema("[fork] [state$from: int] [state$to: int]")
+        parser.add_schema("[fork-map] [fork] [state$from: int] [type$from: str] [base: int] [base-type: str] [state$to: int] [type$to: str] [fork-count: str]")
+        parser.add_schema("[fork-map] [fork-parent] [state: int] [type: str]")
+        parser.add_schema("[fork-map] [merge] [state$base: int] [state$crash_test: int] [patch: int]")
+        parser.add_schema("[fork-loc] [br] [state$from: int] [loc$from: str] -> [state$to_a: int] [loc$to_a: str] [state$to_b: int] [loc$to_b: str]")
+        parser.add_schema("[fork-loc] [sw] [state$from: int] [loc$from: str] -> [state$to_a: int] [loc$to_a: str] [state$to_b: int] [loc$to_b: str]")
+        parser.add_schema("[fork-loc] [lazy] [state$from: int] [state$to: int] [loc: str] [name: str]")
+        parser.add_schema("[patch-base] [trace] [state: int] [res: bool]")
+        parser.add_schema("[patch-base] [fork] [state$true: int] [state$false: int]")
+        parser.add_schema("[regression-trace] [state: int] [n: int] [res: bool] [loc: str]")
+        parser.add_schema("[patch] [trace] [state: int] [res: bool] [patches: str]")
+        parser.add_schema("[patch] [fork] [state$true: int] [state$false: int] [patches: str]")
+        parser.add_schema("[regression] [state: int] [reg: str]")
+        parser.add_schema("[lazy-trace] [state: int] [reg: str]")
+        parser.add_schema("[stack-trace] [state: int] [reg: str]")
+    
+    def get_data(self) -> Dict[str, List[dict]]:
+        return self.data
 
 class SymvassDataLogParser():
     dir: str
@@ -465,18 +500,98 @@ class SymvassDataLogParser():
                 self.parse_line(line)
 
 
+class DataAnalyzer():
+    dp: SymvassDataLogSbsvParser
+    data: Dict[str, List[dict]]
+    meta_dat: Dict[int, dict]
+    graph: nx.DiGraph
+    
+    def __init__(self, dp: SymvassDataLogSbsvParser):
+        self.dp = dp
+        self.data = self.dp.get_data()
+        self.meta_data = dict()
+        self.graph = nx.DiGraph()
+        
+    def analyze(self):
+        self.construct_graph()
+    
+    def dump_graph(self):
+        dot = graphviz.Digraph()
+        for node in self.graph.nodes():
+            state = node[0]
+            nt = node[1]
+            fillcolor = "white"
+            color = "black"
+            if state in self.meta_data:
+                meta = self.meta_data[state]
+                if meta["isCrash"]:
+                    color = "red"
+                else:
+                    color = "green"
+                if meta["stateType"] == "1":
+                    fillcolor = "red"
+                if meta["stateType"] == "2":
+                    fillcolor = "blue"
+                elif meta["stateType"] == "4":
+                    fillcolor = "yellow"
+            dot.node(f"{state},{nt}", style="filled", color=color, fillcolor=fillcolor)
+        
+        for edge in self.graph.edges():
+            src = edge[0]
+            dst = edge[1]
+            src_state = src[0]
+            src_type = src[1]
+            dst_state = dst[0]
+            dst_type = dst[1]
+            style = "solid"
+            color = "black"
+            label = ""
+            
+            dot.edge(f"{src[0]},{src[1]}", f"{dst[0]},{dst[1]}")
+            
+    
+    def construct_graph(self):
+        meta_data = self.meta_data
+        graph = self.graph
+        for meta in self.data["meta-data"]:
+            state = meta["state"]
+            state_type = meta["stateType"]
+            graph.add_node((state, state_type))
+            meta_data[state] = meta
+            if state_type == "2":
+                graph.add_node((state, "1"))
+                graph.add_edge((state, "1"), (state, "2"))
+        for fp in self.data["fork-map"]["fork-parent"]:
+            state = fp["state"]
+            state_type = fp["type"]
+            graph.add_node((state, state_type), type="fork-parent")
+        # Add edges
+        for fork in self.data["fork-map"]["fork"]:
+            fork_from = fork["state$from"]
+            type_from = fork["type$from"]
+            fork_to = fork["state$to"]
+            type_to = fork["type$to"]
+            graph.add_edge((fork_from, type_from), (fork_to, type_to), type="fork")
+        for merge in self.data["fork-map"]["merge"]:
+            base = merge["state$base"]
+            crash_test = merge["state$crash_test"]
+            patch = merge["patch"]
+            graph.add_edge((base, "2"), (crash_test, "4"), type="merge", patch=patch)
+        
+        
+
 class PatchSorter:
     # dir: str
     # patch_ids: list
     # meta_data: dict
-    dp: uni_klee.DataLogParser
-    dp_filter: uni_klee.DataLogParser
+    dp: SymvassDataLogParser
+    dp_filter: SymvassDataLogParser
     cluster: Dict[int, Dict[int, List[Tuple[int, bool]]]]
     patch_ids: List[int]
     patch_filter: Set[int]
 
     def __init__(
-        self, dp: uni_klee.DataLogParser, dp_filter: uni_klee.DataLogParser = None
+        self, dp: SymvassDataLogParser, dp_filter: SymvassDataLogParser = None
     ):
         # self.dir = dir
         # self.patch_ids = patch_ids
@@ -609,7 +724,7 @@ class SymvassAnalyzer:
 
     def save_sorted_patches(
         self,
-        dp: uni_klee.DataLogParser,
+        dp: SymvassDataLogParser,
         sorted_patches: List[Tuple[int, float]],
         cluster: Dict[int, Dict[int, List[Tuple[int, bool]]]],
     ):
@@ -670,9 +785,9 @@ class SymvassAnalyzer:
                         "--lock=w",], ))
             proc.start()
             proc.join()
-        dp = uni_klee.DataLogParser(self.dir)
+        dp = SymvassDataLogParser(self.dir)
         dp.read_data_log()
-        dp_filter = uni_klee.DataLogParser(self.filter_dir)
+        dp_filter = SymvassDataLogParser(self.filter_dir)
         dp_filter.read_data_log()
         ps = PatchSorter(dp, dp_filter)
         cluster = ps.analyze_cluster()
@@ -680,6 +795,11 @@ class SymvassAnalyzer:
         sorted_patches = ps.sort()
         print("Sorted patches", sorted_patches)
         self.save_sorted_patches(dp, sorted_patches, cluster)
+    
+    def analyze_v2(self):
+        dp = SymvassDataLogSbsvParser(self.dir)
+        analyzer = DataAnalyzer(dp)
+        analyzer.analyze()
 
 
 def arg_parser(argv: List[str]) -> Config:
@@ -756,7 +876,7 @@ class Runner(uni_klee.Runner):
         if self.config.cmd == "analyze":
             analyzer = SymvassAnalyzer(self.config)
             analyzer.set_dir()
-            analyzer.analyze()
+            analyzer.analyze_v2()
             return
         if self.config.cmd in ["clean", "kill"]:
             # 1. Find all processes
