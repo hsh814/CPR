@@ -183,6 +183,7 @@ class SymvassDataLogSbsvParser():
         parser.add_schema("[meta-data] [state: int] [crashId: int] [patchId: int] [stateType: str] [isCrash: bool] [actuallyCrashed: bool] [exitLoc: str] [exit: str]")
         parser.add_schema("[fork] [state$from: int] [state$to: int]")
         parser.add_schema("[fork-map] [fork] [state$from: int] [type$from: str] [base: int] [base-type: str] [state$to: int] [type$to: str] [fork-count: str]")
+        parser.add_schema("[fork-map] [sel-patch] [state$base: int] [state$base_after: int]")
         parser.add_schema("[fork-map] [fork-parent] [state: int] [type: str]")
         parser.add_schema("[fork-map] [merge] [state$base: int] [state$crash_test: int] [patch: int]")
         parser.add_schema("[fork-loc] [br] [state$from: int] [loc$from: str] -> [state$to_a: int] [loc$to_a: str] [state$to_b: int] [loc$to_b: str]")
@@ -193,9 +194,9 @@ class SymvassDataLogSbsvParser():
         parser.add_schema("[regression-trace] [state: int] [n: int] [res: bool] [loc: str]")
         parser.add_schema("[patch] [trace] [state: int] [res: bool] [patches: str]")
         parser.add_schema("[patch] [fork] [state$true: int] [state$false: int] [patches: str]")
-        parser.add_schema("[regression] [state: int] [reg: str]")
-        parser.add_schema("[lazy-trace] [state: int] [reg: str]")
-        parser.add_schema("[stack-trace] [state: int] [reg: str]")
+        parser.add_schema("[regression] [state: int] [reg?: str]")
+        parser.add_schema("[lazy-trace] [state: int] [reg?: str]")
+        parser.add_schema("[stack-trace] [state: int] [reg?: str]")
     
     def get_data(self) -> Dict[str, List[dict]]:
         return self.data
@@ -514,12 +515,11 @@ class DataAnalyzer():
         
     def analyze(self):
         self.construct_graph()
+        self.draw_graph()
     
-    def dump_graph(self):
+    def draw_graph(self):
         dot = graphviz.Digraph()
-        for node in self.graph.nodes():
-            state = node[0]
-            nt = node[1]
+        for state in self.graph.nodes():
             fillcolor = "white"
             color = "black"
             if state in self.meta_data:
@@ -528,26 +528,38 @@ class DataAnalyzer():
                     color = "red"
                 else:
                     color = "green"
-                if meta["stateType"] == "1":
-                    fillcolor = "red"
-                if meta["stateType"] == "2":
+                if meta["sel-patch"]:
+                    fillcolor = "pink"
+                elif meta["input"]:
                     fillcolor = "blue"
+                elif meta["stateType"] == "1":
+                    fillcolor = "red"
+                elif meta["stateType"] == "2":
+                    fillcolor = "skyblue"
                 elif meta["stateType"] == "4":
                     fillcolor = "yellow"
-            dot.node(f"{state},{nt}", style="filled", color=color, fillcolor=fillcolor)
+            shape = "ellipse"
+            if "fork_parent" in self.graph.nodes[state]:
+                if self.graph.nodes[state]["fork_parent"]:
+                    shape = "box"
+            dot.node(str(state), shape=shape, style="filled", color=color, fillcolor=fillcolor)
         
         for edge in self.graph.edges():
             src = edge[0]
             dst = edge[1]
-            src_state = src[0]
-            src_type = src[1]
-            dst_state = dst[0]
-            dst_type = dst[1]
             style = "solid"
             color = "black"
-            label = ""
-            
-            dot.edge(f"{src[0]},{src[1]}", f"{dst[0]},{dst[1]}")
+            if "type" in self.graph[src][dst]:
+                if self.graph[src][dst]["type"] == "merge":
+                    style = "dashed"
+                    color = "red"
+                if self.graph[src][dst]["type"] == "sel-patch":
+                    style = "dotted"
+                    color = "blue"
+            dot.edge(str(src), str(dst), style=style, color=color)
+        
+        dot.render("fork-graph", self.dp.dir, format="png")
+        dot.render("fork-graph", self.dp.dir, format="pdf")
             
     
     def construct_graph(self):
@@ -556,27 +568,36 @@ class DataAnalyzer():
         for meta in self.data["meta-data"]:
             state = meta["state"]
             state_type = meta["stateType"]
-            graph.add_node((state, state_type))
+            graph.add_node(state, fork_parent=False)
             meta_data[state] = meta
-            if state_type == "2":
-                graph.add_node((state, "1"))
-                graph.add_edge((state, "1"), (state, "2"))
+            meta_data[state]["sel-patch"] = False
+            meta_data[state]["input"] = False
         for fp in self.data["fork-map"]["fork-parent"]:
             state = fp["state"]
             state_type = fp["type"]
-            graph.add_node((state, state_type), type="fork-parent")
+            graph.add_node(state, fork_parent=True)
         # Add edges
         for fork in self.data["fork-map"]["fork"]:
             fork_from = fork["state$from"]
             type_from = fork["type$from"]
             fork_to = fork["state$to"]
             type_to = fork["type$to"]
-            graph.add_edge((fork_from, type_from), (fork_to, type_to), type="fork")
+            graph.add_edge(fork_from, fork_to, type="fork")
+        for sel in self.data["fork-map"]["sel-patch"]:
+            base = sel["state$base"]
+            base_after = sel["state$base_after"]
+            if base not in meta_data:
+                meta_data[base] = meta_data[base_after].copy()
+                meta_data[base]["state"] = base
+                meta_data[base]["stateType"] = "1"
+                meta_data[base]["sel-patch"] = True
+            graph.add_edge(base, base_after, type="sel-patch")
         for merge in self.data["fork-map"]["merge"]:
             base = merge["state$base"]
             crash_test = merge["state$crash_test"]
             patch = merge["patch"]
-            graph.add_edge((base, "2"), (crash_test, "4"), type="merge", patch=patch)
+            meta_data[base]["input"] = True
+            graph.add_edge(base, crash_test, type="merge", patch=patch)
         
         
 
