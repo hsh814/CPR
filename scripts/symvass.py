@@ -193,6 +193,7 @@ class SymvassDataLogSbsvParser():
         parser.add_schema("[patch-base] [fork] [state$true: int] [state$false: int]")
         parser.add_schema("[regression-trace] [state: int] [n: int] [res: bool] [loc: str]")
         parser.add_schema("[patch] [trace] [state: int] [res: bool] [patches: str]")
+        parser.add_schema("[patch] [trace-rand] [state: int] [res: bool] [patches: str]")
         parser.add_schema("[patch] [fork] [state$true: int] [state$false: int] [patches: str]")
         parser.add_schema("[regression] [state: int] [reg?: str]")
         parser.add_schema("[lazy-trace] [state: int] [reg?: str]")
@@ -200,305 +201,6 @@ class SymvassDataLogSbsvParser():
     
     def get_data(self) -> Dict[str, List[dict]]:
         return self.data
-
-class SymvassDataLogParser():
-    dir: str
-    data: Dict[str, List[dict]]
-    index: int
-    def __init__(self, dir: str):
-        self.dir = dir
-        self.data = dict()
-        self.index = 0
-    
-    def parse_dict(self, line: str) -> dict:
-        result = dict()
-        for item in line.split(","):
-            item = item.strip()
-            if len(item) == 0:
-                continue
-            key, value = item.split(":", 1)
-            result[key.strip()] = value.strip()
-        return result
-    
-    def parse_state_id(self, state: str, prefix: str = "state") -> int:
-        if state.startswith(prefix):
-            state = state[len(prefix) :]
-        return int(state.strip())
-    
-    def tokenize(self, line: str) -> List[str]:
-        # input: "[fork-map] [fork] [state 1] 1 [base 0] 1 [state 5] 1 [fork-count 5/-1]"
-        # output: ["fork-map", "fork", "state 1", "1", "base 0", "1", "state 5", "1", "fork-count 5/-1"]
-        result = list()
-        level = 0
-        current = ""
-        for char in line:
-            if char == '[':
-                level += 1
-                if level == 1:
-                    if len(current.strip()) > 0:
-                        result.append(current.strip())
-                    current = ""
-                    continue
-            elif char == ']':
-                level -= 1
-                if level == 0:
-                    result.append(current.strip())
-                    current = ""
-                    continue
-            current += char
-        if len(current.strip()) > 0:
-            result.append(current.strip())
-        return result
-    
-    def add_fork(self, line: str):
-        tokens = self.tokenize(line)
-        if len(tokens) < 4:
-            print(f"Unknown fork: {line}")
-            return
-        source_state = self.parse_state_id(tokens[1])
-        target_state = self.parse_state_id(tokens[3])
-        self.data["fork"].append({
-            "source": source_state,
-            "target": target_state,
-            "type": "fork",
-            "loc": dict()
-        })
-    
-    def add_fork_loc(self, line: str):
-        tokens = self.tokenize(line)
-        if len(tokens) < 3:
-            print(f"Unknown fork-loc: {line}")
-            return
-        opt = tokens[1]
-        if opt == "br":
-            # [fork-loc] [br] [state 2] [/root/projects/CPR/patches/extractfix/libtiff/CVE-2016-5314/src/libtiff/tif_pixarlog.c:799:5:28680] -> [state 2] [/root/projects/CPR/patches/extractfix/libtiff/CVE-2016-5314/src/libtiff/tif_pixarlog.c:799:43:28683] [state 23] [/root/projects/CPR/patches/extractfix/libtiff/CVE-2016-5314/src/libtiff/tif_pixarlog.c:800:2:28687]
-            if len(tokens) < 9:
-                print(f"Unknown fork-loc: {line}")
-                return
-            state_from = self.parse_state_id(tokens[2])
-            loc_from = tokens[3]
-            state_to_a = self.parse_state_id(tokens[5])
-            loc_to_a = tokens[6]
-            state_to_b = self.parse_state_id(tokens[7])
-            loc_to_b = tokens[8]
-            self.data["fork-loc"]["br"].append({
-                "state": state_from,
-                "loc": loc_from,
-                "to": [
-                    { "state": state_to_a, "loc": loc_to_a },
-                    { "state": state_to_b, "loc": loc_to_b },
-                ]
-            })
-
-        elif opt == "lazy":
-            if len(tokens) < 7:
-                print(f"Unknown fork-loc: {line}")
-                return
-            state_from = self.parse_state_id(tokens[2])
-            state_to = self.parse_state_id(tokens[4])
-            loc = tokens[5]
-            name = tokens[6]
-            self.data["fork-loc"]["lazy"].append({
-                "state": state_from,
-                "to": state_to,
-                "loc": loc,
-                "name": name
-            })
-
-        elif opt == "sw":
-            if len(tokens) < 9:
-                print(f"Unknown fork-loc: {line}")
-                return
-            state_from = self.parse_state_id(tokens[2])
-            loc_from = tokens[3]
-            state_to_a = self.parse_state_id(tokens[5])
-            loc_to_a = tokens[6]
-            state_to_b = self.parse_state_id(tokens[7])
-            loc_to_b = tokens[8]
-            self.data["fork-loc"]["sw"].append({
-                "state": state_from,
-                "loc": loc_from,
-                "to": [
-                    { "state": state_to_a, "loc": loc_to_a },
-                    { "state": state_to_b, "loc": loc_to_b },
-                ]
-            })
-    
-    def add_fork_map(self, line: str):
-        tokens = self.tokenize(line)
-        if len(tokens) < 4:
-            print(f"Unknown fork-map: {line}")
-            return
-        if tokens[1] == "fork":
-            state = self.parse_state_id(tokens[2])
-            state_type = tokens[3]
-            base_state = self.parse_state_id(tokens[4], "base")
-            base_state_type = tokens[5]
-            forked_state = self.parse_state_id(tokens[6])
-            forked_state_type = tokens[7]
-            self.data["fork-map"]["fork"].append({
-                "state": state,
-                "state_type": state_type,
-                "base": base_state,
-                "base_type": base_state_type,
-                "forked": forked_state,
-                "forked_type": forked_state_type,
-            })
-        elif tokens[1] == "merge":
-            source_state = self.parse_state_id(tokens[2])
-            target_state = self.parse_state_id(tokens[4])
-            patch_id = self.parse_state_id(tokens[5], "patch")
-            self.data["fork-map"]["merge"].append({
-                "source": source_state,
-                "target": target_state,
-                "patch": patch_id
-            })
-        elif tokens[1] == "fork-parent":
-            state = self.parse_state_id(tokens[2])
-            state_type = tokens[3]
-            self.data["fork-map"]["fork-parent"].append({
-                "state": state,
-                "type": state_type
-            })
-    
-    def add_meta_data(self, line: str):
-        tokens = self.tokenize(line)
-        if len(tokens) < 3:
-            print(f"Unknown meta-data: {line}")
-            return
-        state = self.parse_state_id(tokens[1])
-        data = self.parse_dict(tokens[2])
-        crash_id = int(data["crashId"])
-        patch_id = int(data["patchId"])
-        state_type = data["stateType"]
-        is_crash = data["isCrash"] == "true"
-        actually_crashed = data["actuallyCrashed"] == "true"
-        exit_loc = data["exitLoc"]
-        exit_code = data["exit"]
-        self.data["meta-data"].append({
-            "state": state,
-            "crash_id": crash_id,
-            "patch_id": patch_id,
-            "state_type": state_type,
-            "is_crash": is_crash,
-            "actually_crashed": actually_crashed,
-            "exit_loc": exit_loc,
-            "exit_code": exit_code
-        })
-    
-    def add_regression(self, line: str):
-        tokens = self.tokenize(line)
-        if len(tokens) < 3:
-            print(f"Unknown regression: {line}")
-            return
-        state = self.parse_state_id(tokens[1])
-        reg = tokens[2]
-        self.data["regression"].append({
-            "state": state,
-            "trace": reg
-        })
-    
-    def add_lazy_trace(self, line: str):
-        tokens = self.tokenize(line)
-        if len(tokens) < 3:
-            print(f"Unknown lazy-trace: {line}")
-            return
-        state = self.parse_state_id(tokens[1])
-        trace = tokens[2]
-        self.data["lazy-trace"].append({
-            "state": state,
-            "trace": trace
-        })
-    
-    def add_stack_trace(self, line: str):
-        tokens = self.tokenize(line)
-        if len(tokens) < 3:
-            print(f"Unknown stack-trace: {line}")
-            return
-        state = self.parse_state_id(tokens[1])
-        trace = tokens[2]
-        self.data["stack-trace"].append({
-            "state": state,
-            "trace": trace
-        })
-        
-    def add_patch(self, line: str):
-        tokens = self.tokenize(line)
-        opt = tokens[1]
-        if opt == "fork":
-            state_true = self.parse_state_id(tokens[2])
-            state_false = self.parse_state_id(tokens[3])
-            patches = tokens[4]
-            patches_data = patches[patches.find('[')+1 : patches.find(']')]
-            elements = patches_data.split(",")
-            patches_map = dict()
-            for element in elements:
-                tokens = element.strip().split(":")
-                patch_id = int(tokens[0])
-                patch_state = int(tokens[1])
-                patches_map[patch_id] = patch_state
-            self.data["patch"]["fork"].append({
-                "state_true": state_true,
-                "state_false": state_false,
-                "patches": patches_map
-            })
-        elif opt == "trace":
-            state = self.parse_state_id(tokens[2])
-            trace = tokens[3]
-            patches = tokens[4]
-            patches_data = patches[patches.find('[')+1 : patches.find(']')]
-            elements = patches_data.split(",")
-            patches_map = dict()
-            for element in elements:
-                tokens = element.strip().split(":")
-                patch_id = int(tokens[0])
-                patch_state = int(tokens[1])
-                patches_map[patch_id] = patch_state
-            self.data["patch"]["trace"].append({
-                "state": state,
-                "trace": trace,
-                "patches": patches_map
-            })
-        
-    def parse_line(self, line: str):
-        if line.startswith("[fork]"):
-            self.add_fork(line)
-        elif line.startswith("[fork-map]"):
-            self.add_fork_map(line)
-        elif line.startswith("[fork-loc]"):
-            self.add_fork_loc(line)
-        elif line.startswith("[meta-data]"):
-            self.add_meta_data(line)
-        elif line.startswith("[regression]"):
-            self.add_regression(line)
-        elif line.startswith("[regression-trace]"):
-            pass
-        elif line.startswith("[lazy-trace]"):
-            self.add_lazy_trace(line)
-        elif line.startswith("[stack-trace]"):
-            self.add_stack_trace(line)
-        elif line.startswith("[patch]"):
-            self.add_patch(line)
-        elif line.startswith("[stats]"):
-            pass
-        
-    def read_data_log(self, name: str = "data.log"):
-        self.data["fork"] = list()
-        self.data["fork-map"] = { "fork": [], "merge": [], "fork-parent": [] }
-        self.data["fork-loc"] = { "br": [], "lazy": [], "sw": [] }
-        self.data["meta-data"] = list()
-        self.data["regression"] = list()
-        self.data["regression-trace"] = list()
-        self.data["lazy-trace"] = list()
-        self.data["stack-trace"] = list()
-        self.data["patch"] = { "fork": [], "trace": [] }
-        with open(os.path.join(self.dir, name), "r") as f:
-            lines = f.readlines()
-            for line in lines:
-                line = line.strip()
-                if len(line) == 0 or line.startswith("#"):
-                    continue
-                self.parse_line(line)
 
 
 class DataAnalyzer():
@@ -516,51 +218,8 @@ class DataAnalyzer():
     def analyze(self):
         self.construct_graph()
         self.draw_graph()
-    
-    def draw_graph(self):
-        dot = graphviz.Digraph()
-        for state in self.graph.nodes():
-            fillcolor = "white"
-            color = "black"
-            if state in self.meta_data:
-                meta = self.meta_data[state]
-                if meta["isCrash"]:
-                    color = "red"
-                else:
-                    color = "green"
-                if meta["sel-patch"]:
-                    fillcolor = "pink"
-                elif meta["input"]:
-                    fillcolor = "blue"
-                elif meta["stateType"] == "1":
-                    fillcolor = "red"
-                elif meta["stateType"] == "2":
-                    fillcolor = "skyblue"
-                elif meta["stateType"] == "4":
-                    fillcolor = "yellow"
-            shape = "ellipse"
-            if "fork_parent" in self.graph.nodes[state]:
-                if self.graph.nodes[state]["fork_parent"]:
-                    shape = "box"
-            dot.node(str(state), shape=shape, style="filled", color=color, fillcolor=fillcolor)
+        # get patch info
         
-        for edge in self.graph.edges():
-            src = edge[0]
-            dst = edge[1]
-            style = "solid"
-            color = "black"
-            if "type" in self.graph[src][dst]:
-                if self.graph[src][dst]["type"] == "merge":
-                    style = "dashed"
-                    color = "red"
-                if self.graph[src][dst]["type"] == "sel-patch":
-                    style = "dotted"
-                    color = "blue"
-            dot.edge(str(src), str(dst), style=style, color=color)
-        
-        dot.render("fork-graph", self.dp.dir, format="png")
-        dot.render("fork-graph", self.dp.dir, format="pdf")
-            
     
     def construct_graph(self):
         meta_data = self.meta_data
@@ -598,21 +257,69 @@ class DataAnalyzer():
             patch = merge["patch"]
             meta_data[base]["input"] = True
             graph.add_edge(base, crash_test, type="merge", patch=patch)
+
+
+    def draw_graph(self):
+        dot = graphviz.Digraph()
+        for state in self.graph.nodes():
+            fillcolor = "white"
+            color = "black"
+            if state in self.meta_data:
+                meta = self.meta_data[state]
+                if meta["actuallyCrashed"]:
+                    color = "red"
+                else:
+                    color = "green"
+                if "early" in meta["exit"]:
+                    color = "grey"
+                    fillcolor = "grey"
+                else:
+                    if meta["sel-patch"]:
+                        fillcolor = "pink"
+                    elif meta["input"]:
+                        fillcolor = "blue"
+                    elif meta["stateType"] == "1":
+                        fillcolor = "red"
+                    elif meta["stateType"] == "2":
+                        fillcolor = "skyblue"
+                    elif meta["stateType"] == "4":
+                        fillcolor = "yellow"
+            shape = "ellipse"
+            if "fork_parent" in self.graph.nodes[state]:
+                if self.graph.nodes[state]["fork_parent"]:
+                    shape = "box"
+            dot.node(str(state), shape=shape, style="filled", color=color, fillcolor=fillcolor)
         
+        for edge in self.graph.edges():
+            src = edge[0]
+            dst = edge[1]
+            style = "solid"
+            color = "black"
+            if "type" in self.graph[src][dst]:
+                if self.graph[src][dst]["type"] == "merge":
+                    style = "dashed"
+                    color = "red"
+                if self.graph[src][dst]["type"] == "sel-patch":
+                    style = "dotted"
+                    color = "blue"
+            dot.edge(str(src), str(dst), style=style, color=color)
         
+        dot.render("fork-graph", self.dp.dir, format="png")
+        dot.render("fork-graph", self.dp.dir, format="pdf")
+
 
 class PatchSorter:
     # dir: str
     # patch_ids: list
     # meta_data: dict
-    dp: SymvassDataLogParser
-    dp_filter: SymvassDataLogParser
+    dp: DataAnalyzer
+    dp_filter: DataAnalyzer
     cluster: Dict[int, Dict[int, List[Tuple[int, bool]]]]
     patch_ids: List[int]
     patch_filter: Set[int]
 
     def __init__(
-        self, dp: SymvassDataLogParser, dp_filter: SymvassDataLogParser = None
+        self, dp: DataAnalyzer, dp_filter: DataAnalyzer = None
     ):
         # self.dir = dir
         # self.patch_ids = patch_ids
@@ -745,7 +452,7 @@ class SymvassAnalyzer:
 
     def save_sorted_patches(
         self,
-        dp: SymvassDataLogParser,
+        dp: DataAnalyzer,
         sorted_patches: List[Tuple[int, float]],
         cluster: Dict[int, Dict[int, List[Tuple[int, bool]]]],
     ):
@@ -806,9 +513,9 @@ class SymvassAnalyzer:
                         "--lock=w",], ))
             proc.start()
             proc.join()
-        dp = SymvassDataLogParser(self.dir)
+        dp = DataAnalyzer(self.dir)
         dp.read_data_log()
-        dp_filter = SymvassDataLogParser(self.filter_dir)
+        dp_filter = DataAnalyzer(self.filter_dir)
         dp_filter.read_data_log()
         ps = PatchSorter(dp, dp_filter)
         cluster = ps.analyze_cluster()
