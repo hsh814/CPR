@@ -8,6 +8,12 @@ logs
 error-log
 concrete/
 */*/*/src
+*/*/*/source
 */*/*/patched
+*/*/*/pacfix
 */*/*/*-bak
+*/*/*/repair-out
+*/*/*/runtime
+*/*/*/smake_source
+*/*/*/sparrow-out
 !concrete.tar.gz

@@ -234,6 +234,8 @@ def main(args: List[str]):
       continue
     if "vars" not in meta:
       continue
+    if opt == "compile":
+      compile(f"{outdir}/concrete")
     vars = meta["vars"]
     if opt == "init":
       dir = os.getcwd()
