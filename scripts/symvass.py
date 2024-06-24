@@ -189,14 +189,14 @@ class SymvassDataLogSbsvParser():
         parser.add_schema("[fork-loc] [br] [state$from: int] [loc$from: str] -> [state$to_a: int] [loc$to_a: str] [state$to_b: int] [loc$to_b: str]")
         parser.add_schema("[fork-loc] [sw] [state$from: int] [loc$from: str] -> [state$to_a: int] [loc$to_a: str] [state$to_b: int] [loc$to_b: str]")
         parser.add_schema("[fork-loc] [lazy] [state$from: int] [state$to: int] [loc: str] [name: str]")
-        parser.add_schema("[patch-base] [trace] [state: int] [res: bool]")
-        parser.add_schema("[patch-base] [fork] [state$true: int] [state$false: int]")
+        parser.add_schema("[patch-base] [trace] [state: int] [res: bool] [iter: int]")
+        parser.add_schema("[patch-base] [fork] [state$true: int] [state$false: int] [iter: int]")
         parser.add_schema("[regression-trace] [state: int] [n: int] [res: bool] [loc: str]")
-        parser.add_schema("[patch] [trace] [state: int] [res: bool] [patches: str]")
-        parser.add_schema("[patch] [trace-rand] [state: int] [res: bool] [patches: str]")
-        parser.add_schema("[patch] [fork] [state$true: int] [state$false: int] [patches: str]")
+        parser.add_schema("[patch] [trace] [state: int] [iter: int] [res: bool] [patches: str]")
+        parser.add_schema("[patch] [trace-rand] [state: int] [iter: int] [res: bool] [patches: str]")
+        parser.add_schema("[patch] [fork] [state$true: int] [state$false: int] [iter: int] [patches: str]")
         parser.add_schema("[regression] [state: int] [reg?: str]")
-        parser.add_schema("[lazy-trace] [state: int] [reg?: str]")
+        parser.add_schema("[lazy-trace] [state: int] [reg?: str] [patches?: str]")
         parser.add_schema("[stack-trace] [state: int] [reg?: str]")
     
     def get_data(self) -> Dict[str, List[dict]]:
@@ -206,21 +206,33 @@ class SymvassDataLogSbsvParser():
 class DataAnalyzer():
     dp: SymvassDataLogSbsvParser
     data: Dict[str, List[dict]]
-    meta_dat: Dict[int, dict]
+    meta_data: Dict[int, dict]
     graph: nx.DiGraph
+    symbolic_inputs: Dict[int, List[int]]
     
     def __init__(self, dp: SymvassDataLogSbsvParser):
         self.dp = dp
         self.data = self.dp.get_data()
         self.meta_data = dict()
         self.graph = nx.DiGraph()
+        self.symbolic_inputs = dict()
         
     def analyze(self):
         self.construct_graph()
         self.draw_graph()
-        # get patch info
-        
-    
+
+    def to_list(self, s: str) -> List[int]:
+        ls = s.strip("[]").strip(", ")
+        ls = ls.split(", ")
+        result = list()
+        for x in ls:
+            try:
+                if len(x) > 0:
+                    result.append(int(x))
+            except:
+                pass
+        return result
+
     def construct_graph(self):
         meta_data = self.meta_data
         graph = self.graph
@@ -228,9 +240,25 @@ class DataAnalyzer():
             state = meta["state"]
             state_type = meta["stateType"]
             graph.add_node(state, fork_parent=False)
-            meta_data[state] = meta
+            meta_data[state] = meta.data
             meta_data[state]["sel-patch"] = False
             meta_data[state]["input"] = False
+            meta_data[state]["patches"] = list()
+            meta_data[state]["reg"] = list()
+        for lt in self.data["lazy-trace"]:
+            state = lt["state"]
+            reg = lt["reg"]
+            patches = lt["patches"]
+            if patches is None:
+                patches = list()
+            else:
+                patches = self.to_list(patches)
+            if reg is None:
+                reg = list()
+            else:
+                reg = self.to_list(reg)
+            meta_data[state]["patches"] = patches
+            meta_data[state]["reg"] = reg
         for fp in self.data["fork-map"]["fork-parent"]:
             state = fp["state"]
             state_type = fp["type"]
@@ -257,7 +285,9 @@ class DataAnalyzer():
             patch = merge["patch"]
             meta_data[base]["input"] = True
             graph.add_edge(base, crash_test, type="merge", patch=patch)
-
+            if base not in self.symbolic_inputs:
+                self.symbolic_inputs[base] = list()
+            self.symbolic_inputs[base].append(crash_test)
 
     def draw_graph(self):
         dot = graphviz.Digraph()
@@ -523,12 +553,198 @@ class SymvassAnalyzer:
         sorted_patches = ps.sort()
         print("Sorted patches", sorted_patches)
         self.save_sorted_patches(dp, sorted_patches, cluster)
+        
+    def cluster(self, analyzer: DataAnalyzer) -> Dict[int, Set[int]]:
+        cluster: Dict[int, Set[int]] = dict()
+        for crash_id in analyzer.symbolic_inputs:
+            cluster[crash_id] = set()
+            for crash_test in analyzer.symbolic_inputs[crash_id]:
+                successors = set(nx.dfs_preorder_nodes(analyzer.graph, crash_test))
+                cluster[crash_id].update(successors)
+        return cluster
+    
+    def get_predecessors(self, analyzer: DataAnalyzer, state: int):
+        trace = list()
+        state_type = set()
+        if state not in analyzer.meta_data:
+            return []
+        stop_type = ""
+        if analyzer.meta_data[state]["stateType"] == "4":
+            stop_type = "2"
+        stack = [state]
+        while stack:
+            node = stack.pop()
+            preds = analyzer.graph.predecessors(node)
+            stack += preds
+            if len(list(preds)) > 1:
+                print(f"[warn] [state {node}] [preds {preds}]")
+            for pred in preds:
+                if pred in analyzer.meta_data and analyzer.meta_data[pred]["stateType"] in state_type:
+                    trace.append(pred)
+        return trace
+    
+    def symbolic_trace(self, analyzer: DataAnalyzer) -> Dict[int, List[Tuple[bool, int, List[Tuple[int, str]]]]]:
+        patch_data = analyzer.dp.parser.get_result_in_order(["patch$trace", "patch$trace-rand", "patch$fork"])
+        trace_original = dict()
+        for patch in reversed(patch_data):
+            patches_str = patch["patches"]
+            patches_str = patches_str.strip("[]").strip(", ")
+            pairs = patches_str.split(", ")
+            patches_result = list()
+            for pair in pairs:
+                key, value = pair.split(":")
+                patches_result.append((int(key), value))
+            iter = patch["iter"]
+            if patch.get_name() == "patch$fork":
+                true_state = patch["state$true"]
+                false_state = patch["state$false"]
+                if true_state not in trace_original:
+                    trace_original[true_state] = list()
+                if false_state not in trace_original:
+                    trace_original[false_state] = list()
+                trace_original[true_state].append((True, iter, patches_result))
+                trace_original[false_state].append((False, iter, patches_result))
+            else:
+                res = patch["res"]
+                state = patch["state"]
+                if state not in trace_original:
+                    trace_original[state] = list()
+                trace_original[state].append((res, iter, patches_result))
+        trace = dict()
+        for state in trace_original:
+            trace[state] = list()
+            check_1 = False
+            for res, iter, patches in trace_original[state]:
+                if iter == 1:
+                    check_1 = True
+                    break
+            if check_1:
+                trace[state] = trace_original[state]
+            else:
+                pred = self.get_predecessors(analyzer, state)
+                cur_iter = -1
+                for p in pred:
+                    if p not in trace_original:
+                        continue
+                    for res, iter, patches in trace_original[p]:
+                        if cur_iter > 0 and iter >= cur_iter:
+                            continue
+                        if cur_iter > 0 and cur_iter != iter + 1:
+                            print(f"[warn] [error] [state {state}] [iter {cur_iter-1}] [actual {iter}]")
+                        cur_iter = iter
+                        trace[state].append((res, iter, patches))
+            # print(f"[state {state}] {trace[state]}")
+        return trace
+    
+    def buggy_trace(self, analyzer: DataAnalyzer):
+        trace_original = dict()
+        bt = analyzer.dp.parser.get_result_in_order(["patch-base$trace", "patch-base$fork"])
+        for patch_base in reversed(bt):
+            iter = patch_base["iter"]
+            if patch_base.get_name() == "patch-base$trace":
+                state = patch_base["state"]
+                res = patch_base["res"]
+                if state not in trace_original:
+                    trace_original[state] = list()
+                trace_original[state].append((res, iter))
+            else:
+                true_state = patch_base["state$true"]
+                false_state = patch_base["state$false"]
+                if true_state not in trace_original:
+                    trace_original[true_state] = list()
+                if false_state not in trace_original:
+                    trace_original[false_state] = list()
+                trace_original[true_state].append((True, iter))
+                trace_original[false_state].append((False, iter))
+        trace = dict()
+        for state in trace_original:
+            trace[state] = list()
+            check_1 = False
+            for res, iter in trace_original[state]:
+                if iter == 1:
+                    check_1 = True
+                    break
+            if check_1:
+                trace[state] = trace_original[state]
+            else:
+                pred = self.get_predecessors(analyzer, state)
+                cur_iter = -1
+                for p in pred:
+                    if p not in trace_original:
+                        continue
+                    for res, iter in trace_original[p]:
+                        if cur_iter > 0 and iter >= cur_iter:
+                            continue
+                        if cur_iter > 0 and cur_iter != iter + 1:
+                            print(f"[warn] [error] [state {state}] [iter {cur_iter-1}] [actual {iter}]")
+                        cur_iter = iter
+                        trace[state].append((res, iter))
+        print(trace)
+        return trace
+
+    def get_patch(self, state: int, st: List[Tuple[bool, int, List[Tuple[int, str]]]]) -> List[int]:
+        trace = dict()
+        patches = set()
+        for s in st:
+            trace[s[1]] = s[0]
+            for p in s[2]:
+                if s[0] and p[1] != "0":
+                    patches.add(p[0])
+                elif not s[0] and p[1] != "1":
+                    patches.add(p[0])
+        for s in st:
+            for p in s[2]:
+                if s[0] and p[1] == "0":
+                    patches.remove(p[0])
+                elif not s[0] and p[1] == "1":
+                    patches.remove(p[0])
+        l = list()
+        for i in range(len(trace)):
+            l.append(trace[i+1])
+        print(f"[state {state}] [trace {l}] [patches {patches}]")
+        return patches
+    
+    def generate_table(self, cluster: Dict[int, list], result: List[Tuple[int, int, int, List[int]]]) -> str:
+        with open(os.path.join(self.dir, "table.md"), "w") as md:
+            md.write("# Symvass Result\n")
+            md.write(f"| crashId | base | test | patches |\n")
+            md.write("| ------- | ---- | ---- | ------- |\n")
+            for res in result:
+                crash_id, base, test, patches = res
+                md.write(f"| {crash_id} | {base} | {test} | {patches} |\n")
+            md.write("\n")
     
     def analyze_v2(self):
         dp = SymvassDataLogSbsvParser(self.dir)
         analyzer = DataAnalyzer(dp)
         analyzer.analyze()
-
+        cluster = self.cluster(analyzer)
+        # symbolic_trace = self.symbolic_trace(analyzer)
+        # buggy_trace = self.buggy_trace(analyzer)
+        result = list()
+        for crash_state in cluster:
+            base_meta = analyzer.meta_data[crash_state]
+            crash_id = base_meta["crashId"]
+            base = base_meta["patches"]
+            base_reg = base_meta["reg"]
+            is_crash = base_meta["isCrash"]
+            if not is_crash:
+                result.append((crash_id, base_meta["state"], base_meta["state"], base))
+            for crash_test in cluster[crash_state]:
+                crash_meta = analyzer.meta_data[crash_test]
+                crash = crash_meta["patches"]
+                crash_reg = crash_meta["reg"]
+                crashed = crash_meta["actuallyCrashed"]
+                # If input is feasible:
+                # crash -> not crash
+                # not crash -> not crash + preserve behavior
+                if is_crash:
+                    if not crashed:
+                        result.append((crash_id, base_meta["state"], crash_meta["state"], crash))
+                else:
+                    if not crashed and base_reg == crash_reg:
+                        result.append((crash_id, base_meta["state"], crash_meta["state"], crash))
+        self.generate_table(cluster, result)
 
 def arg_parser(argv: List[str]) -> Config:
     # Remaining: c, e, g, h, i, j, n, q, t, u, v, w, x, y, z
@@ -543,7 +759,7 @@ def arg_parser(argv: List[str]) -> Config:
     parser.add_argument("-s", "--snapshot-prefix", help="Snapshot directory prefix", default="snapshot")
     parser.add_argument("-f", "--filter-prefix", help="Filter directory prefix", default="filter")
     parser.add_argument("-l", "--sym-level", help="Symbolization level", default="medium")
-    parser.add_argument("-m", "--max-fork", help="Max fork", default="64,64,4")
+    parser.add_argument("-m", "--max-fork", help="Max fork", default="64,64,64")
     parser.add_argument("-k", "--lock", help="Handle lock behavior", default="i", choices=["i", "w", "f"])
     parser.add_argument("-r", "--rerun", help="Rerun last command with same option", action="store_true")
     args = parser.parse_args(argv[1:])
