@@ -533,16 +533,6 @@ class SymvassAnalyzer:
         print(f"Saved to {os.path.join(self.dir, 'patch-rank.md')}")
 
     def analyze(self):
-        run_filter = not os.path.exists(self.filter_dir)
-        if run_filter:
-            print(f"{self.filter_dir} does not exist")
-            proc = mp.Process(
-                target=uni_klee.main,
-                args=(["uni-klee.py", "filter", self.config.query,
-                        f"-f={self.config.conf_files.filter_prefix}",
-                        "--lock=w",], ))
-            proc.start()
-            proc.join()
         dp = DataAnalyzer(self.dir)
         dp.read_data_log()
         dp_filter = DataAnalyzer(self.filter_dir)
@@ -868,7 +858,7 @@ class Runner(uni_klee.Runner):
                 self.execute(cmd, self.config.workdir, "uni-klee")
                 analyzer = SymvassAnalyzer(self.config)
                 analyzer.set_dir()
-                analyzer.analyze()
+                analyzer.analyze_v2()
         except Exception as e:
             print(f"Exception: {e}")
             print(traceback.format_exc())
