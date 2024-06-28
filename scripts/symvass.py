@@ -721,6 +721,8 @@ class SymvassAnalyzer:
             if not is_crash:
                 result.append((crash_id, base_meta["state"], base_meta["state"], base))
             for crash_test in cluster[crash_state]:
+                if crash_test not in analyzer.meta_data:
+                    continue
                 crash_meta = analyzer.meta_data[crash_test]
                 crash = crash_meta["patches"]
                 crash_reg = crash_meta["reg"]
