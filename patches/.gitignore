@@ -16,4 +16,5 @@ concrete/
 */*/*/runtime
 */*/*/smake_source
 */*/*/sparrow-out
+*/*/*/dafl*
 !concrete.tar.gz
