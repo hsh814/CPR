@@ -200,26 +200,46 @@ def batch_cmp(root_dir: str, bug_info: dict, out_dir: str):
     run(root_dir, bug_info, "buggy", out_dir, "cmp", {"patch": fail})
 
 
+def print_lv(target_dir: str, bug_info: dict):
+  lv_file = os.path.join(target_dir, "live_variables")
+  with open(lv_file, "r") as f:
+    lines = f.readlines()
+    result = ""
+    for line in lines:
+      line = line.strip()
+      result = f"{result} + ({line}) - ({line})"
+    print(result)
+
+
+def repair(dir: str):
+  target_dir = os.path.join(dir, "sparrow-out", "bug")
+  for file, num in [("slice_dfg.txt", 3), ("slice_func.txt", 1), ("slice_line.txt", 1)]:
+    with open(os.path.join(target_dir, file), "r") as f:
+      original = f.readlines()
+    with open(os.path.join(target_dir, file), "w") as f:
+      for line in original:
+        line = line.strip()
+        if len(line.split()) > num:
+          print(f"Remove {line} in {file}")
+          continue
+        f.write(line + "\n")
+  
+
+
 def main(args: List[str]):
   root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
   os.chdir(root_dir)
   if len(args) < 3:
     print(f"Usage: {args[0]} <cmd> <query>")
-    print("cmd: run, cmp, snapshot, batch, filter")
+    print("cmd: repair, lv")
     print("query: <bugid>:<patchid>")
-    print("Ex) test.py run 5321:buggy")
-    print("Ex) test.py cmp 5321:buggy 1-0")
+    print("Ex) test.py repair 5321")
+    print("Ex) test.py lv 5321")
     print("Ex) test.py snapshot 5321:buggy")
     sys.exit(1)
   cmd = args[1]
   query = args[2]
   additional = dict()
-  if cmd == "cmp":
-    if len(args) < 4:
-      print(f"Usage: {args[0]} cmp <query> <patchid>")
-      print("Ex) test.py cmp 5321:buggy 1-0")
-      sys.exit(1)
-    additional["patch"] = args[3]
   patches = os.path.join(root_dir, "patches")
   outdir = os.path.join(root_dir, "out")
   print(f"outdir: {outdir}")
@@ -248,17 +268,14 @@ def main(args: List[str]):
     print(f"Cannot find patch for {query} - {bugid}")
     sys.exit(1)
   print(f"query: {query} => bugid {bugid}, patchid {patchid}")
-  if cmd == "batch":
-    batch_cmp(root_dir, bug_info, outdir)
-    # for bug_info in data:
-    #   if "buggy" not in bug_info:
-    #     continue
-    #   additional = {"patch": bug_info["correct"]["id"]}
-    #   run(root_dir, bug_info, "buggy", outdir, "cmp", additional)
-  if cmd == "filter":
-    filter_patch(root_dir, bug_info)
-  else:
-    run(root_dir, bug_info, patchid, outdir, cmd, additional)
+  bid = bug_info["bug_id"]
+  benchmark = bug_info["benchmark"]
+  subject = bug_info["subject"]
+  target_dir = os.path.join(root_dir, "patches", benchmark, subject, bid)
+  if cmd == "repair":
+    repair(target_dir)
+  if cmd == "lv":
+    print_lv(target_dir, bug_info)
 
 
 if __name__ == "__main__":

@@ -15,3 +15,4 @@ data
 *.tar.gz
 .vscode/
 scripts/tmp
+*.instrumented
