@@ -8,6 +8,7 @@ logs
 error-log
 concrete/
 */*/*/src
+*/*/*/build
 */*/*/source
 */*/*/patched
 */*/*/pacfix

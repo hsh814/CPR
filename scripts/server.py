@@ -14,6 +14,7 @@ import json
 # PARENT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # import module from uni-klee.py
 import uni_klee
+import symvass
 
 app = FastAPI()
 
@@ -88,7 +89,7 @@ def meta_data_data_log_parser(dir: str = Query("")):
     print(f"meta_data_data_log_parser: {dir}")
     if not os.path.exists(dir):
         return {"table": ""}
-    dp = uni_klee.DataLogParser(dir)
+    dp = symvass.SymvassAnalyzer(dir)
     dp.read_data_log("data.log")
     result_table = dp.generate_table(dp.cluster())
     with open(result_table, "r") as f:

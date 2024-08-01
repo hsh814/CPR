@@ -188,7 +188,7 @@ class SymvassDataLogSbsvParser():
         parser.add_schema("[fork-map] [merge] [state$base: int] [state$crash_test: int] [patch: int]")
         parser.add_schema("[fork-loc] [br] [state$from: int] [loc$from: str] -> [state$to_a: int] [loc$to_a: str] [state$to_b: int] [loc$to_b: str]")
         parser.add_schema("[fork-loc] [sw] [state$from: int] [loc$from: str] -> [state$to_a: int] [loc$to_a: str] [state$to_b: int] [loc$to_b: str]")
-        parser.add_schema("[fork-loc] [lazy] [state$from: int] [state$to: int] [loc: str] [name: str]")
+        parser.add_schema("[fork-loc] [lazy] [state$from: int] [state$to: int] [loc: str] [name?: str]")
         parser.add_schema("[patch-base] [trace] [state: int] [res: bool] [iter: int]")
         parser.add_schema("[patch-base] [fork] [state$true: int] [state$false: int] [iter: int]")
         parser.add_schema("[regression-trace] [state: int] [n: int] [res: bool] [loc: str]")
@@ -437,48 +437,11 @@ class PatchSorter:
 
 
 class SymvassAnalyzer:
-    config: Config
     dir: str
     filter_dir: str
 
-    def __init__(self, conf: Config):
-        self.config = conf
-
-    def print_list(self, l: List[Tuple[str, int]]):
-        for item, index in l:
-            print(f"{index}) {item}")
-
-    def interactive_select(self, l: List[Tuple[str, int]], msg: str) -> Tuple[str, int]:
-        print("Select from here: ")
-        self.print_list(l)
-        default = l[-1][1]
-        while True:
-            tmp = input(f"Select {msg}(default: {default}): ").strip()
-            res = default
-            if tmp == "q":
-                return ("", -1)
-            if tmp != "":
-                res = int(tmp)
-            for item, index in l:
-                if res == index:
-                    return (item, index)
-
-    def set_dir(self):
-        print("Set_dir")
-        self.dir = self.config.conf_files.out_dir
-        self.filter_dir = self.config.conf_files.filter_dir
-        if not os.path.exists(self.dir):
-            print(f"{self.dir} does not exist")
-            out_dirs = self.config.conf_files.find_all_nums(
-                self.config.conf_files.out_base_dir,
-                self.config.conf_files.out_dir_prefix,
-            )
-            out_dir = self.interactive_select(out_dirs, "dir")[0]
-            if out_dir == "":
-                print("Exit")
-                return
-            self.dir = os.path.join(self.config.conf_files.out_base_dir, out_dir)
-        print(f"Using {self.dir}")
+    def __init__(self, dir: str):
+        self.dir = dir
 
     def save_sorted_patches(
         self,
@@ -531,18 +494,6 @@ class SymvassAnalyzer:
                             )
                         local_input_id += 1
         print(f"Saved to {os.path.join(self.dir, 'patch-rank.md')}")
-
-    def analyze(self):
-        dp = DataAnalyzer(self.dir)
-        dp.read_data_log()
-        dp_filter = DataAnalyzer(self.filter_dir)
-        dp_filter.read_data_log()
-        ps = PatchSorter(dp, dp_filter)
-        cluster = ps.analyze_cluster()
-        print("Cluster analyzed", cluster)
-        sorted_patches = ps.sort()
-        print("Sorted patches", sorted_patches)
-        self.save_sorted_patches(dp, sorted_patches, cluster)
         
     def cluster(self, analyzer: DataAnalyzer) -> Dict[int, Set[int]]:
         cluster: Dict[int, Set[int]] = dict()
@@ -754,8 +705,12 @@ def arg_parser(argv: List[str]) -> Config:
     parser.add_argument("-m", "--max-fork", help="Max fork", default="64,64,64")
     parser.add_argument("-k", "--lock", help="Handle lock behavior", default="i", choices=["i", "w", "f"])
     parser.add_argument("-r", "--rerun", help="Rerun last command with same option", action="store_true")
+    parser.add_argument("-z", "--analyze", help="Analyze symvass data", action="store_true")
     args = parser.parse_args(argv[1:])
     conf = Config(args.cmd, args.query, args.debug, args.sym_level, args.max_fork)
+    if args.analyze:
+        conf.conf_files.out_dir = args.query
+        return conf
     conf.init(args.snapshot_base_patch, args.rerun, args.additional, args.lock)
     conf.conf_files.set_out_dir(args.outdir, args.outdir_prefix, conf.bug_info, args.snapshot_prefix, args.filter_prefix)
     return conf
@@ -807,11 +762,47 @@ class Runner(uni_klee.Runner):
                     f"snapshot file {self.config.conf_files.snapshot_file} does not exist"
                 )
             self.execute(cmd, dir, "snapshot", env)
+    
+    def print_list(self, l: List[Tuple[str, int]]):
+        for item, index in l:
+            print(f"{index}) {item}")
+
+    def interactive_select(self, l: List[Tuple[str, int]], msg: str) -> Tuple[str, int]:
+        print("Select from here: ")
+        self.print_list(l)
+        default = l[-1][1]
+        while True:
+            tmp = input(f"Select {msg}(default: {default}): ").strip()
+            res = default
+            if tmp == "q":
+                return ("", -1)
+            if tmp != "":
+                res = int(tmp)
+            for item, index in l:
+                if res == index:
+                    return (item, index)
+
+    def get_dir(self):
+        print("Set_dir")
+        dir = self.config.conf_files.out_dir
+        # self.filter_dir = self.config.conf_files.filter_dir
+        if not os.path.exists(dir):
+            print(f"{dir} does not exist")
+            out_dirs = self.config.conf_files.find_all_nums(
+                self.config.conf_files.out_base_dir,
+                self.config.conf_files.out_dir_prefix,
+            )
+            out_dir = self.interactive_select(out_dirs, "dir")[0]
+            if out_dir == "":
+                print("Exit")
+                return
+            dir = os.path.join(self.config.conf_files.out_base_dir, out_dir)
+        print(f"Using {dir}")
+        return dir
 
     def run(self):
         if self.config.cmd == "analyze":
-            analyzer = SymvassAnalyzer(self.config)
-            analyzer.set_dir()
+            analyzer = SymvassAnalyzer(self.get_dir())
             analyzer.analyze_v2()
             return
         if self.config.cmd in ["clean", "kill"]:
@@ -846,9 +837,7 @@ class Runner(uni_klee.Runner):
                     )
             return
         lock_file = uni_klee.global_config.get_lock_file(self.config.bug_info["bug_id"])
-        lock = uni_klee.acquire_lock(
-            lock_file, self.config.lock, self.config.conf_files.out_dir
-        )
+        lock = uni_klee.acquire_lock(lock_file, self.config.lock, self.config.conf_files.out_dir)
         try:
             if lock < 0:
                 print(f"Cannot acquire lock {lock_file}")
@@ -858,8 +847,7 @@ class Runner(uni_klee.Runner):
             if self.config.cmd not in ["snapshot", "filter"]:
                 cmd = self.config.get_cmd_opts(False)
                 self.execute(cmd, self.config.workdir, "uni-klee")
-                analyzer = SymvassAnalyzer(self.config)
-                analyzer.set_dir()
+                analyzer = SymvassAnalyzer(self.get_dir())
                 analyzer.analyze_v2()
         except Exception as e:
             print(f"Exception: {e}")
