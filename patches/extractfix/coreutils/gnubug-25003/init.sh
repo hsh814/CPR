@@ -4,11 +4,11 @@ PATH=$PATH:$CPR_DIR/tools
 rm -rf src patched
 mkdir -p patched
 project_url=https://github.com/coreutils/coreutils.git
-commit_id=8d34b45
+commit_id=68c5eec
 patched_dir=src
-patched_file=shred.c
+patched_file=split.c
 bin_dir=src
-bin_file=shred
+bin_file=split
 git clone $project_url src
 pushd src
   git checkout $commit_id
