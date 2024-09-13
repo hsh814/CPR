@@ -21,7 +21,7 @@ pushd src
   mkdir build
   pushd build
     FORCE_UNSAFE_CONFIGURE=1 LD=lld CC=cpr-cc CXX=cpr-cxx ../configure CFLAGS='-g -O0 -static -fPIE -fPIC' CXXFLAGS="$CFLAGS"
-    make -j16
+    make CFLAGS="-fPIC -fPIE -L/root/projects/uni-klee/build/lib  -lkleeRuntest" CXXFLAGS=$CFLAGS -j32
   popd
   # cp
   cp ${patched_dir}/${patched_file} ../patched

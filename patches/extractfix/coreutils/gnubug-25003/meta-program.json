@@ -2,6 +2,13 @@
   "base": "  long long start = rvals[0];\n  long long initial_read = rvals[1];\n  long long bufsize = rvals[2];\n  long long constant_a;\n",
   "patches": [
     {
+      "name": "buggy",
+      "id": 0,
+      "num": 0,
+      "local_id": 0,
+      "code": "  result = (initial_read != 18446744073709551615UL || start < initial_read);\n"
+    },
+    {
       "name": "1-0",
       "id": 1,
       "num": 1,
@@ -1204,6 +1211,13 @@
       "num": 22,
       "local_id": 20,
       "code": "  constant_a = 10;\n  result = (bufsize <= constant_a);\n"
+    },
+    {
+      "name": "correct",
+      "id": 173,
+      "num": 0,
+      "local_id": 1,
+      "code": "  result = (start < initial_read);\n"
     }
   ]
 }

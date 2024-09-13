@@ -1241,6 +1241,7 @@ else if (!join_lines && *col_sep_string == '\t' && __cpr_choice("L290", "bool", 
 CPR_OUTPUT("obs", "i32", col_sep_length);
 
         col_sep_string = column_separator;
+        if (col_sep_length != 1) klee_abort();
 }
 
       truncate_lines = true;

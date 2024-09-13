@@ -69,7 +69,6 @@ benchmark = "extractfix"
 subject = "libtiff"
 vars = [ "x", "y",]
 target = "TIFFNumberOfStrips"
-snapshot = "snapshot-0-r0-e0e-p0.ret.json"
 
   [meta_data.buggy]
   code = "(0)"
@@ -267,8 +266,9 @@ target = "xmlParseAttValueComplex"
   code = "(1)"
   id = "buggy"
   [meta_data.correct]
-  code = "(x>0)"
-  id = "no"
+  code = "(x > 0)"
+  id = "correct"
+  no = 135
 
 [[meta_data]]
 id = 18
@@ -373,6 +373,15 @@ bug_id = "gnubug-25003"
 benchmark = "extractfix"
 subject = "coreutils"
 vars = [ "start", "initial_read", "bufsize",]
+target = "bytes_chunk_extract"
+  
+  [meta_data.buggy]
+  code = "(initial_read != 18446744073709551615UL || start < initial_read)"
+  id = "buggy"
+  [meta_data.correct]
+  code = "(start < initial_read)"
+  id = "6-0"
+  no = 6
 
 [[meta_data]]
 id = 25
@@ -380,6 +389,15 @@ bug_id = "gnubug-25023"
 benchmark = "extractfix"
 subject = "coreutils"
 vars = [ "col_sep_length",]
+target = "init_parameters"
+
+  [meta_data.buggy]
+  code = "(1)"
+  id = "buggy"
+  [meta_data.correct]
+  code = "(col_sep_length == 1)"
+  id = "7-11"
+  no = 56
 
 [[meta_data]]
 id = 26
@@ -387,6 +405,15 @@ bug_id = "bugzilla-19784"
 benchmark = "extractfix"
 subject = "coreutils"
 vars = [ "size", "i",]
+target = "main"
+  
+    [meta_data.buggy]
+    code = "(1)"
+    id = "buggy"
+    [meta_data.correct]
+    code = "(i < size)"
+    id = "4-0"
+    no = 4
 
 [[meta_data]]
 id = 27
@@ -401,7 +428,8 @@ target = "jpc_siz_getparms"
   id = "buggy"
   [meta_data.correct]
   code = "((x == 0) || (x > 255) || (y == 0) || (y > 255))"
-  id = "no"
+  id = "correct"
+  no = 97
 
 [[meta_data]]
 id = 28
