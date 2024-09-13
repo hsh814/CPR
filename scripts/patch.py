@@ -163,6 +163,8 @@ def lazy_compile(dir: str, cmd: str, file_a: str, file_b: str):
   os.chdir(cwd)
 
 def compile(dir: str):
+  if not os.path.exists(os.path.join(dir, "uni_klee_runtime.c")):
+    return
   KLEE_INCLUDE_PATH = "/root/projects/uni-klee/include"
   cmd = f"wllvm -g -fPIC -O0 -c -o uni_klee_runtime.o uni_klee_runtime.c -I{KLEE_INCLUDE_PATH}"
   lazy_compile(dir, cmd, "uni_klee_runtime.c", "uni_klee_runtime.o")

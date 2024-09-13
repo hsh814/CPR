@@ -274,8 +274,6 @@ class DataAnalyzer():
             base = sel["state$base"]
             base_after = sel["state$base_after"]
             if base not in meta_data:
-                if base_after not in meta_data:
-                    continue
                 meta_data[base] = meta_data[base_after].copy()
                 meta_data[base]["state"] = base
                 meta_data[base]["stateType"] = "1"
@@ -725,9 +723,6 @@ class Runner(uni_klee.Runner):
         self.config = conf
 
     def execute(self, cmd: str, dir: str, log_prefix: str, env: dict = None):
-        cmd = cmd.replace('-S$(printf \'\\t\\t\\t\')', '-S$(printf "\\t\\t\\t")')
-        if "/tmp/out.tiff" in cmd and os.path.exists("/tmp/out.tiff"):
-            os.remove("/tmp/out.tiff")
         print(f"Change directory to {dir}")
         print(f"Executing: {cmd}")
         if env is None:

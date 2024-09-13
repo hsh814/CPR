@@ -54,9 +54,9 @@ class RunSingle():
     self.meta_program = res["meta_program"]
     self.conf = res["conf"]
   def get_clean_cmd(self) -> str:
-    return f"uni-klee.py clean {self.meta['bug_id']} --lock=w"
+    return f"symvass.py clean {self.meta['bug_id']} --lock=w"
   def get_filter_cmd(self) -> str:
-    return f"uni-klee.py filter {self.meta['bug_id']} --lock=f"
+    return f"symvass.py filter {self.meta['bug_id']} --lock=f"
   def get_exp_cmd(self) -> str:
     if "correct" not in self.meta:
       print("No correct patch")
@@ -84,7 +84,7 @@ class RunSingle():
         break
     print(patches)
     query = self.meta["bug_id"] + ":" + ",".join([str(x) for x in patches])
-    cmd = f"uni-klee.py rerun {query} --lock=f --additional='--max-time=12h'"
+    cmd = f"symvass.py rerun {query} --lock=f --additional='--max-time=12h'"
     return cmd
   def get_cmd(self, opt: str) -> str:
     # if "correct" not in self.meta:
