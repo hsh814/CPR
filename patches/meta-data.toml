@@ -443,8 +443,9 @@ target = "jpc_dec_process_siz"
   code = "(0)"
   id = "buggy"
   [meta_data.correct]
-  code = "(x <= y)"
-  id = "no"
+  code = "((z / x) < y)"
+  id = "17-0"
+  no = 17
 
 [[meta_data]]
 id = 29

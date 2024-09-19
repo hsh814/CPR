@@ -8,11 +8,13 @@ import sys
 import json
 import time
 import datetime
+import sbsv
 
 # import importlib
 # PARENT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # import module from uni_klee.py
 import uni_klee
+import symvass
 
 ROOT_DIR = uni_klee.ROOT_DIR
 GLOBAL_LOG_DIR = os.path.join(ROOT_DIR, "logs")
@@ -57,7 +59,9 @@ class RunSingle():
     return f"symvass.py clean {self.meta['bug_id']} --lock=w"
   def get_filter_cmd(self) -> str:
     return f"symvass.py filter {self.meta['bug_id']} --lock=f"
-  def get_exp_cmd(self) -> str:
+  def get_analyze_cmd(self) -> str:
+    return f"symvass.py analyze {self.meta['bug_id']} --use-last"
+  def get_exp_cmd(self, is_high: bool = False) -> str:
     if "correct" not in self.meta:
       print("No correct patch")
       return None
@@ -85,6 +89,8 @@ class RunSingle():
     print(patches)
     query = self.meta["bug_id"] + ":" + ",".join([str(x) for x in patches])
     cmd = f"symvass.py rerun {query} --lock=f --additional='--max-time=12h'"
+    if is_high:
+      cmd += " --sym-level=high --outdir-prefix=high"
     return cmd
   def get_cmd(self, opt: str) -> str:
     # if "correct" not in self.meta:
@@ -99,6 +105,10 @@ class RunSingle():
       return self.get_clean_cmd()
     if opt == "exp":
       return self.get_exp_cmd()
+    if opt == "high":
+      return self.get_exp_cmd(True)
+    if opt == "analyze":
+      return self.get_analyze_cmd()
     print(f"Unknown opt: {opt}")
     return None
 
@@ -109,7 +119,30 @@ def check_correct_exists(meta: dict) -> bool:
     return False
   return True
 
+def check_use_high_level(meta: dict) -> bool:
+  conf = symvass.Config("analyze", meta["bug_id"], False, "high", "64,64,64")
+  conf.init("snapshot", False, "", "f")
+  conf.conf_files.set_out_dir("", "uni-m-out", conf.bug_info, "snapshot", "filter", True)
+  if not os.path.exists(conf.conf_files.out_dir):
+    return False
+  if not os.path.exists(os.path.join(conf.conf_files.out_dir, "table.sbsv")):
+    # Run analysis
+    run_cmd("analyze", [meta])
+  if not os.path.exists(os.path.join(conf.conf_files.out_dir, "table.sbsv")):
+    return True
+  parser = sbsv.parser()
+  parser.add_schema("[sym-in] [id: int] [base: int] [test: int] [patches: str]")
+  with open(os.path.join(conf.conf_files.out_dir, "table.sbsv"), "r") as f:
+    result = parser.load(f)
+  if result is None:
+    return True
+  if len(result["sym-in"]) > 16:
+    print(f"Skip high level: {meta['bug_id']}")
+    return False
+  return True
+
 def run_cmd(opt: str, meta_data: List[dict]):
+  is_high = opt == "high"
   core = 32
   m = mp.Manager()
   lock = m.Lock()
@@ -117,6 +150,8 @@ def run_cmd(opt: str, meta_data: List[dict]):
   args_list = list()
   for meta in meta_data:
     if not check_correct_exists(meta):
+      continue
+    if is_high and not check_use_high_level(meta):
       continue
     rs = RunSingle(meta["id"])
     cmd = rs.get_cmd(opt)

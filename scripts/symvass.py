@@ -89,8 +89,29 @@ class ConfigFiles(uni_klee.ConfigFiles):
             self.project_dir, "concrete", "libuni_klee_runtime_new.bca"
         )
 
+    def set_out_dir(self, out_dir: str, out_dir_prefix: str, bug_info: dict, snapshot_prefix: str, filter_prefix: str, use_last: bool):
+        self.out_dir_prefix = out_dir_prefix
+        self.snapshot_prefix = snapshot_prefix
+        self.filter_prefix = filter_prefix
+        if out_dir == "":
+            self.out_base_dir = self.work_dir
+        elif out_dir == "out":
+            self.out_base_dir = os.path.join(self.root_dir, "out", self.benchmark, self.subject, self.bid)
+        else:
+            self.out_base_dir = out_dir
+        os.makedirs(self.out_base_dir, exist_ok=True)
+        no = self.find_num(self.out_base_dir, out_dir_prefix)
+        if use_last:
+            self.out_dir = os.path.join(self.out_base_dir, f"{out_dir_prefix}-{no-1}")
+        else:
+            self.out_dir = os.path.join(self.out_base_dir, f"{out_dir_prefix}-{no}")
+        self.snapshot_dir = os.path.join(self.out_base_dir, self.snapshot_prefix)
+        self.filter_dir = os.path.join(self.out_base_dir, filter_prefix)
+        print(f"Use snapshot {self.bid} snapshot-last.json ...")
+        self.snapshot_file = os.path.join(self.snapshot_dir, "snapshot-last.json")
 
 class Config(uni_klee.Config):
+    conf_files: ConfigFiles
 
     def __init__(
         self, cmd: str, query: str, debug: bool, sym_level: str, max_fork: str
@@ -648,6 +669,10 @@ class SymvassAnalyzer:
         return patches
     
     def generate_table(self, cluster: Dict[int, list], result: List[Tuple[int, int, int, List[int]]]) -> str:
+        with open(os.path.join(self.dir, "table.sbsv"), "w") as f:
+            for res in result:
+                crash_id, base, test, patches = res
+                f.write(f"[sym-in] [id {crash_id}] [base {base}] [test {test}] [patches {patches}]\n")
         with open(os.path.join(self.dir, "table.md"), "w") as md:
             md.write("# Symvass Result\n")
             md.write(f"| crashId | base | test | patches |\n")
@@ -692,7 +717,7 @@ class SymvassAnalyzer:
         self.generate_table(cluster, result)
 
 def arg_parser(argv: List[str]) -> Config:
-    # Remaining: c, e, g, h, i, j, n, q, t, u, v, w, x, y, z
+    # Remaining: c, e, h, i, j, n, q, t, u, v, w, x, y
     parser = argparse.ArgumentParser(description="Test script for uni-klee")
     parser.add_argument("cmd", help="Command to execute", choices=["run", "rerun", "snapshot", "clean", "kill", "filter", "analyze"])
     parser.add_argument("query", help="Query for bugid and patch ids: <bugid>[:<patchid>] # ex) 5321:1,2,3,r5-10")
@@ -708,13 +733,14 @@ def arg_parser(argv: List[str]) -> Config:
     parser.add_argument("-k", "--lock", help="Handle lock behavior", default="i", choices=["i", "w", "f"])
     parser.add_argument("-r", "--rerun", help="Rerun last command with same option", action="store_true")
     parser.add_argument("-z", "--analyze", help="Analyze symvass data", action="store_true")
+    parser.add_argument("-g", "--use-last", help="Use last output directory", action="store_true")
     args = parser.parse_args(argv[1:])
     conf = Config(args.cmd, args.query, args.debug, args.sym_level, args.max_fork)
     if args.analyze:
         conf.conf_files.out_dir = args.query
         return conf
     conf.init(args.snapshot_base_patch, args.rerun, args.additional, args.lock)
-    conf.conf_files.set_out_dir(args.outdir, args.outdir_prefix, conf.bug_info, args.snapshot_prefix, args.filter_prefix)
+    conf.conf_files.set_out_dir(args.outdir, args.outdir_prefix, conf.bug_info, args.snapshot_prefix, args.filter_prefix, args.use_last)
     return conf
 
 
