@@ -9,6 +9,7 @@ import json
 import time
 import datetime
 import sbsv
+import argparse
 
 # import importlib
 # PARENT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -18,16 +19,19 @@ import symvass
 
 ROOT_DIR = uni_klee.ROOT_DIR
 GLOBAL_LOG_DIR = os.path.join(ROOT_DIR, "logs")
+OUTPUT_DIR = "out"
+PREFIX = ""
+SYMVASS_PREFIX = "uni-m-out"
 
-def execute(cmd: str, dir: str, log_file: str, log_dir: str, prefix: str, lock: mp.Lock):
+def execute(cmd: str, dir: str, log_file: str, log_dir: str, prefix: str, meta: dict):
   print(f"Executing: {cmd}")
   start = time.time()
   proc = subprocess.run(cmd, shell=True, cwd=dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
   end = time.time()
   print(f"Done {prefix}: {end - start}s")
-  with lock:
-    with open(os.path.join(GLOBAL_LOG_DIR, "time.log"), "a") as f:
-      f.write(f"{prefix},{end - start}\n")
+  with open(os.path.join(GLOBAL_LOG_DIR, "time.log"), "a") as f:
+    f.write(f"{prefix},{end - start}\n")
+  collect_result(meta)
   if proc.returncode != 0:
     print(f"Failed to execute: {cmd}")
     try:
@@ -90,7 +94,7 @@ class RunSingle():
     query = self.meta["bug_id"] + ":" + ",".join([str(x) for x in patches])
     cmd = f"symvass.py rerun {query} --lock=f --additional='--max-time=12h'"
     if is_high:
-      cmd += " --sym-level=high --outdir-prefix=high"
+      cmd += " --sym-level=high --outdir-prefix=high --max-fork=1024,1024,1024"
     return cmd
   def get_cmd(self, opt: str) -> str:
     # if "correct" not in self.meta:
@@ -141,23 +145,32 @@ def check_use_high_level(meta: dict) -> bool:
     return False
   return True
 
+def collect_result(meta: dict):
+  conf = symvass.Config("analyze", meta["bug_id"], False, "high", "64,64,64")
+  conf.init("snapshot", False, "", "f")
+  conf.conf_files.set_out_dir("", SYMVASS_PREFIX, conf.bug_info, "snapshot", "filter", True)
+  save_dir = os.path.join(OUTPUT_DIR, PREFIX, meta["subject"], meta["bug_id"])
+  os.makedirs(save_dir, exist_ok=True)
+  if not os.path.exists(conf.conf_files.out_dir):
+    return False
+  print(f"save to {save_dir}")
+  os.link(os.path.join(conf.conf_files.out_dir, "table.sbsv"), os.path.join(save_dir, f"table.sbsv"))
+
 def run_cmd(opt: str, meta_data: List[dict]):
   is_high = opt == "high"
   core = 32
-  m = mp.Manager()
-  lock = m.Lock()
   pool = mp.Pool(core)
   args_list = list()
   for meta in meta_data:
     if not check_correct_exists(meta):
       continue
-    if is_high and not check_use_high_level(meta):
-      continue
+    # if is_high and not check_use_high_level(meta):
+    #   continue
     rs = RunSingle(meta["id"])
     cmd = rs.get_cmd(opt)
     if cmd is None:
       continue
-    args_list.append((cmd, ROOT_DIR, f"{meta['bug_id']}.log", opt, f"{opt},{meta['subject']}/{meta['bug_id']}", lock))
+    args_list.append((cmd, ROOT_DIR, f"{meta['bug_id']}.log", opt, f"{opt},{meta['subject']}/{meta['bug_id']}", meta))
   print(f"Total {opt}: {len(args_list)}")
   pool.map(execute_wrapper, args_list)
   pool.close()
@@ -166,14 +179,24 @@ def run_cmd(opt: str, meta_data: List[dict]):
 
 
 def main(argv: List[str]):
-  cmd = "exp"
-  if len(argv) > 0:
-    cmd = argv[0]
+  parser = argparse.ArgumentParser(description="Run symvass experiments")
+  parser.add_argument("cmd", type=str, help="Command to run", choices=["exp", "high", "analyze"], default="exp")
+  parser.add_argument("-o", "--output", type=str, help="Output directory", default="out", required=False)
+  parser.add_argument("-p", "--prefix", type=str, help="Output prefix", default="", required=False)
+  args = parser.parse_args(argv)
+  global OUTPUT_DIR, PREFIX, SYMVASS_PREFIX
+  OUTPUT_DIR = os.path.join(ROOT_DIR, args.output)
+  if args.prefix != "":
+    PREFIX = args.prefix
+  else:
+    PREFIX = time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime())
+  if args.cmd == "high":
+    SYMVASS_PREFIX = "high"
   with open(os.path.join(GLOBAL_LOG_DIR, "time.log"), "a") as f:
     f.write(f"\n#{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
   meta_data = uni_klee.global_config.get_meta_data_list()
   print(f"Total meta data: {len(meta_data)}")
-  run_cmd(cmd, meta_data)
+  run_cmd(args.cmd, meta_data)
 
 if __name__ == "__main__":
   main(sys.argv[1:])

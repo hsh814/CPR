@@ -462,9 +462,11 @@ class PatchSorter:
 class SymvassAnalyzer:
     dir: str
     filter_dir: str
+    bug_info: dict
 
-    def __init__(self, dir: str):
+    def __init__(self, dir: str, bug_info: dict):
         self.dir = dir
+        self.bug_info = bug_info
 
     def save_sorted_patches(
         self,
@@ -670,9 +672,41 @@ class SymvassAnalyzer:
     
     def generate_table(self, cluster: Dict[int, list], result: List[Tuple[int, int, int, List[int]]]) -> str:
         with open(os.path.join(self.dir, "table.sbsv"), "w") as f:
+            all_patches = set()
             for res in result:
                 crash_id, base, test, patches = res
-                f.write(f"[sym-in] [id {crash_id}] [base {base}] [test {test}] [patches {patches}]\n")
+                for patch in patches:
+                    all_patches.add(patch)
+                f.write(f"[sym-in] [id {crash_id}] [base {base}] [test {test}] [cnt {len(patches)}] [patches {patches}]\n")
+            # Current result: assume all are feasible
+            current_result = all_patches.copy()
+            for res in result:
+                crash_id, base, test, patches = res
+                res_patches = set(patches)
+                for patch in all_patches:
+                    if patch not in res_patches and patch in current_result:
+                        current_result.remove(patch)
+            current_result_list = sorted(list(current_result))
+            f.write(f"[sym-out] [default] [cnt {len(current_result_list)}] [patches {current_result_list}]\n")
+            # Best result: use symbolic inputs those do not filter out correct patches
+            if self.bug_info is not None:
+                correct_patch = self.bug_info["correct"]["no"]
+                best_result = all_patches.copy()
+                correct_input_num = 0
+                for res in result:
+                    crash_id, base, test, patches = res
+                    res_patches = set(patches)
+                    if correct_patch not in res_patches:
+                        continue
+                    correct_input_num += 1
+                    for patch in all_patches:
+                        if patch not in res_patches and patch in best_result:
+                            best_result.remove(patch)
+                best_result_list = sorted(list(best_result))
+                f.write(f"[sym-out] [best] [cnt {len(best_result_list)}] [patches {best_result_list}]\n")
+                meta_data_info = uni_klee.global_config.get_meta_data_info_by_id(self.bug_info["id"])
+                f.write(f"[meta-data] [correct {correct_patch}] [all-patches {len(meta_data_info['meta_program']['patches'])}] [sym-input {len(result)}] [correct-input {correct_input_num}]")
+
         with open(os.path.join(self.dir, "table.md"), "w") as md:
             md.write("# Symvass Result\n")
             md.write(f"| crashId | base | test | patches |\n")
@@ -833,7 +867,7 @@ class Runner(uni_klee.Runner):
 
     def run(self):
         if self.config.cmd == "analyze":
-            analyzer = SymvassAnalyzer(self.get_dir())
+            analyzer = SymvassAnalyzer(self.get_dir(), self.config.bug_info)
             analyzer.analyze_v2()
             return
         if self.config.cmd in ["clean", "kill"]:
@@ -878,7 +912,7 @@ class Runner(uni_klee.Runner):
             if self.config.cmd not in ["snapshot", "filter"]:
                 cmd = self.config.get_cmd_opts(False)
                 self.execute(cmd, self.config.workdir, "uni-klee")
-                analyzer = SymvassAnalyzer(self.get_dir())
+                analyzer = SymvassAnalyzer(self.get_dir(), self.config.bug_info)
                 analyzer.analyze_v2()
         except Exception as e:
             print(f"Exception: {e}")
