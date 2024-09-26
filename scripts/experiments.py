@@ -64,7 +64,7 @@ class RunSingle():
   def get_filter_cmd(self) -> str:
     return f"symvass.py filter {self.meta['bug_id']} --lock=f"
   def get_analyze_cmd(self) -> str:
-    return f"symvass.py analyze {self.meta['bug_id']} --use-last"
+    return f"symvass.py analyze {self.meta['bug_id']} --use-last -p {SYMVASS_PREFIX}"
   def get_exp_cmd(self, is_high: bool = False) -> str:
     if "correct" not in self.meta:
       print("No correct patch")
@@ -134,10 +134,8 @@ def check_use_high_level(meta: dict) -> bool:
     run_cmd("analyze", [meta])
   if not os.path.exists(os.path.join(conf.conf_files.out_dir, "table.sbsv")):
     return True
-  parser = sbsv.parser()
-  parser.add_schema("[sym-in] [id: int] [base: int] [test: int] [patches: str]")
-  with open(os.path.join(conf.conf_files.out_dir, "table.sbsv"), "r") as f:
-    result = parser.load(f)
+  parser = parse_result(os.path.join(conf.conf_files.out_dir, "table.sbsv"))
+  result = parser.get_result()
   if result is None:
     return True
   if len(result["sym-in"]) > 16:
@@ -155,6 +153,69 @@ def collect_result(meta: dict):
     return False
   print(f"save to {save_dir}")
   os.link(os.path.join(conf.conf_files.out_dir, "table.sbsv"), os.path.join(save_dir, f"table.sbsv"))
+
+def parse_result(file: str) -> sbsv.parser:
+  parser = sbsv.parser()
+  parser.add_schema("[sym-in] [id: int] [base: int] [test: int] [cnt: int] [patches: str]")
+  parser.add_schema("[sym-out] [default] [cnt: int] [patches: str]")
+  parser.add_schema("[sym-out] [best] [cnt: int] [patches: str]")
+  parser.add_schema("[meta-data] [correct: int] [all-patches: int] [sym-input: int] [correct-input: int]")
+  with open(file, "r") as f:
+    parser.load(f)
+  return parser
+
+def str_to_list(s: str) -> List[int]:
+  ss = s.strip('[]')
+  res = list()
+  for x in ss.split(", "):
+    if x.strip() == "":
+      continue
+    res.append(int(x))
+  return res
+
+def final_analysis(dir: str):
+  results = list()
+  for project in sorted(os.listdir(dir)):
+    project_path = os.path.join(dir, project)
+    if not os.path.isdir(project_path):
+      continue
+    for bug in sorted(os.listdir(project_path)):
+      bug_path = os.path.join(project_path, bug)
+      if not os.path.isdir(bug_path):
+        continue
+      target_file = os.path.join(bug_path, "table.sbsv")
+      if not os.path.exists(target_file):
+        continue
+      parser = parse_result(target_file)
+      result = parser.get_result()
+      if result is None:
+        continue
+      meta_data = result["meta-data"]
+      correct_patch = meta_data[0]["correct"]
+      default = result["sym-out"]["default"][0]["cnt"]
+      default_patches = str_to_list(result["sym-out"]["default"][0]["patches"])
+      default_found = correct_patch in default_patches
+      best = result["sym-out"]["best"][0]["cnt"]
+      best_patches = str_to_list(result["sym-out"]["best"][0]["patches"])
+      best_found = correct_patch in best_patches
+      results.append({
+        "project": project,
+        "bug": bug,
+        "correct": correct_patch,
+        "all": meta_data[0]["all-patches"],
+        "inputs": len(result["sym-in"]),
+        "default": default,
+        "default_found": default_found,
+        "best_inputs": meta_data[0]["correct-input"],
+        "best": best,
+        "best_found": best_found,
+      })
+  with open(os.path.join(dir, "final.json"), "w") as f:
+    json.dump(results, f, indent=2)
+  with open(os.path.join(dir, "final.csv"), "w") as f:
+    f.write(f"project\tbug\tcorrect_patch\tall_patches\tinputs\tdefault_remaining_patches\tdefault_found\tbest_inputs\tbest_remaining_patches\tbest_found\n")
+    for result in results:
+      f.write(f"{result['project']}\t{result['bug']}\t{result['correct']}\t{result['all']}\t{result['inputs']}\t{result['default']}\t{result['default_found']}\t{result['best_inputs']}\t{result['best']}\t{result['best_found']}\n")
 
 def run_cmd(opt: str, meta_data: List[dict]):
   is_high = opt == "high"
@@ -180,9 +241,10 @@ def run_cmd(opt: str, meta_data: List[dict]):
 
 def main(argv: List[str]):
   parser = argparse.ArgumentParser(description="Run symvass experiments")
-  parser.add_argument("cmd", type=str, help="Command to run", choices=["exp", "high", "analyze"], default="exp")
+  parser.add_argument("cmd", type=str, help="Command to run", choices=["exp", "high", "analyze", "final"], default="exp")
   parser.add_argument("-o", "--output", type=str, help="Output directory", default="out", required=False)
   parser.add_argument("-p", "--prefix", type=str, help="Output prefix", default="", required=False)
+  parser.add_argument("-s", "--symvass-prefix", type=str, help="Symvass prefix", default="", required=False)
   args = parser.parse_args(argv)
   global OUTPUT_DIR, PREFIX, SYMVASS_PREFIX
   OUTPUT_DIR = os.path.join(ROOT_DIR, args.output)
@@ -192,6 +254,11 @@ def main(argv: List[str]):
     PREFIX = time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime())
   if args.cmd == "high":
     SYMVASS_PREFIX = "high"
+  if args.symvass_prefix != "":
+    SYMVASS_PREFIX = args.symvass_prefix
+  if args.cmd == "final":
+    final_analysis(os.path.join(OUTPUT_DIR, PREFIX))
+    return
   with open(os.path.join(GLOBAL_LOG_DIR, "time.log"), "a") as f:
     f.write(f"\n#{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
   meta_data = uni_klee.global_config.get_meta_data_list()
