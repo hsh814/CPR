@@ -360,12 +360,12 @@ vars = [ "size", "i",]
 target = "fillpattern"
 
   [meta_data.buggy]
-  code = "(size > i)"
+  code = "(size / 2 > i)"
   id = "buggy"
   [meta_data.correct]
-  code = "(size >= i)"
-  id = "6-0"
-  no = 6
+  code = "(size / 2 >= i)"
+  id = "25-1"
+  no = 26
 
 [[meta_data]]
 id = 24
