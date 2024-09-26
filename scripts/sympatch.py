@@ -79,6 +79,9 @@ def to_meta_program(patch_list: list, meta: dict) -> dict:
     obj = { "name": "buggy", "id": 0, "num": 0, "local_id": 0, "code": f"  result = {formula};\n" }
     patches.append(obj)
   for patch in patch_list:
+    remove_zero = False
+    if "/ constant_a" in patch["patch"]:
+      remove_zero = True
     concrete_range = list()
     if "Partition" in patch:
       for part in patch["Partition"]:
@@ -86,6 +89,9 @@ def to_meta_program(patch_list: list, meta: dict) -> dict:
           range_str = part["Range"]
           start, con, end = range_str.split("<=")
           for i in range(int(start), int(end) + 1):
+            if remove_zero and i == 0:
+              print(f"Skip zero: {patch['num']}")
+              continue
             concrete_range.append(i)
     concretes = get_concrete(patch["patch"], concrete_range)
     local_id = 0
