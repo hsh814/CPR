@@ -268,6 +268,7 @@ class Config:
   max_fork: str
   lock: str
   rerun: bool
+  timeout: str
   
   def get_patch_ids(self, patch_ids: List[str]) -> List[str]:
     self.meta_program = self.conf_files.read_meta_program()
@@ -307,9 +308,9 @@ class Config:
       self.snapshot_patch_ids = self.get_patch_ids(snapshot_patch_ids.split(","))
     else:
       self.snapshot_patch_ids = list()
-    print(f"query: {self.query} => bugid {self.bug_info}, patchid {self.patch_ids}")
+    # print(f"query: {self.query} => bugid {self.bug_info}, patchid {self.patch_ids}")
     
-  def init(self, snapshot_patch_ids: str, rerun: bool, additional: str, lock: str):
+  def init(self, snapshot_patch_ids: str, rerun: bool, additional: str, lock: str, timeout: str = ""):
     self.meta = self.conf_files.read_meta_data()
     self.parse_query(snapshot_patch_ids)
     self.project_conf = self.conf_files.read_conf_file()
@@ -317,6 +318,7 @@ class Config:
     self.rerun = rerun
     self.additional = additional
     self.lock = lock
+    self.timeout = timeout
   
   def __init__(self, cmd: str, query: str, debug: bool, sym_level: str, max_fork: str):
     self.cmd = cmd

@@ -168,6 +168,8 @@ class Config(uni_klee.Config):
         if "klee_flags" in self.project_conf:
             link_opt = self.project_conf["klee_flags"]
             result.append(link_opt)
+        if self.timeout != "":
+            result.append(f"--max-time={self.timeout}")
         if self.additional != "":
             result.extend(self.additional.split(" "))
         if is_snapshot:
@@ -313,6 +315,8 @@ class DataAnalyzer():
             self.symbolic_inputs[base].append(crash_test)
 
     def draw_graph(self):
+        if len(self.graph.nodes()) > 1024:
+            return
         dot = graphviz.Digraph()
         for state in self.graph.nodes():
             fillcolor = "white"
@@ -705,7 +709,7 @@ class SymvassAnalyzer:
                 best_result_list = sorted(list(best_result))
                 f.write(f"[sym-out] [best] [cnt {len(best_result_list)}] [patches {best_result_list}]\n")
                 meta_data_info = uni_klee.global_config.get_meta_data_info_by_id(self.bug_info["id"])
-                f.write(f"[meta-data] [correct {correct_patch}] [all-patches {len(meta_data_info['meta_program']['patches'])}] [sym-input {len(result)}] [correct-input {correct_input_num}]")
+                f.write(f"[meta-data] [correct {correct_patch}] [all-patches {len(meta_data_info['meta_program']['patches'])}] [sym-input {len(result)}] [correct-input {correct_input_num}]\n")
 
         with open(os.path.join(self.dir, "table.md"), "w") as md:
             md.write("# Symvass Result\n")
@@ -763,7 +767,8 @@ def arg_parser(argv: List[str]) -> Config:
     parser.add_argument("-s", "--snapshot-prefix", help="Snapshot directory prefix", default="snapshot")
     parser.add_argument("-f", "--filter-prefix", help="Filter directory prefix", default="filter")
     parser.add_argument("-l", "--sym-level", help="Symbolization level", default="medium")
-    parser.add_argument("-m", "--max-fork", help="Max fork", default="64,64,64")
+    parser.add_argument("-m", "--max-fork", help="Max fork", default="256,256,256")
+    parser.add_argument("-t", "--timeout", help="Timeout", default="12h")
     parser.add_argument("-k", "--lock", help="Handle lock behavior", default="i", choices=["i", "w", "f"])
     parser.add_argument("-r", "--rerun", help="Rerun last command with same option", action="store_true")
     parser.add_argument("-z", "--analyze", help="Analyze symvass data", action="store_true")
@@ -773,7 +778,7 @@ def arg_parser(argv: List[str]) -> Config:
     if args.analyze:
         conf.conf_files.out_dir = args.query
         return conf
-    conf.init(args.snapshot_base_patch, args.rerun, args.additional, args.lock)
+    conf.init(args.snapshot_base_patch, args.rerun, args.additional, args.lock, args.timeout)
     conf.conf_files.set_out_dir(args.outdir, args.outdir_prefix, conf.bug_info, args.snapshot_prefix, args.filter_prefix, args.use_last)
     return conf
 
