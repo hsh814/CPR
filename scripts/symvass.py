@@ -16,6 +16,7 @@ import sbsv
 
 import uni_klee
 import sympatch
+import psutil
 
 
 def get_trace(dir: str, id: int):
@@ -162,6 +163,7 @@ class Config(uni_klee.Config):
             "--log-trace",
             "--max-memory=0",
             "--lazy-patch",
+            "--max-solver-time=10s",
             f"--target-function={target_function}",
             link_opt,
         ]
@@ -788,6 +790,16 @@ class Runner(uni_klee.Runner):
 
     def __init__(self, conf: Config):
         self.config = conf
+    
+    def kill_proc_tree(self, pid: int, including_parent: bool = True):
+        parent = psutil.Process(pid)
+        children = parent.children(recursive=True)
+        for child in children:
+            child.kill()
+        psutil.wait_procs(children, timeout=5)
+        if including_parent:
+            parent.kill()
+            parent.wait(5)
 
     def execute(self, cmd: str, dir: str, log_prefix: str, env: dict = None):
         cmd = cmd.replace('-S$(printf \'\\t\\t\\t\')', '-S$(printf "\\t\\t\\t")')
@@ -797,8 +809,25 @@ class Runner(uni_klee.Runner):
         print(f"Executing: {cmd}")
         if env is None:
             env = os.environ
-        proc = subprocess.run(cmd, shell=True, cwd=dir, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        if self.config.debug or proc.returncode != 0:
+        timeout = 43200
+        if self.config.timeout != "":
+            if "h" in self.config.timeout:
+                timeout = int(self.config.timeout.strip("h")) * 3600
+            elif "m" in self.config.timeout:
+                timeout = int(self.config.timeout.strip("m")) * 60
+            else:
+                timeout = int(self.config.timeout.strip("s"))
+        timeout += 60
+        proc = subprocess.Popen(cmd, shell=True, cwd=dir, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        timeout_reached = False
+        try:
+            stdout, stderr = proc.communicate(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            timeout_reached = True
+            print(f"Timeout {timeout} seconds {cmd}")
+            self.kill_proc_tree(proc.pid)
+            stdout, stderr = proc.communicate()
+        if self.config.debug or (proc.returncode != 0 and not timeout_reached):
             log_file = os.path.join(
                 self.config.conf_files.get_log_dir(), f"{log_prefix}.log"
             )
@@ -806,17 +835,17 @@ class Runner(uni_klee.Runner):
                 print("!!!!! Error !!!!")
                 print("Save error log to " + log_file)
             try:
-                print(proc.stderr.decode("utf-8", errors="ignore"))
+                print(stderr.decode("utf-8", errors="ignore"))
                 os.makedirs(self.config.conf_files.get_log_dir(), exist_ok=True)
                 with open(log_file, "w") as f:
-                    f.write(proc.stderr.decode("utf-8", errors="ignore"))
+                    f.write(stderr.decode("utf-8", errors="ignore"))
                     f.write("\n###############\n")
-                    f.write(proc.stdout.decode("utf-8", errors="ignore"))
+                    f.write(stdout.decode("utf-8", errors="ignore"))
                 print(
                     f"Save error log to {self.config.conf_files.get_log_dir()}/{log_prefix}.log"
                 )
-            except:
-                pass
+            except Exception as e:
+                print(f"Failed to save error: {str(e)}")
         return proc.returncode
 
     def execute_snapshot(self, cmd: str, dir: str, env: dict = None):
