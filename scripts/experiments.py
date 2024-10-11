@@ -10,6 +10,7 @@ import time
 import datetime
 import sbsv
 import argparse
+import psutil
 
 # import importlib
 # PARENT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -23,11 +24,29 @@ OUTPUT_DIR = "out"
 PREFIX = ""
 SYMVASS_PREFIX = "uni-m-out"
 
+def kill_proc_tree(pid: int, including_parent: bool = True):
+  parent = psutil.Process(pid)
+  children = parent.children(recursive=True)
+  for child in children:
+    child.kill()
+  psutil.wait_procs(children, timeout=5)
+  if including_parent:
+    parent.kill()
+    parent.wait(5)
+
 def execute(cmd: str, dir: str, log_file: str, log_dir: str, prefix: str, meta: dict):
   print(f"Executing: {cmd}")
   start = time.time()
-  proc = subprocess.run(cmd, shell=True, cwd=dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-  end = time.time()
+  timeout = 12 * 3600 + 600 # 12 hours + 10 minutes for analysis
+  proc = subprocess.Popen(cmd, shell=True, cwd=dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+  try:
+    stdout, stderr = proc.communicate(timeout=timeout)
+  except subprocess.TimeoutExpired:
+    print(f"Timeout: {cmd}")
+    kill_proc_tree(proc.pid)
+    stdout, stderr = proc.communicate()
+  finally:
+    end = time.time()
   print(f"Done {prefix}: {end - start}s")
   with open(os.path.join(GLOBAL_LOG_DIR, "time.log"), "a") as f:
     f.write(f"{prefix},{end - start}\n")
@@ -38,9 +57,9 @@ def execute(cmd: str, dir: str, log_file: str, log_dir: str, prefix: str, meta: 
       if not os.path.exists(os.path.join(GLOBAL_LOG_DIR, log_dir)):
         os.makedirs(os.path.join(GLOBAL_LOG_DIR, log_dir), exist_ok=True)
       with open(os.path.join(log_dir, log_file), "w") as f:
-        f.write(proc.stderr.decode("utf-8", errors="ignore"))
+        f.write(stderr.decode("utf-8", errors="ignore"))
         f.write("\n###############\n")
-        f.write(proc.stdout.decode("utf-8", errors="ignore"))
+        f.write(stdout.decode("utf-8", errors="ignore"))
     except Exception as e:
       print(f"Failed to write log file: {log_file}")
       print(e)
@@ -65,7 +84,7 @@ class RunSingle():
     return f"symvass.py filter {self.meta['bug_id']} --lock=f"
   def get_analyze_cmd(self) -> str:
     return f"symvass.py analyze {self.meta['bug_id']} --use-last -p {SYMVASS_PREFIX}"
-  def get_exp_cmd(self, is_high: bool = False) -> str:
+  def get_exp_cmd(self, extra: str = "") -> str:
     if "correct" not in self.meta:
       print("No correct patch")
       return None
@@ -92,11 +111,17 @@ class RunSingle():
         break
     print(patches)
     query = self.meta["bug_id"] + ":" + ",".join([str(x) for x in patches])
-    cmd = f"symvass.py rerun {query} --lock=f --additional='--max-time=12h'"
-    if is_high:
-      cmd += " --sym-level=high --outdir-prefix=high --max-fork=1024,1024,1024"
+    cmd = f"symvass.py rerun {query} --lock=f --outdir-prefix={SYMVASS_PREFIX} "
+    if extra == "k2-high":
+      cmd += " --sym-level=high --additional='--symbolize-bound=2' --max-fork=1024,1024,1024"
+    if extra == "high":
+      cmd += " --sym-level=high --max-fork=1024,1024,1024"
+    if extra == "k2":
+      cmd += " --additional='--symbolize-bound=2' --max-fork=1024,1024,1024"
+    if extra == "low":
+      cmd += " --sym-level=low --max-fork=1024,1024,1024"
     return cmd
-  def get_cmd(self, opt: str) -> str:
+  def get_cmd(self, opt: str, extra: str) -> str:
     # if "correct" not in self.meta:
     #   print("No correct patch")
     #   return None
@@ -108,9 +133,7 @@ class RunSingle():
     if opt == "clean":
       return self.get_clean_cmd()
     if opt == "exp":
-      return self.get_exp_cmd()
-    if opt == "high":
-      return self.get_exp_cmd(True)
+      return self.get_exp_cmd(extra)
     if opt == "analyze":
       return self.get_analyze_cmd()
     print(f"Unknown opt: {opt}")
@@ -151,8 +174,13 @@ def collect_result(meta: dict):
   os.makedirs(save_dir, exist_ok=True)
   if not os.path.exists(conf.conf_files.out_dir):
     return False
+  if not os.path.exists(os.path.join(conf.conf_files.out_dir, "table.sbsv")):
+    return False
   print(f"save to {save_dir}")
-  os.link(os.path.join(conf.conf_files.out_dir, "table.sbsv"), os.path.join(save_dir, f"table.sbsv"))
+  save_file = os.path.join(save_dir, f"table.sbsv")
+  if os.path.exists(save_file):
+    os.unlink(save_file)
+  os.link(os.path.join(conf.conf_files.out_dir, "table.sbsv"), save_file)
 
 def parse_result(file: str) -> sbsv.parser:
   parser = sbsv.parser()
@@ -217,8 +245,7 @@ def final_analysis(dir: str):
     for result in results:
       f.write(f"{result['project']}\t{result['bug']}\t{result['correct']}\t{result['all']}\t{result['inputs']}\t{result['default']}\t{result['default_found']}\t{result['best_inputs']}\t{result['best']}\t{result['best_found']}\n")
 
-def run_cmd(opt: str, meta_data: List[dict]):
-  is_high = opt == "high"
+def run_cmd(opt: str, meta_data: List[dict], extra: str):
   core = 32
   pool = mp.Pool(core)
   args_list = list()
@@ -228,7 +255,7 @@ def run_cmd(opt: str, meta_data: List[dict]):
     # if is_high and not check_use_high_level(meta):
     #   continue
     rs = RunSingle(meta["id"])
-    cmd = rs.get_cmd(opt)
+    cmd = rs.get_cmd(opt, extra)
     if cmd is None:
       continue
     args_list.append((cmd, ROOT_DIR, f"{meta['bug_id']}.log", opt, f"{opt},{meta['subject']}/{meta['bug_id']}", meta))
@@ -241,7 +268,8 @@ def run_cmd(opt: str, meta_data: List[dict]):
 
 def main(argv: List[str]):
   parser = argparse.ArgumentParser(description="Run symvass experiments")
-  parser.add_argument("cmd", type=str, help="Command to run", choices=["exp", "high", "analyze", "final"], default="exp")
+  parser.add_argument("cmd", type=str, help="Command to run", choices=["exp", "high", "k2", "k2-high", "analyze", "final"], default="exp")
+  parser.add_argument("-e", "--extra", type=str, help="Subcommand", default="exp")
   parser.add_argument("-o", "--output", type=str, help="Output directory", default="out", required=False)
   parser.add_argument("-p", "--prefix", type=str, help="Output prefix", default="", required=False)
   parser.add_argument("-s", "--symvass-prefix", type=str, help="Symvass prefix", default="", required=False)
@@ -252,8 +280,9 @@ def main(argv: List[str]):
     PREFIX = args.prefix
   else:
     PREFIX = time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime())
-  if args.cmd == "high":
-    SYMVASS_PREFIX = "high"
+  if args.cmd == "exp":
+    if args.extra != "exp":
+      SYMVASS_PREFIX = args.extra
   if args.symvass_prefix != "":
     SYMVASS_PREFIX = args.symvass_prefix
   if args.cmd == "final":
@@ -263,7 +292,7 @@ def main(argv: List[str]):
     f.write(f"\n#{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
   meta_data = uni_klee.global_config.get_meta_data_list()
   print(f"Total meta data: {len(meta_data)}")
-  run_cmd(args.cmd, meta_data)
+  run_cmd(args.cmd, meta_data, args.extra)
 
 if __name__ == "__main__":
   main(sys.argv[1:])

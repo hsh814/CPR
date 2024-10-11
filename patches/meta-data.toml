@@ -186,9 +186,9 @@ target = "process_cu_tu_index"
   code = "(0)"
   id = "buggy"
   [meta_data.correct]
-  code = "(x > (y + z))"
-  id = "20-0"
-  no = 20
+  code = "((y + z) >= x)"
+  id = "33-0"
+  no = 33
 
 [[meta_data]]
 id = 13
@@ -443,9 +443,9 @@ target = "jpc_dec_process_siz"
   code = "(0)"
   id = "buggy"
   [meta_data.correct]
-  code = "((z / x) < y)"
-  id = "17-0"
-  no = 17
+  code = "(x <= y)"
+  id = "correct"
+  no = 18
 
 [[meta_data]]
 id = 29
