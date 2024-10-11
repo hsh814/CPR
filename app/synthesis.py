@@ -26,7 +26,7 @@ import multiprocessing as mp
 from threading import Lock
 from app import values
 logger = logging.getLogger(__name__)
-Formula = Union[pysmt.fnode.FNode]
+Formula = Union[pysmt.fnode.FNode, str]
 
 pool = mp.Pool(mp.cpu_count())
 synthesis_result_list = []
@@ -606,7 +606,7 @@ def verify(programs: Union[Dict[str, Program], Dict[str, Formula]],
     """
     vc = TRUE()
 
-    program_semantics = { lid:(program if isinstance(program, Formula) else program_to_formula(program))
+    program_semantics = { lid:(program if not isinstance(program, tuple) else program_to_formula(program))
                           for (lid, program) in programs.items() }
     free_variables = [v for p in program_semantics.values() for v in collect_symbols(p, ComponentSymbol.is_const)]
 
@@ -675,7 +675,7 @@ def verify_parallel(programs: Union[Dict[str, Program], Dict[str, Formula]],
     """
     vc = TRUE()
 
-    program_semantics = { lid:(program if isinstance(program, Formula) else program_to_formula(program))
+    program_semantics = { lid:(program if not isinstance(program, tuple) else program_to_formula(program))
                           for (lid, program) in programs.items() }
     #free_variables = [v for p in program_semantics.values() for v in collect_symbols(p, ComponentSymbol.is_const)]
 

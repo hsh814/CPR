@@ -1,8 +1,8 @@
 CC=gcc
-CFLAGS=-I $(KLEE_INCLUDE_PATH)
+CFLAGS=-I /root/projects/uni-klee/include # $(KLEE_INCLUDE_PATH)
 
-DEP = cpr_runtime.h
-SRC = cpr_runtime.c
+DEP = uni_klee_runtime.h
+SRC = uni_klee_runtime.c
 PROXY_C = cpr_proxy.c
 PROXY_OBJ = cpr_proxy.o
 OBJ_KLEE = $(SRC:%.c=%.o)

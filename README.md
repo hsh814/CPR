@@ -1,3 +1,26 @@
+# CPR Benchmark
+## Setup
+```shell
+# 0. Generate meta-data.json with scripts/meta.py (already done)
+# python3 scripts/meta.py
+# 1. Genenrate patches
+python3 scripts/sympatch.py concrete patches
+python3 scripts/sympatch.py meta patches
+# 2. Run test
+python3 scripts/symvass.py run 5321
+```
+
+## Test
+First, filter out patches that fails on test
+```shell
+python3 scripts/meta-program.py filter 5321
+```
+
+
+```shell
+python3 scripts/meta-test.py run 5321:0,1,2,3,4
+```
+
 [![Docker Pulls](https://img.shields.io/docker/pulls/rshariffdeen/cpr.svg)](https://hub.docker.com/r/rshariffdeen/cpr) [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.4668317.svg)](https://doi.org/10.5281/zenodo.4668317)
 
 # CPR - CardioPulmonary Resuscitation

@@ -20,10 +20,10 @@ ARG_START_ID = "--start-id="
 ARG_END_ID = "--end-id="
 ARG_SKIP_LIST = "--skip-list="
 
-CONF_DATA_PATH = "/data"
-CONF_TOOL_PATH = "/CPR"
+CONF_DATA_PATH = "/root/projects/CPR/data"
+CONF_TOOL_PATH = "/root/projects/CPR"
 CONF_TOOL_PARAMS = "--mode=2"
-CONF_TOOL_NAME = "pypy3 CPR.py"
+CONF_TOOL_NAME = "python3 CPR.py"
 CONF_DEBUG = False
 CONF_BUG_ID = None
 CONF_START_ID = None

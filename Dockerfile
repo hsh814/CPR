@@ -7,7 +7,7 @@ COPY --from=rshariffdeen/llvm:6.0.0 /opt/llvm-6/ /opt/llvm-6/
 COPY --from=rshariffdeen/klee:latest /klee/ /klee
 COPY --from=rshariffdeen/klee:latest /klee-uclibc /klee-uclibc
 
-ENV PATH "/opt/llvm-6/bin:/klee/build/bin:${PATH}"
+ENV PATH "/opt/llvm-6/bin:/root/projects/uni-klee/build/bin:${PATH}"
 ENV LLVM_COMPILER=clang
 
 RUN add-apt-repository -y ppa:pypy/ppa
@@ -39,11 +39,11 @@ RUN ln -s /z3/lib/libz3.so /usr/lib/
 ARG CACHEBUST=1
 RUN git clone https://github.com/rshariffdeen/CPR.git /CPR
 WORKDIR /CPR
-RUN cd lib && KLEE_INCLUDE_PATH=/klee/source/include make
+RUN cd lib && KLEE_INCLUDE_PATH=/root/projects/uni-klee/include make
 ENV DEBIAN_FRONTEND=dialog
 ENV CPR_CC=/CPR/tools/cpr-cc
 ENV CPR_CXX=/CPR/tools/cpr-cxx
-RUN cd /klee/build/lib; ar rcs libkleeRuntest.a libkleeRuntest.so.1.0
+RUN cd /root/projects/uni-klee/build/lib; ar rcs libkleeRuntest.a libkleeRuntest.so.1.0
 RUN python3 setup.py build_ext --inplace
 ENV PATH "/CPR/bin:${PATH}"
 RUN cpr --help; exit 0
