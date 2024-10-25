@@ -94,6 +94,10 @@ static char *infile;
 
 /* stat buf for input file.  */
 static struct stat in_stat_buf;
+#include <klee/klee.h>
+#ifndef CPR_OUTPUT
+#define CPR_OUTPUT(id, typestr, value) value
+#endif
 
 /* Descriptor on which output file is open.  */
 static int output_desc = -1;
@@ -592,7 +596,6 @@ closeout (FILE *fp, int fd, pid_t pid, char const *name)
 static bool
 cwrite (bool new_file_flag, const char *bp, size_t bytes)
 {
-return false;
   if (new_file_flag)
     {
       if (!bp && bytes == 0 && elide_empty_files)
@@ -980,11 +983,15 @@ bytes_chunk_extract (uintmax_t k, uintmax_t n, char *buf, size_t bufsize,
 
   assert (k && n && k <= n && n <= file_size);
 
-  start = (k - 1) * (file_size / n) + ((bufsize) - (bufsize) + (end) - (end) + (file_size) - (file_size) + (k) - (k) + (n) - (n) + (start) - (start));
+  start = (k - 1) * (file_size / n);
   end = (k == n) ? file_size : k * (file_size / n);
 
-  if (initial_read != SIZE_MAX || start < initial_read)
+
+if(__cpr_choice("L290", "bool", (long long[]){start, initial_read, bufsize}, (char*[]){"start","initial_read", "bufsize"}, 3, (int*[]){}, (char*[]){}, 0))
     {
+CPR_OUTPUT("obs", "i32", initial_read - start);
+
+klee_assert(initial_read > start);
       memmove (buf, buf + start, initial_read - start);
       initial_read -= start;
     }
@@ -1281,12 +1288,10 @@ parse_chunk (uintmax_t *k_units, uintmax_t *n_units, char *slash)
     }
 }
 
-#include "/root/projects/CPR/lib/argv-fuzz-inl.h"
 
 int
 main (int argc, char **argv)
 {
-AFL_INIT_SET02("./split", "/root/projects/CPR/patches/extractfix/coreutils/gnubug-25003/dummy");
   enum Split_type split_type = type_undef;
   size_t in_blk_size = 0;	/* optimal block size of input file device */
   size_t page_size = getpagesize ();

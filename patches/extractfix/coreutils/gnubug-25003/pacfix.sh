@@ -57,5 +57,4 @@ pushd dafl_source
   make CFLAGS="-Wno-error -fsanitize=address -fsanitize=undefined -g" CXXFLAGS="-Wno-error -fsanitize=address -fsanitize=undefined -g" -j 10
 popd
 
-cp raw_build/src/split ./split
 cp dafl_source/src/split ./split.instrumented
