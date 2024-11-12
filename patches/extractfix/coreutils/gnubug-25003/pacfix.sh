@@ -41,12 +41,14 @@ rm -rf sparrow-out && mkdir sparrow-out
 /root/projects/sparrow/bin/sparrow -outdir ./sparrow-out \
 -frontend "clang" -unsound_alloc -unsound_const_string -unsound_recursion -unsound_noreturn_function \
 -unsound_skip_global_array_init 1000 -skip_main_analysis -cut_cyclic_call -unwrap_alloc \
--entry_point "main" -max_pre_iter 10 -slice "bug=split.c:983" \
+-entry_point "main" -max_pre_iter 10 -slice "bug=split.c:986" \
 ./smake_source/sparrow/src/split/*.i
 
+
+cp split.orig.c source/src/split.c
 rm -rf dafl_source && mkdir dafl_source
 pushd dafl_source
-  DAFL_SELECTIVE_COV="/root/projects/CPR/patches/extractfix/coreutils/gnubug-25003/sparrow-out/bug/slice_func.txt" \
+  FORCE_UNSAFE_CONFIGURE=1 DAFL_SELECTIVE_COV="/root/projects/CPR/patches/extractfix/coreutils/gnubug-25003/sparrow-out/bug/slice_func.txt" \
   DAFL_DFG_SCORE="/root/projects/CPR/patches/extractfix/coreutils/gnubug-25003/sparrow-out/bug/slice_dfg.txt" \
   ASAN_OPTIONS=detect_leaks=0 CC=/root/projects/DAFL/afl-clang-fast CXX=/root/projects/DAFL/afl-clang-fast++ \
   ../source/configure

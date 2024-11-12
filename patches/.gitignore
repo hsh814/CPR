@@ -12,10 +12,13 @@ concrete/
 */*/*/source
 */*/*/patched
 */*/*/pacfix
+*/*/*/pc-src
+*/*/*/pc-runtime
 */*/*/*-bak
 */*/*/repair-out
 */*/*/runtime
 */*/*/smake_source
 */*/*/sparrow-out
 */*/*/dafl*
+*/*/*/*.instrumented
 !concrete.tar.gz

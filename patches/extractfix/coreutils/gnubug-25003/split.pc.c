@@ -986,7 +986,2040 @@ bytes_chunk_extract (uintmax_t k, uintmax_t n, char *buf, size_t bufsize,
   start = (k - 1) * (file_size / n);
   end = (k == n) ? file_size : k * (file_size / n);
 
-
+	int uni_klee_pc;
+	klee_make_symbolic(&uni_klee_pc, sizeof(uni_klee_pc), "uni_klee_pc");
+	if (uni_klee_pc == 0) {
+		klee_assume((end == 0));
+		exit(0);
+	}
+	if (uni_klee_pc == 1) {
+		klee_assume((start == 0));
+		exit(0);
+	}
+	if (uni_klee_pc == 2) {
+		klee_assume((bufsize != 0));
+		exit(0);
+	}
+	if (uni_klee_pc == 3) {
+		klee_assume((file_size != 0));
+		exit(0);
+	}
+	if (uni_klee_pc == 4) {
+		klee_assume((k != 0));
+		exit(0);
+	}
+	if (uni_klee_pc == 5) {
+		klee_assume((n != 0));
+		exit(0);
+	}
+	if (uni_klee_pc == 6) {
+		klee_assume((bufsize != -10));
+		exit(0);
+	}
+	if (uni_klee_pc == 7) {
+		klee_assume((bufsize != -9));
+		exit(0);
+	}
+	if (uni_klee_pc == 8) {
+		klee_assume((bufsize != -8));
+		exit(0);
+	}
+	if (uni_klee_pc == 9) {
+		klee_assume((bufsize != -7));
+		exit(0);
+	}
+	if (uni_klee_pc == 10) {
+		klee_assume((bufsize != -6));
+		exit(0);
+	}
+	if (uni_klee_pc == 11) {
+		klee_assume((bufsize != -5));
+		exit(0);
+	}
+	if (uni_klee_pc == 12) {
+		klee_assume((bufsize != -4));
+		exit(0);
+	}
+	if (uni_klee_pc == 13) {
+		klee_assume((bufsize != -3));
+		exit(0);
+	}
+	if (uni_klee_pc == 14) {
+		klee_assume((bufsize != -2));
+		exit(0);
+	}
+	if (uni_klee_pc == 15) {
+		klee_assume((bufsize != -1));
+		exit(0);
+	}
+	if (uni_klee_pc == 16) {
+		klee_assume((bufsize != 1));
+		exit(0);
+	}
+	if (uni_klee_pc == 17) {
+		klee_assume((bufsize != 2));
+		exit(0);
+	}
+	if (uni_klee_pc == 18) {
+		klee_assume((bufsize != 3));
+		exit(0);
+	}
+	if (uni_klee_pc == 19) {
+		klee_assume((bufsize != 4));
+		exit(0);
+	}
+	if (uni_klee_pc == 20) {
+		klee_assume((bufsize != 5));
+		exit(0);
+	}
+	if (uni_klee_pc == 21) {
+		klee_assume((bufsize != 6));
+		exit(0);
+	}
+	if (uni_klee_pc == 22) {
+		klee_assume((bufsize != 7));
+		exit(0);
+	}
+	if (uni_klee_pc == 23) {
+		klee_assume((bufsize != 8));
+		exit(0);
+	}
+	if (uni_klee_pc == 24) {
+		klee_assume((bufsize != 9));
+		exit(0);
+	}
+	if (uni_klee_pc == 25) {
+		klee_assume((bufsize != 10));
+		exit(0);
+	}
+	if (uni_klee_pc == 26) {
+		klee_assume((bufsize != 16));
+		exit(0);
+	}
+	if (uni_klee_pc == 27) {
+		klee_assume((bufsize != 32));
+		exit(0);
+	}
+	if (uni_klee_pc == 28) {
+		klee_assume((bufsize != 64));
+		exit(0);
+	}
+	if (uni_klee_pc == 29) {
+		klee_assume((bufsize != 128));
+		exit(0);
+	}
+	if (uni_klee_pc == 30) {
+		klee_assume((bufsize != 256));
+		exit(0);
+	}
+	if (uni_klee_pc == 31) {
+		klee_assume((bufsize != 512));
+		exit(0);
+	}
+	if (uni_klee_pc == 32) {
+		klee_assume((bufsize != 1024));
+		exit(0);
+	}
+	if (uni_klee_pc == 33) {
+		klee_assume((bufsize != 2147483647));
+		exit(0);
+	}
+	if (uni_klee_pc == 34) {
+		klee_assume((bufsize != 4294967295));
+		exit(0);
+	}
+	if (uni_klee_pc == 35) {
+		klee_assume((end != -10));
+		exit(0);
+	}
+	if (uni_klee_pc == 36) {
+		klee_assume((end != -9));
+		exit(0);
+	}
+	if (uni_klee_pc == 37) {
+		klee_assume((end != -8));
+		exit(0);
+	}
+	if (uni_klee_pc == 38) {
+		klee_assume((end != -7));
+		exit(0);
+	}
+	if (uni_klee_pc == 39) {
+		klee_assume((end != -6));
+		exit(0);
+	}
+	if (uni_klee_pc == 40) {
+		klee_assume((end != -5));
+		exit(0);
+	}
+	if (uni_klee_pc == 41) {
+		klee_assume((end != -4));
+		exit(0);
+	}
+	if (uni_klee_pc == 42) {
+		klee_assume((end != -3));
+		exit(0);
+	}
+	if (uni_klee_pc == 43) {
+		klee_assume((end != -2));
+		exit(0);
+	}
+	if (uni_klee_pc == 44) {
+		klee_assume((end != -1));
+		exit(0);
+	}
+	if (uni_klee_pc == 45) {
+		klee_assume((end != 1));
+		exit(0);
+	}
+	if (uni_klee_pc == 46) {
+		klee_assume((end != 2));
+		exit(0);
+	}
+	if (uni_klee_pc == 47) {
+		klee_assume((end != 3));
+		exit(0);
+	}
+	if (uni_klee_pc == 48) {
+		klee_assume((end != 4));
+		exit(0);
+	}
+	if (uni_klee_pc == 49) {
+		klee_assume((end != 5));
+		exit(0);
+	}
+	if (uni_klee_pc == 50) {
+		klee_assume((end != 6));
+		exit(0);
+	}
+	if (uni_klee_pc == 51) {
+		klee_assume((end != 7));
+		exit(0);
+	}
+	if (uni_klee_pc == 52) {
+		klee_assume((end != 8));
+		exit(0);
+	}
+	if (uni_klee_pc == 53) {
+		klee_assume((end != 9));
+		exit(0);
+	}
+	if (uni_klee_pc == 54) {
+		klee_assume((end != 10));
+		exit(0);
+	}
+	if (uni_klee_pc == 55) {
+		klee_assume((end != 16));
+		exit(0);
+	}
+	if (uni_klee_pc == 56) {
+		klee_assume((end != 32));
+		exit(0);
+	}
+	if (uni_klee_pc == 57) {
+		klee_assume((end != 64));
+		exit(0);
+	}
+	if (uni_klee_pc == 58) {
+		klee_assume((end != 128));
+		exit(0);
+	}
+	if (uni_klee_pc == 59) {
+		klee_assume((end != 256));
+		exit(0);
+	}
+	if (uni_klee_pc == 60) {
+		klee_assume((end != 512));
+		exit(0);
+	}
+	if (uni_klee_pc == 61) {
+		klee_assume((end != 1024));
+		exit(0);
+	}
+	if (uni_klee_pc == 62) {
+		klee_assume((end != 2147483647));
+		exit(0);
+	}
+	if (uni_klee_pc == 63) {
+		klee_assume((end != 4294967295));
+		exit(0);
+	}
+	if (uni_klee_pc == 64) {
+		klee_assume((file_size != -10));
+		exit(0);
+	}
+	if (uni_klee_pc == 65) {
+		klee_assume((file_size != -9));
+		exit(0);
+	}
+	if (uni_klee_pc == 66) {
+		klee_assume((file_size != -8));
+		exit(0);
+	}
+	if (uni_klee_pc == 67) {
+		klee_assume((file_size != -7));
+		exit(0);
+	}
+	if (uni_klee_pc == 68) {
+		klee_assume((file_size != -6));
+		exit(0);
+	}
+	if (uni_klee_pc == 69) {
+		klee_assume((file_size != -5));
+		exit(0);
+	}
+	if (uni_klee_pc == 70) {
+		klee_assume((file_size != -4));
+		exit(0);
+	}
+	if (uni_klee_pc == 71) {
+		klee_assume((file_size != -3));
+		exit(0);
+	}
+	if (uni_klee_pc == 72) {
+		klee_assume((file_size != -2));
+		exit(0);
+	}
+	if (uni_klee_pc == 73) {
+		klee_assume((file_size != -1));
+		exit(0);
+	}
+	if (uni_klee_pc == 74) {
+		klee_assume((file_size != 1));
+		exit(0);
+	}
+	if (uni_klee_pc == 75) {
+		klee_assume((file_size != 2));
+		exit(0);
+	}
+	if (uni_klee_pc == 76) {
+		klee_assume((file_size != 3));
+		exit(0);
+	}
+	if (uni_klee_pc == 77) {
+		klee_assume((file_size != 4));
+		exit(0);
+	}
+	if (uni_klee_pc == 78) {
+		klee_assume((file_size != 5));
+		exit(0);
+	}
+	if (uni_klee_pc == 79) {
+		klee_assume((file_size != 6));
+		exit(0);
+	}
+	if (uni_klee_pc == 80) {
+		klee_assume((file_size != 8));
+		exit(0);
+	}
+	if (uni_klee_pc == 81) {
+		klee_assume((file_size != 9));
+		exit(0);
+	}
+	if (uni_klee_pc == 82) {
+		klee_assume((file_size != 10));
+		exit(0);
+	}
+	if (uni_klee_pc == 83) {
+		klee_assume((file_size != 16));
+		exit(0);
+	}
+	if (uni_klee_pc == 84) {
+		klee_assume((file_size != 32));
+		exit(0);
+	}
+	if (uni_klee_pc == 85) {
+		klee_assume((file_size != 64));
+		exit(0);
+	}
+	if (uni_klee_pc == 86) {
+		klee_assume((file_size != 128));
+		exit(0);
+	}
+	if (uni_klee_pc == 87) {
+		klee_assume((file_size != 256));
+		exit(0);
+	}
+	if (uni_klee_pc == 88) {
+		klee_assume((file_size != 512));
+		exit(0);
+	}
+	if (uni_klee_pc == 89) {
+		klee_assume((file_size != 1024));
+		exit(0);
+	}
+	if (uni_klee_pc == 90) {
+		klee_assume((file_size != 2147483647));
+		exit(0);
+	}
+	if (uni_klee_pc == 91) {
+		klee_assume((file_size != 4294967295));
+		exit(0);
+	}
+	if (uni_klee_pc == 92) {
+		klee_assume((k != -10));
+		exit(0);
+	}
+	if (uni_klee_pc == 93) {
+		klee_assume((k != -9));
+		exit(0);
+	}
+	if (uni_klee_pc == 94) {
+		klee_assume((k != -8));
+		exit(0);
+	}
+	if (uni_klee_pc == 95) {
+		klee_assume((k != -7));
+		exit(0);
+	}
+	if (uni_klee_pc == 96) {
+		klee_assume((k != -6));
+		exit(0);
+	}
+	if (uni_klee_pc == 97) {
+		klee_assume((k != -5));
+		exit(0);
+	}
+	if (uni_klee_pc == 98) {
+		klee_assume((k != -4));
+		exit(0);
+	}
+	if (uni_klee_pc == 99) {
+		klee_assume((k != -3));
+		exit(0);
+	}
+	if (uni_klee_pc == 100) {
+		klee_assume((k != -2));
+		exit(0);
+	}
+	if (uni_klee_pc == 101) {
+		klee_assume((k != -1));
+		exit(0);
+	}
+	if (uni_klee_pc == 102) {
+		klee_assume((k != 10));
+		exit(0);
+	}
+	if (uni_klee_pc == 103) {
+		klee_assume((k != 16));
+		exit(0);
+	}
+	if (uni_klee_pc == 104) {
+		klee_assume((k != 32));
+		exit(0);
+	}
+	if (uni_klee_pc == 105) {
+		klee_assume((k != 64));
+		exit(0);
+	}
+	if (uni_klee_pc == 106) {
+		klee_assume((k != 128));
+		exit(0);
+	}
+	if (uni_klee_pc == 107) {
+		klee_assume((k != 256));
+		exit(0);
+	}
+	if (uni_klee_pc == 108) {
+		klee_assume((k != 512));
+		exit(0);
+	}
+	if (uni_klee_pc == 109) {
+		klee_assume((k != 1024));
+		exit(0);
+	}
+	if (uni_klee_pc == 110) {
+		klee_assume((k != 2147483647));
+		exit(0);
+	}
+	if (uni_klee_pc == 111) {
+		klee_assume((k != 4294967295));
+		exit(0);
+	}
+	if (uni_klee_pc == 112) {
+		klee_assume((n != -10));
+		exit(0);
+	}
+	if (uni_klee_pc == 113) {
+		klee_assume((n != -9));
+		exit(0);
+	}
+	if (uni_klee_pc == 114) {
+		klee_assume((n != -8));
+		exit(0);
+	}
+	if (uni_klee_pc == 115) {
+		klee_assume((n != -7));
+		exit(0);
+	}
+	if (uni_klee_pc == 116) {
+		klee_assume((n != -6));
+		exit(0);
+	}
+	if (uni_klee_pc == 117) {
+		klee_assume((n != -5));
+		exit(0);
+	}
+	if (uni_klee_pc == 118) {
+		klee_assume((n != -4));
+		exit(0);
+	}
+	if (uni_klee_pc == 119) {
+		klee_assume((n != -3));
+		exit(0);
+	}
+	if (uni_klee_pc == 120) {
+		klee_assume((n != -2));
+		exit(0);
+	}
+	if (uni_klee_pc == 121) {
+		klee_assume((n != -1));
+		exit(0);
+	}
+	if (uni_klee_pc == 122) {
+		klee_assume((n != 1));
+		exit(0);
+	}
+	if (uni_klee_pc == 123) {
+		klee_assume((n != 2));
+		exit(0);
+	}
+	if (uni_klee_pc == 124) {
+		klee_assume((n != 3));
+		exit(0);
+	}
+	if (uni_klee_pc == 125) {
+		klee_assume((n != 4));
+		exit(0);
+	}
+	if (uni_klee_pc == 126) {
+		klee_assume((n != 5));
+		exit(0);
+	}
+	if (uni_klee_pc == 127) {
+		klee_assume((n != 6));
+		exit(0);
+	}
+	if (uni_klee_pc == 128) {
+		klee_assume((n != 8));
+		exit(0);
+	}
+	if (uni_klee_pc == 129) {
+		klee_assume((n != 9));
+		exit(0);
+	}
+	if (uni_klee_pc == 130) {
+		klee_assume((n != 10));
+		exit(0);
+	}
+	if (uni_klee_pc == 131) {
+		klee_assume((n != 16));
+		exit(0);
+	}
+	if (uni_klee_pc == 132) {
+		klee_assume((n != 32));
+		exit(0);
+	}
+	if (uni_klee_pc == 133) {
+		klee_assume((n != 64));
+		exit(0);
+	}
+	if (uni_klee_pc == 134) {
+		klee_assume((n != 128));
+		exit(0);
+	}
+	if (uni_klee_pc == 135) {
+		klee_assume((n != 256));
+		exit(0);
+	}
+	if (uni_klee_pc == 136) {
+		klee_assume((n != 512));
+		exit(0);
+	}
+	if (uni_klee_pc == 137) {
+		klee_assume((n != 1024));
+		exit(0);
+	}
+	if (uni_klee_pc == 138) {
+		klee_assume((n != 2147483647));
+		exit(0);
+	}
+	if (uni_klee_pc == 139) {
+		klee_assume((n != 4294967295));
+		exit(0);
+	}
+	if (uni_klee_pc == 140) {
+		klee_assume((start != -10));
+		exit(0);
+	}
+	if (uni_klee_pc == 141) {
+		klee_assume((start != -9));
+		exit(0);
+	}
+	if (uni_klee_pc == 142) {
+		klee_assume((start != -8));
+		exit(0);
+	}
+	if (uni_klee_pc == 143) {
+		klee_assume((start != -7));
+		exit(0);
+	}
+	if (uni_klee_pc == 144) {
+		klee_assume((start != -6));
+		exit(0);
+	}
+	if (uni_klee_pc == 145) {
+		klee_assume((start != -5));
+		exit(0);
+	}
+	if (uni_klee_pc == 146) {
+		klee_assume((start != -4));
+		exit(0);
+	}
+	if (uni_klee_pc == 147) {
+		klee_assume((start != -3));
+		exit(0);
+	}
+	if (uni_klee_pc == 148) {
+		klee_assume((start != -2));
+		exit(0);
+	}
+	if (uni_klee_pc == 149) {
+		klee_assume((start != -1));
+		exit(0);
+	}
+	if (uni_klee_pc == 150) {
+		klee_assume((start != 1));
+		exit(0);
+	}
+	if (uni_klee_pc == 151) {
+		klee_assume((start != 2));
+		exit(0);
+	}
+	if (uni_klee_pc == 152) {
+		klee_assume((start != 3));
+		exit(0);
+	}
+	if (uni_klee_pc == 153) {
+		klee_assume((start != 4));
+		exit(0);
+	}
+	if (uni_klee_pc == 154) {
+		klee_assume((start != 5));
+		exit(0);
+	}
+	if (uni_klee_pc == 155) {
+		klee_assume((start != 6));
+		exit(0);
+	}
+	if (uni_klee_pc == 156) {
+		klee_assume((start != 7));
+		exit(0);
+	}
+	if (uni_klee_pc == 157) {
+		klee_assume((start != 8));
+		exit(0);
+	}
+	if (uni_klee_pc == 158) {
+		klee_assume((start != 9));
+		exit(0);
+	}
+	if (uni_klee_pc == 159) {
+		klee_assume((start != 10));
+		exit(0);
+	}
+	if (uni_klee_pc == 160) {
+		klee_assume((start != 16));
+		exit(0);
+	}
+	if (uni_klee_pc == 161) {
+		klee_assume((start != 32));
+		exit(0);
+	}
+	if (uni_klee_pc == 162) {
+		klee_assume((start != 64));
+		exit(0);
+	}
+	if (uni_klee_pc == 163) {
+		klee_assume((start != 128));
+		exit(0);
+	}
+	if (uni_klee_pc == 164) {
+		klee_assume((start != 256));
+		exit(0);
+	}
+	if (uni_klee_pc == 165) {
+		klee_assume((start != 512));
+		exit(0);
+	}
+	if (uni_klee_pc == 166) {
+		klee_assume((start != 1024));
+		exit(0);
+	}
+	if (uni_klee_pc == 167) {
+		klee_assume((start != 2147483647));
+		exit(0);
+	}
+	if (uni_klee_pc == 168) {
+		klee_assume((start != 4294967295));
+		exit(0);
+	}
+	if (uni_klee_pc == 169) {
+		klee_assume((bufsize >= -10));
+		exit(0);
+	}
+	if (uni_klee_pc == 170) {
+		klee_assume((bufsize >= -9));
+		exit(0);
+	}
+	if (uni_klee_pc == 171) {
+		klee_assume((bufsize >= -8));
+		exit(0);
+	}
+	if (uni_klee_pc == 172) {
+		klee_assume((bufsize >= -7));
+		exit(0);
+	}
+	if (uni_klee_pc == 173) {
+		klee_assume((bufsize >= -6));
+		exit(0);
+	}
+	if (uni_klee_pc == 174) {
+		klee_assume((bufsize >= -5));
+		exit(0);
+	}
+	if (uni_klee_pc == 175) {
+		klee_assume((bufsize >= -4));
+		exit(0);
+	}
+	if (uni_klee_pc == 176) {
+		klee_assume((bufsize >= -3));
+		exit(0);
+	}
+	if (uni_klee_pc == 177) {
+		klee_assume((bufsize >= -2));
+		exit(0);
+	}
+	if (uni_klee_pc == 178) {
+		klee_assume((bufsize >= -1));
+		exit(0);
+	}
+	if (uni_klee_pc == 179) {
+		klee_assume((bufsize >= 0));
+		exit(0);
+	}
+	if (uni_klee_pc == 180) {
+		klee_assume((bufsize >= 1));
+		exit(0);
+	}
+	if (uni_klee_pc == 181) {
+		klee_assume((bufsize >= 2));
+		exit(0);
+	}
+	if (uni_klee_pc == 182) {
+		klee_assume((bufsize >= 3));
+		exit(0);
+	}
+	if (uni_klee_pc == 183) {
+		klee_assume((bufsize >= 4));
+		exit(0);
+	}
+	if (uni_klee_pc == 184) {
+		klee_assume((bufsize >= 5));
+		exit(0);
+	}
+	if (uni_klee_pc == 185) {
+		klee_assume((bufsize >= 6));
+		exit(0);
+	}
+	if (uni_klee_pc == 186) {
+		klee_assume((bufsize >= 7));
+		exit(0);
+	}
+	if (uni_klee_pc == 187) {
+		klee_assume((bufsize >= 8));
+		exit(0);
+	}
+	if (uni_klee_pc == 188) {
+		klee_assume((bufsize >= 9));
+		exit(0);
+	}
+	if (uni_klee_pc == 189) {
+		klee_assume((bufsize >= 10));
+		exit(0);
+	}
+	if (uni_klee_pc == 190) {
+		klee_assume((bufsize >= 16));
+		exit(0);
+	}
+	if (uni_klee_pc == 191) {
+		klee_assume((bufsize >= 32));
+		exit(0);
+	}
+	if (uni_klee_pc == 192) {
+		klee_assume((bufsize >= 64));
+		exit(0);
+	}
+	if (uni_klee_pc == 193) {
+		klee_assume((bufsize >= 128));
+		exit(0);
+	}
+	if (uni_klee_pc == 194) {
+		klee_assume((bufsize >= 256));
+		exit(0);
+	}
+	if (uni_klee_pc == 195) {
+		klee_assume((bufsize >= 512));
+		exit(0);
+	}
+	if (uni_klee_pc == 196) {
+		klee_assume((bufsize >= 1024));
+		exit(0);
+	}
+	if (uni_klee_pc == 197) {
+		klee_assume((end >= -10));
+		exit(0);
+	}
+	if (uni_klee_pc == 198) {
+		klee_assume((end >= -9));
+		exit(0);
+	}
+	if (uni_klee_pc == 199) {
+		klee_assume((end >= -8));
+		exit(0);
+	}
+	if (uni_klee_pc == 200) {
+		klee_assume((end >= -7));
+		exit(0);
+	}
+	if (uni_klee_pc == 201) {
+		klee_assume((end >= -6));
+		exit(0);
+	}
+	if (uni_klee_pc == 202) {
+		klee_assume((end >= -5));
+		exit(0);
+	}
+	if (uni_klee_pc == 203) {
+		klee_assume((end >= -4));
+		exit(0);
+	}
+	if (uni_klee_pc == 204) {
+		klee_assume((end >= -3));
+		exit(0);
+	}
+	if (uni_klee_pc == 205) {
+		klee_assume((end >= -2));
+		exit(0);
+	}
+	if (uni_klee_pc == 206) {
+		klee_assume((end >= -1));
+		exit(0);
+	}
+	if (uni_klee_pc == 207) {
+		klee_assume((end >= 0));
+		exit(0);
+	}
+	if (uni_klee_pc == 208) {
+		klee_assume((file_size >= -10));
+		exit(0);
+	}
+	if (uni_klee_pc == 209) {
+		klee_assume((file_size >= -9));
+		exit(0);
+	}
+	if (uni_klee_pc == 210) {
+		klee_assume((file_size >= -8));
+		exit(0);
+	}
+	if (uni_klee_pc == 211) {
+		klee_assume((file_size >= -7));
+		exit(0);
+	}
+	if (uni_klee_pc == 212) {
+		klee_assume((file_size >= -6));
+		exit(0);
+	}
+	if (uni_klee_pc == 213) {
+		klee_assume((file_size >= -5));
+		exit(0);
+	}
+	if (uni_klee_pc == 214) {
+		klee_assume((file_size >= -4));
+		exit(0);
+	}
+	if (uni_klee_pc == 215) {
+		klee_assume((file_size >= -3));
+		exit(0);
+	}
+	if (uni_klee_pc == 216) {
+		klee_assume((file_size >= -2));
+		exit(0);
+	}
+	if (uni_klee_pc == 217) {
+		klee_assume((file_size >= -1));
+		exit(0);
+	}
+	if (uni_klee_pc == 218) {
+		klee_assume((file_size >= 0));
+		exit(0);
+	}
+	if (uni_klee_pc == 219) {
+		klee_assume((file_size >= 1));
+		exit(0);
+	}
+	if (uni_klee_pc == 220) {
+		klee_assume((file_size >= 2));
+		exit(0);
+	}
+	if (uni_klee_pc == 221) {
+		klee_assume((file_size >= 3));
+		exit(0);
+	}
+	if (uni_klee_pc == 222) {
+		klee_assume((file_size >= 4));
+		exit(0);
+	}
+	if (uni_klee_pc == 223) {
+		klee_assume((file_size >= 5));
+		exit(0);
+	}
+	if (uni_klee_pc == 224) {
+		klee_assume((file_size >= 6));
+		exit(0);
+	}
+	if (uni_klee_pc == 225) {
+		klee_assume((file_size >= 7));
+		exit(0);
+	}
+	if (uni_klee_pc == 226) {
+		klee_assume((k >= -10));
+		exit(0);
+	}
+	if (uni_klee_pc == 227) {
+		klee_assume((k >= -9));
+		exit(0);
+	}
+	if (uni_klee_pc == 228) {
+		klee_assume((k >= -8));
+		exit(0);
+	}
+	if (uni_klee_pc == 229) {
+		klee_assume((k >= -7));
+		exit(0);
+	}
+	if (uni_klee_pc == 230) {
+		klee_assume((k >= -6));
+		exit(0);
+	}
+	if (uni_klee_pc == 231) {
+		klee_assume((k >= -5));
+		exit(0);
+	}
+	if (uni_klee_pc == 232) {
+		klee_assume((k >= -4));
+		exit(0);
+	}
+	if (uni_klee_pc == 233) {
+		klee_assume((k >= -3));
+		exit(0);
+	}
+	if (uni_klee_pc == 234) {
+		klee_assume((k >= -2));
+		exit(0);
+	}
+	if (uni_klee_pc == 235) {
+		klee_assume((k >= -1));
+		exit(0);
+	}
+	if (uni_klee_pc == 236) {
+		klee_assume((k >= 0));
+		exit(0);
+	}
+	if (uni_klee_pc == 237) {
+		klee_assume((k >= 1));
+		exit(0);
+	}
+	if (uni_klee_pc == 238) {
+		klee_assume((n >= -10));
+		exit(0);
+	}
+	if (uni_klee_pc == 239) {
+		klee_assume((n >= -9));
+		exit(0);
+	}
+	if (uni_klee_pc == 240) {
+		klee_assume((n >= -8));
+		exit(0);
+	}
+	if (uni_klee_pc == 241) {
+		klee_assume((n >= -7));
+		exit(0);
+	}
+	if (uni_klee_pc == 242) {
+		klee_assume((n >= -6));
+		exit(0);
+	}
+	if (uni_klee_pc == 243) {
+		klee_assume((n >= -5));
+		exit(0);
+	}
+	if (uni_klee_pc == 244) {
+		klee_assume((n >= -4));
+		exit(0);
+	}
+	if (uni_klee_pc == 245) {
+		klee_assume((n >= -3));
+		exit(0);
+	}
+	if (uni_klee_pc == 246) {
+		klee_assume((n >= -2));
+		exit(0);
+	}
+	if (uni_klee_pc == 247) {
+		klee_assume((n >= -1));
+		exit(0);
+	}
+	if (uni_klee_pc == 248) {
+		klee_assume((n >= 0));
+		exit(0);
+	}
+	if (uni_klee_pc == 249) {
+		klee_assume((n >= 1));
+		exit(0);
+	}
+	if (uni_klee_pc == 250) {
+		klee_assume((n >= 2));
+		exit(0);
+	}
+	if (uni_klee_pc == 251) {
+		klee_assume((n >= 3));
+		exit(0);
+	}
+	if (uni_klee_pc == 252) {
+		klee_assume((n >= 4));
+		exit(0);
+	}
+	if (uni_klee_pc == 253) {
+		klee_assume((n >= 5));
+		exit(0);
+	}
+	if (uni_klee_pc == 254) {
+		klee_assume((n >= 6));
+		exit(0);
+	}
+	if (uni_klee_pc == 255) {
+		klee_assume((n >= 7));
+		exit(0);
+	}
+	if (uni_klee_pc == 256) {
+		klee_assume((start >= -10));
+		exit(0);
+	}
+	if (uni_klee_pc == 257) {
+		klee_assume((start >= -9));
+		exit(0);
+	}
+	if (uni_klee_pc == 258) {
+		klee_assume((start >= -8));
+		exit(0);
+	}
+	if (uni_klee_pc == 259) {
+		klee_assume((start >= -7));
+		exit(0);
+	}
+	if (uni_klee_pc == 260) {
+		klee_assume((start >= -6));
+		exit(0);
+	}
+	if (uni_klee_pc == 261) {
+		klee_assume((start >= -5));
+		exit(0);
+	}
+	if (uni_klee_pc == 262) {
+		klee_assume((start >= -4));
+		exit(0);
+	}
+	if (uni_klee_pc == 263) {
+		klee_assume((start >= -3));
+		exit(0);
+	}
+	if (uni_klee_pc == 264) {
+		klee_assume((start >= -2));
+		exit(0);
+	}
+	if (uni_klee_pc == 265) {
+		klee_assume((start >= -1));
+		exit(0);
+	}
+	if (uni_klee_pc == 266) {
+		klee_assume((start >= 0));
+		exit(0);
+	}
+	if (uni_klee_pc == 267) {
+		klee_assume((bufsize <= 2147483647));
+		exit(0);
+	}
+	if (uni_klee_pc == 268) {
+		klee_assume((bufsize <= 4294967295));
+		exit(0);
+	}
+	if (uni_klee_pc == 269) {
+		klee_assume((end <= 0));
+		exit(0);
+	}
+	if (uni_klee_pc == 270) {
+		klee_assume((end <= 1));
+		exit(0);
+	}
+	if (uni_klee_pc == 271) {
+		klee_assume((end <= 2));
+		exit(0);
+	}
+	if (uni_klee_pc == 272) {
+		klee_assume((end <= 3));
+		exit(0);
+	}
+	if (uni_klee_pc == 273) {
+		klee_assume((end <= 4));
+		exit(0);
+	}
+	if (uni_klee_pc == 274) {
+		klee_assume((end <= 5));
+		exit(0);
+	}
+	if (uni_klee_pc == 275) {
+		klee_assume((end <= 6));
+		exit(0);
+	}
+	if (uni_klee_pc == 276) {
+		klee_assume((end <= 7));
+		exit(0);
+	}
+	if (uni_klee_pc == 277) {
+		klee_assume((end <= 8));
+		exit(0);
+	}
+	if (uni_klee_pc == 278) {
+		klee_assume((end <= 9));
+		exit(0);
+	}
+	if (uni_klee_pc == 279) {
+		klee_assume((end <= 10));
+		exit(0);
+	}
+	if (uni_klee_pc == 280) {
+		klee_assume((end <= 16));
+		exit(0);
+	}
+	if (uni_klee_pc == 281) {
+		klee_assume((end <= 32));
+		exit(0);
+	}
+	if (uni_klee_pc == 282) {
+		klee_assume((end <= 64));
+		exit(0);
+	}
+	if (uni_klee_pc == 283) {
+		klee_assume((end <= 128));
+		exit(0);
+	}
+	if (uni_klee_pc == 284) {
+		klee_assume((end <= 256));
+		exit(0);
+	}
+	if (uni_klee_pc == 285) {
+		klee_assume((end <= 512));
+		exit(0);
+	}
+	if (uni_klee_pc == 286) {
+		klee_assume((end <= 1024));
+		exit(0);
+	}
+	if (uni_klee_pc == 287) {
+		klee_assume((end <= 2147483647));
+		exit(0);
+	}
+	if (uni_klee_pc == 288) {
+		klee_assume((end <= 4294967295));
+		exit(0);
+	}
+	if (uni_klee_pc == 289) {
+		klee_assume((file_size <= 2147483647));
+		exit(0);
+	}
+	if (uni_klee_pc == 290) {
+		klee_assume((file_size <= 4294967295));
+		exit(0);
+	}
+	if (uni_klee_pc == 291) {
+		klee_assume((k <= 9));
+		exit(0);
+	}
+	if (uni_klee_pc == 292) {
+		klee_assume((k <= 10));
+		exit(0);
+	}
+	if (uni_klee_pc == 293) {
+		klee_assume((k <= 16));
+		exit(0);
+	}
+	if (uni_klee_pc == 294) {
+		klee_assume((k <= 32));
+		exit(0);
+	}
+	if (uni_klee_pc == 295) {
+		klee_assume((k <= 64));
+		exit(0);
+	}
+	if (uni_klee_pc == 296) {
+		klee_assume((k <= 128));
+		exit(0);
+	}
+	if (uni_klee_pc == 297) {
+		klee_assume((k <= 256));
+		exit(0);
+	}
+	if (uni_klee_pc == 298) {
+		klee_assume((k <= 512));
+		exit(0);
+	}
+	if (uni_klee_pc == 299) {
+		klee_assume((k <= 1024));
+		exit(0);
+	}
+	if (uni_klee_pc == 300) {
+		klee_assume((k <= 2147483647));
+		exit(0);
+	}
+	if (uni_klee_pc == 301) {
+		klee_assume((k <= 4294967295));
+		exit(0);
+	}
+	if (uni_klee_pc == 302) {
+		klee_assume((n <= 2147483647));
+		exit(0);
+	}
+	if (uni_klee_pc == 303) {
+		klee_assume((n <= 4294967295));
+		exit(0);
+	}
+	if (uni_klee_pc == 304) {
+		klee_assume((start <= 0));
+		exit(0);
+	}
+	if (uni_klee_pc == 305) {
+		klee_assume((start <= 1));
+		exit(0);
+	}
+	if (uni_klee_pc == 306) {
+		klee_assume((start <= 2));
+		exit(0);
+	}
+	if (uni_klee_pc == 307) {
+		klee_assume((start <= 3));
+		exit(0);
+	}
+	if (uni_klee_pc == 308) {
+		klee_assume((start <= 4));
+		exit(0);
+	}
+	if (uni_klee_pc == 309) {
+		klee_assume((start <= 5));
+		exit(0);
+	}
+	if (uni_klee_pc == 310) {
+		klee_assume((start <= 6));
+		exit(0);
+	}
+	if (uni_klee_pc == 311) {
+		klee_assume((start <= 7));
+		exit(0);
+	}
+	if (uni_klee_pc == 312) {
+		klee_assume((start <= 8));
+		exit(0);
+	}
+	if (uni_klee_pc == 313) {
+		klee_assume((start <= 9));
+		exit(0);
+	}
+	if (uni_klee_pc == 314) {
+		klee_assume((start <= 10));
+		exit(0);
+	}
+	if (uni_klee_pc == 315) {
+		klee_assume((start <= 16));
+		exit(0);
+	}
+	if (uni_klee_pc == 316) {
+		klee_assume((start <= 32));
+		exit(0);
+	}
+	if (uni_klee_pc == 317) {
+		klee_assume((start <= 64));
+		exit(0);
+	}
+	if (uni_klee_pc == 318) {
+		klee_assume((start <= 128));
+		exit(0);
+	}
+	if (uni_klee_pc == 319) {
+		klee_assume((start <= 256));
+		exit(0);
+	}
+	if (uni_klee_pc == 320) {
+		klee_assume((start <= 512));
+		exit(0);
+	}
+	if (uni_klee_pc == 321) {
+		klee_assume((start <= 1024));
+		exit(0);
+	}
+	if (uni_klee_pc == 322) {
+		klee_assume((start <= 2147483647));
+		exit(0);
+	}
+	if (uni_klee_pc == 323) {
+		klee_assume((start <= 4294967295));
+		exit(0);
+	}
+	if (uni_klee_pc == 324) {
+		klee_assume((bufsize >= end));
+		exit(0);
+	}
+	if (uni_klee_pc == 325) {
+		klee_assume((bufsize >= k));
+		exit(0);
+	}
+	if (uni_klee_pc == 326) {
+		klee_assume((bufsize >= start));
+		exit(0);
+	}
+	if (uni_klee_pc == 327) {
+		klee_assume((end >= start));
+		exit(0);
+	}
+	if (uni_klee_pc == 328) {
+		klee_assume((file_size >= end));
+		exit(0);
+	}
+	if (uni_klee_pc == 329) {
+		klee_assume((file_size >= k));
+		exit(0);
+	}
+	if (uni_klee_pc == 330) {
+		klee_assume((file_size >= n));
+		exit(0);
+	}
+	if (uni_klee_pc == 331) {
+		klee_assume((file_size >= start));
+		exit(0);
+	}
+	if (uni_klee_pc == 332) {
+		klee_assume((k >= end));
+		exit(0);
+	}
+	if (uni_klee_pc == 333) {
+		klee_assume((k >= start));
+		exit(0);
+	}
+	if (uni_klee_pc == 334) {
+		klee_assume((n >= end));
+		exit(0);
+	}
+	if (uni_klee_pc == 335) {
+		klee_assume((n >= file_size));
+		exit(0);
+	}
+	if (uni_klee_pc == 336) {
+		klee_assume((n >= k));
+		exit(0);
+	}
+	if (uni_klee_pc == 337) {
+		klee_assume((n >= start));
+		exit(0);
+	}
+	if (uni_klee_pc == 338) {
+		klee_assume((start >= end));
+		exit(0);
+	}
+	if (uni_klee_pc == 339) {
+		klee_assume(((bufsize - end) >= 1));
+		exit(0);
+	}
+	if (uni_klee_pc == 340) {
+		klee_assume(((bufsize - end) >= 2));
+		exit(0);
+	}
+	if (uni_klee_pc == 341) {
+		klee_assume(((bufsize - end) >= 3));
+		exit(0);
+	}
+	if (uni_klee_pc == 342) {
+		klee_assume(((bufsize - end) >= 4));
+		exit(0);
+	}
+	if (uni_klee_pc == 343) {
+		klee_assume(((bufsize - end) >= 5));
+		exit(0);
+	}
+	if (uni_klee_pc == 344) {
+		klee_assume(((bufsize - end) >= 6));
+		exit(0);
+	}
+	if (uni_klee_pc == 345) {
+		klee_assume(((bufsize - end) >= 7));
+		exit(0);
+	}
+	if (uni_klee_pc == 346) {
+		klee_assume(((bufsize - end) >= 8));
+		exit(0);
+	}
+	if (uni_klee_pc == 347) {
+		klee_assume(((bufsize - end) >= 9));
+		exit(0);
+	}
+	if (uni_klee_pc == 348) {
+		klee_assume(((bufsize - end) >= 10));
+		exit(0);
+	}
+	if (uni_klee_pc == 349) {
+		klee_assume(((bufsize - end) >= 16));
+		exit(0);
+	}
+	if (uni_klee_pc == 350) {
+		klee_assume(((bufsize - end) >= 32));
+		exit(0);
+	}
+	if (uni_klee_pc == 351) {
+		klee_assume(((bufsize - end) >= 64));
+		exit(0);
+	}
+	if (uni_klee_pc == 352) {
+		klee_assume(((bufsize - end) >= 128));
+		exit(0);
+	}
+	if (uni_klee_pc == 353) {
+		klee_assume(((bufsize - end) >= 256));
+		exit(0);
+	}
+	if (uni_klee_pc == 354) {
+		klee_assume(((bufsize - end) >= 512));
+		exit(0);
+	}
+	if (uni_klee_pc == 355) {
+		klee_assume(((bufsize - end) >= 1024));
+		exit(0);
+	}
+	if (uni_klee_pc == 356) {
+		klee_assume(((bufsize - k) >= 1));
+		exit(0);
+	}
+	if (uni_klee_pc == 357) {
+		klee_assume(((bufsize - k) >= 2));
+		exit(0);
+	}
+	if (uni_klee_pc == 358) {
+		klee_assume(((bufsize - k) >= 3));
+		exit(0);
+	}
+	if (uni_klee_pc == 359) {
+		klee_assume(((bufsize - k) >= 4));
+		exit(0);
+	}
+	if (uni_klee_pc == 360) {
+		klee_assume(((bufsize - k) >= 5));
+		exit(0);
+	}
+	if (uni_klee_pc == 361) {
+		klee_assume(((bufsize - k) >= 6));
+		exit(0);
+	}
+	if (uni_klee_pc == 362) {
+		klee_assume(((bufsize - k) >= 7));
+		exit(0);
+	}
+	if (uni_klee_pc == 363) {
+		klee_assume(((bufsize - k) >= 8));
+		exit(0);
+	}
+	if (uni_klee_pc == 364) {
+		klee_assume(((bufsize - k) >= 9));
+		exit(0);
+	}
+	if (uni_klee_pc == 365) {
+		klee_assume(((bufsize - k) >= 10));
+		exit(0);
+	}
+	if (uni_klee_pc == 366) {
+		klee_assume(((bufsize - k) >= 16));
+		exit(0);
+	}
+	if (uni_klee_pc == 367) {
+		klee_assume(((bufsize - k) >= 32));
+		exit(0);
+	}
+	if (uni_klee_pc == 368) {
+		klee_assume(((bufsize - k) >= 64));
+		exit(0);
+	}
+	if (uni_klee_pc == 369) {
+		klee_assume(((bufsize - k) >= 128));
+		exit(0);
+	}
+	if (uni_klee_pc == 370) {
+		klee_assume(((bufsize - k) >= 256));
+		exit(0);
+	}
+	if (uni_klee_pc == 371) {
+		klee_assume(((bufsize - k) >= 512));
+		exit(0);
+	}
+	if (uni_klee_pc == 372) {
+		klee_assume(((bufsize - k) >= 1024));
+		exit(0);
+	}
+	if (uni_klee_pc == 373) {
+		klee_assume(((bufsize - start) >= 1));
+		exit(0);
+	}
+	if (uni_klee_pc == 374) {
+		klee_assume(((bufsize - start) >= 2));
+		exit(0);
+	}
+	if (uni_klee_pc == 375) {
+		klee_assume(((bufsize - start) >= 3));
+		exit(0);
+	}
+	if (uni_klee_pc == 376) {
+		klee_assume(((bufsize - start) >= 4));
+		exit(0);
+	}
+	if (uni_klee_pc == 377) {
+		klee_assume(((bufsize - start) >= 5));
+		exit(0);
+	}
+	if (uni_klee_pc == 378) {
+		klee_assume(((bufsize - start) >= 6));
+		exit(0);
+	}
+	if (uni_klee_pc == 379) {
+		klee_assume(((bufsize - start) >= 7));
+		exit(0);
+	}
+	if (uni_klee_pc == 380) {
+		klee_assume(((bufsize - start) >= 8));
+		exit(0);
+	}
+	if (uni_klee_pc == 381) {
+		klee_assume(((bufsize - start) >= 9));
+		exit(0);
+	}
+	if (uni_klee_pc == 382) {
+		klee_assume(((bufsize - start) >= 10));
+		exit(0);
+	}
+	if (uni_klee_pc == 383) {
+		klee_assume(((bufsize - start) >= 16));
+		exit(0);
+	}
+	if (uni_klee_pc == 384) {
+		klee_assume(((bufsize - start) >= 32));
+		exit(0);
+	}
+	if (uni_klee_pc == 385) {
+		klee_assume(((bufsize - start) >= 64));
+		exit(0);
+	}
+	if (uni_klee_pc == 386) {
+		klee_assume(((bufsize - start) >= 128));
+		exit(0);
+	}
+	if (uni_klee_pc == 387) {
+		klee_assume(((bufsize - start) >= 256));
+		exit(0);
+	}
+	if (uni_klee_pc == 388) {
+		klee_assume(((bufsize - start) >= 512));
+		exit(0);
+	}
+	if (uni_klee_pc == 389) {
+		klee_assume(((bufsize - start) >= 1024));
+		exit(0);
+	}
+	if (uni_klee_pc == 390) {
+		klee_assume(((file_size - end) >= 1));
+		exit(0);
+	}
+	if (uni_klee_pc == 391) {
+		klee_assume(((file_size - end) >= 2));
+		exit(0);
+	}
+	if (uni_klee_pc == 392) {
+		klee_assume(((file_size - end) >= 3));
+		exit(0);
+	}
+	if (uni_klee_pc == 393) {
+		klee_assume(((file_size - end) >= 4));
+		exit(0);
+	}
+	if (uni_klee_pc == 394) {
+		klee_assume(((file_size - end) >= 5));
+		exit(0);
+	}
+	if (uni_klee_pc == 395) {
+		klee_assume(((file_size - end) >= 6));
+		exit(0);
+	}
+	if (uni_klee_pc == 396) {
+		klee_assume(((file_size - end) >= 7));
+		exit(0);
+	}
+	if (uni_klee_pc == 397) {
+		klee_assume(((file_size - start) >= 1));
+		exit(0);
+	}
+	if (uni_klee_pc == 398) {
+		klee_assume(((file_size - start) >= 2));
+		exit(0);
+	}
+	if (uni_klee_pc == 399) {
+		klee_assume(((file_size - start) >= 3));
+		exit(0);
+	}
+	if (uni_klee_pc == 400) {
+		klee_assume(((file_size - start) >= 4));
+		exit(0);
+	}
+	if (uni_klee_pc == 401) {
+		klee_assume(((file_size - start) >= 5));
+		exit(0);
+	}
+	if (uni_klee_pc == 402) {
+		klee_assume(((file_size - start) >= 6));
+		exit(0);
+	}
+	if (uni_klee_pc == 403) {
+		klee_assume(((file_size - start) >= 7));
+		exit(0);
+	}
+	if (uni_klee_pc == 404) {
+		klee_assume(((k - end) >= 1));
+		exit(0);
+	}
+	if (uni_klee_pc == 405) {
+		klee_assume(((k - start) >= 1));
+		exit(0);
+	}
+	if (uni_klee_pc == 406) {
+		klee_assume(((n - end) >= 1));
+		exit(0);
+	}
+	if (uni_klee_pc == 407) {
+		klee_assume(((n - end) >= 2));
+		exit(0);
+	}
+	if (uni_klee_pc == 408) {
+		klee_assume(((n - end) >= 3));
+		exit(0);
+	}
+	if (uni_klee_pc == 409) {
+		klee_assume(((n - end) >= 4));
+		exit(0);
+	}
+	if (uni_klee_pc == 410) {
+		klee_assume(((n - end) >= 5));
+		exit(0);
+	}
+	if (uni_klee_pc == 411) {
+		klee_assume(((n - end) >= 6));
+		exit(0);
+	}
+	if (uni_klee_pc == 412) {
+		klee_assume(((n - end) >= 7));
+		exit(0);
+	}
+	if (uni_klee_pc == 413) {
+		klee_assume(((n - start) >= 1));
+		exit(0);
+	}
+	if (uni_klee_pc == 414) {
+		klee_assume(((n - start) >= 2));
+		exit(0);
+	}
+	if (uni_klee_pc == 415) {
+		klee_assume(((n - start) >= 3));
+		exit(0);
+	}
+	if (uni_klee_pc == 416) {
+		klee_assume(((n - start) >= 4));
+		exit(0);
+	}
+	if (uni_klee_pc == 417) {
+		klee_assume(((n - start) >= 5));
+		exit(0);
+	}
+	if (uni_klee_pc == 418) {
+		klee_assume(((n - start) >= 6));
+		exit(0);
+	}
+	if (uni_klee_pc == 419) {
+		klee_assume(((n - start) >= 7));
+		exit(0);
+	}
+	if (uni_klee_pc == 420) {
+		klee_assume(((end * 2) <= bufsize));
+		exit(0);
+	}
+	if (uni_klee_pc == 421) {
+		klee_assume(((end * 3) <= bufsize));
+		exit(0);
+	}
+	if (uni_klee_pc == 422) {
+		klee_assume(((end * 4) <= bufsize));
+		exit(0);
+	}
+	if (uni_klee_pc == 423) {
+		klee_assume(((end * 5) <= bufsize));
+		exit(0);
+	}
+	if (uni_klee_pc == 424) {
+		klee_assume(((end * 6) <= bufsize));
+		exit(0);
+	}
+	if (uni_klee_pc == 425) {
+		klee_assume(((end * 7) <= bufsize));
+		exit(0);
+	}
+	if (uni_klee_pc == 426) {
+		klee_assume(((end * 8) <= bufsize));
+		exit(0);
+	}
+	if (uni_klee_pc == 427) {
+		klee_assume(((end * 9) <= bufsize));
+		exit(0);
+	}
+	if (uni_klee_pc == 428) {
+		klee_assume(((end * 2) <= file_size));
+		exit(0);
+	}
+	if (uni_klee_pc == 429) {
+		klee_assume(((end * 3) <= file_size));
+		exit(0);
+	}
+	if (uni_klee_pc == 430) {
+		klee_assume(((end * 4) <= file_size));
+		exit(0);
+	}
+	if (uni_klee_pc == 431) {
+		klee_assume(((end * 5) <= file_size));
+		exit(0);
+	}
+	if (uni_klee_pc == 432) {
+		klee_assume(((end * 6) <= file_size));
+		exit(0);
+	}
+	if (uni_klee_pc == 433) {
+		klee_assume(((end * 7) <= file_size));
+		exit(0);
+	}
+	if (uni_klee_pc == 434) {
+		klee_assume(((end * 8) <= file_size));
+		exit(0);
+	}
+	if (uni_klee_pc == 435) {
+		klee_assume(((end * 9) <= file_size));
+		exit(0);
+	}
+	if (uni_klee_pc == 436) {
+		klee_assume(((end * 2) <= k));
+		exit(0);
+	}
+	if (uni_klee_pc == 437) {
+		klee_assume(((end * 3) <= k));
+		exit(0);
+	}
+	if (uni_klee_pc == 438) {
+		klee_assume(((end * 4) <= k));
+		exit(0);
+	}
+	if (uni_klee_pc == 439) {
+		klee_assume(((end * 5) <= k));
+		exit(0);
+	}
+	if (uni_klee_pc == 440) {
+		klee_assume(((end * 6) <= k));
+		exit(0);
+	}
+	if (uni_klee_pc == 441) {
+		klee_assume(((end * 7) <= k));
+		exit(0);
+	}
+	if (uni_klee_pc == 442) {
+		klee_assume(((end * 8) <= k));
+		exit(0);
+	}
+	if (uni_klee_pc == 443) {
+		klee_assume(((end * 9) <= k));
+		exit(0);
+	}
+	if (uni_klee_pc == 444) {
+		klee_assume(((end * 2) <= n));
+		exit(0);
+	}
+	if (uni_klee_pc == 445) {
+		klee_assume(((end * 3) <= n));
+		exit(0);
+	}
+	if (uni_klee_pc == 446) {
+		klee_assume(((end * 4) <= n));
+		exit(0);
+	}
+	if (uni_klee_pc == 447) {
+		klee_assume(((end * 5) <= n));
+		exit(0);
+	}
+	if (uni_klee_pc == 448) {
+		klee_assume(((end * 6) <= n));
+		exit(0);
+	}
+	if (uni_klee_pc == 449) {
+		klee_assume(((end * 7) <= n));
+		exit(0);
+	}
+	if (uni_klee_pc == 450) {
+		klee_assume(((end * 8) <= n));
+		exit(0);
+	}
+	if (uni_klee_pc == 451) {
+		klee_assume(((end * 9) <= n));
+		exit(0);
+	}
+	if (uni_klee_pc == 452) {
+		klee_assume(((end * 2) <= start));
+		exit(0);
+	}
+	if (uni_klee_pc == 453) {
+		klee_assume(((end * 3) <= start));
+		exit(0);
+	}
+	if (uni_klee_pc == 454) {
+		klee_assume(((end * 4) <= start));
+		exit(0);
+	}
+	if (uni_klee_pc == 455) {
+		klee_assume(((end * 5) <= start));
+		exit(0);
+	}
+	if (uni_klee_pc == 456) {
+		klee_assume(((end * 6) <= start));
+		exit(0);
+	}
+	if (uni_klee_pc == 457) {
+		klee_assume(((end * 7) <= start));
+		exit(0);
+	}
+	if (uni_klee_pc == 458) {
+		klee_assume(((end * 8) <= start));
+		exit(0);
+	}
+	if (uni_klee_pc == 459) {
+		klee_assume(((end * 9) <= start));
+		exit(0);
+	}
+	if (uni_klee_pc == 460) {
+		klee_assume(((k * 2) <= bufsize));
+		exit(0);
+	}
+	if (uni_klee_pc == 461) {
+		klee_assume(((k * 3) <= bufsize));
+		exit(0);
+	}
+	if (uni_klee_pc == 462) {
+		klee_assume(((k * 4) <= bufsize));
+		exit(0);
+	}
+	if (uni_klee_pc == 463) {
+		klee_assume(((k * 5) <= bufsize));
+		exit(0);
+	}
+	if (uni_klee_pc == 464) {
+		klee_assume(((k * 6) <= bufsize));
+		exit(0);
+	}
+	if (uni_klee_pc == 465) {
+		klee_assume(((k * 7) <= bufsize));
+		exit(0);
+	}
+	if (uni_klee_pc == 466) {
+		klee_assume(((k * 8) <= bufsize));
+		exit(0);
+	}
+	if (uni_klee_pc == 467) {
+		klee_assume(((k * 9) <= bufsize));
+		exit(0);
+	}
+	if (uni_klee_pc == 468) {
+		klee_assume(((start * 2) <= bufsize));
+		exit(0);
+	}
+	if (uni_klee_pc == 469) {
+		klee_assume(((start * 3) <= bufsize));
+		exit(0);
+	}
+	if (uni_klee_pc == 470) {
+		klee_assume(((start * 4) <= bufsize));
+		exit(0);
+	}
+	if (uni_klee_pc == 471) {
+		klee_assume(((start * 5) <= bufsize));
+		exit(0);
+	}
+	if (uni_klee_pc == 472) {
+		klee_assume(((start * 6) <= bufsize));
+		exit(0);
+	}
+	if (uni_klee_pc == 473) {
+		klee_assume(((start * 7) <= bufsize));
+		exit(0);
+	}
+	if (uni_klee_pc == 474) {
+		klee_assume(((start * 8) <= bufsize));
+		exit(0);
+	}
+	if (uni_klee_pc == 475) {
+		klee_assume(((start * 9) <= bufsize));
+		exit(0);
+	}
+	if (uni_klee_pc == 476) {
+		klee_assume(((start * 2) <= end));
+		exit(0);
+	}
+	if (uni_klee_pc == 477) {
+		klee_assume(((start * 3) <= end));
+		exit(0);
+	}
+	if (uni_klee_pc == 478) {
+		klee_assume(((start * 4) <= end));
+		exit(0);
+	}
+	if (uni_klee_pc == 479) {
+		klee_assume(((start * 5) <= end));
+		exit(0);
+	}
+	if (uni_klee_pc == 480) {
+		klee_assume(((start * 6) <= end));
+		exit(0);
+	}
+	if (uni_klee_pc == 481) {
+		klee_assume(((start * 7) <= end));
+		exit(0);
+	}
+	if (uni_klee_pc == 482) {
+		klee_assume(((start * 8) <= end));
+		exit(0);
+	}
+	if (uni_klee_pc == 483) {
+		klee_assume(((start * 9) <= end));
+		exit(0);
+	}
+	if (uni_klee_pc == 484) {
+		klee_assume(((start * 2) <= file_size));
+		exit(0);
+	}
+	if (uni_klee_pc == 485) {
+		klee_assume(((start * 3) <= file_size));
+		exit(0);
+	}
+	if (uni_klee_pc == 486) {
+		klee_assume(((start * 4) <= file_size));
+		exit(0);
+	}
+	if (uni_klee_pc == 487) {
+		klee_assume(((start * 5) <= file_size));
+		exit(0);
+	}
+	if (uni_klee_pc == 488) {
+		klee_assume(((start * 6) <= file_size));
+		exit(0);
+	}
+	if (uni_klee_pc == 489) {
+		klee_assume(((start * 7) <= file_size));
+		exit(0);
+	}
+	if (uni_klee_pc == 490) {
+		klee_assume(((start * 8) <= file_size));
+		exit(0);
+	}
+	if (uni_klee_pc == 491) {
+		klee_assume(((start * 9) <= file_size));
+		exit(0);
+	}
+	if (uni_klee_pc == 492) {
+		klee_assume(((start * 2) <= k));
+		exit(0);
+	}
+	if (uni_klee_pc == 493) {
+		klee_assume(((start * 3) <= k));
+		exit(0);
+	}
+	if (uni_klee_pc == 494) {
+		klee_assume(((start * 4) <= k));
+		exit(0);
+	}
+	if (uni_klee_pc == 495) {
+		klee_assume(((start * 5) <= k));
+		exit(0);
+	}
+	if (uni_klee_pc == 496) {
+		klee_assume(((start * 6) <= k));
+		exit(0);
+	}
+	if (uni_klee_pc == 497) {
+		klee_assume(((start * 7) <= k));
+		exit(0);
+	}
+	if (uni_klee_pc == 498) {
+		klee_assume(((start * 8) <= k));
+		exit(0);
+	}
+	if (uni_klee_pc == 499) {
+		klee_assume(((start * 9) <= k));
+		exit(0);
+	}
+	if (uni_klee_pc == 500) {
+		klee_assume(((start * 2) <= n));
+		exit(0);
+	}
+	if (uni_klee_pc == 501) {
+		klee_assume(((start * 3) <= n));
+		exit(0);
+	}
+	if (uni_klee_pc == 502) {
+		klee_assume(((start * 4) <= n));
+		exit(0);
+	}
+	if (uni_klee_pc == 503) {
+		klee_assume(((start * 5) <= n));
+		exit(0);
+	}
+	if (uni_klee_pc == 504) {
+		klee_assume(((start * 6) <= n));
+		exit(0);
+	}
+	if (uni_klee_pc == 505) {
+		klee_assume(((start * 7) <= n));
+		exit(0);
+	}
+	if (uni_klee_pc == 506) {
+		klee_assume(((start * 8) <= n));
+		exit(0);
+	}
+	if (uni_klee_pc == 507) {
+		klee_assume(((start * 9) <= n));
+		exit(0);
+	}
 if(__cpr_choice("L290", "bool", (long long[]){start, initial_read, bufsize}, (char*[]){"start","initial_read", "bufsize"}, 3, (int*[]){}, (char*[]){}, 0))
     {
 CPR_OUTPUT("obs", "i32", initial_read - start);
