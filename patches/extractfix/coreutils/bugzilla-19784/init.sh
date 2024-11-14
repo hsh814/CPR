@@ -8,8 +8,8 @@ pushd src
   ./bootstrap
   # patch
   cp ../make-prime-list.c src/make-prime-list.c
-  FORCE_UNSAFE_CONFIGURE=1 LD=lld LD=lld CC=cpr-cc CXX=cpr-cxx ./configure CFLAGS='-g -O0 -static -fPIE' CXXFLAGS="$CFLAGS"
-  make CFLAGS="-fPIC -fPIE -L/root/projects/uni-klee/build/lib  -lkleeRuntest" CXXFLAGS=$CFLAGS src/make-prime-list -j32
+  FORCE_UNSAFE_CONFIGURE=1 LD=lld LD=lld CC=cpr-cc CXX=cpr-cxx ./configure CFLAGS='-g -O0 -fno-discard-value-names -static -fPIE' CXXFLAGS="$CFLAGS"
+  make CFLAGS="-fno-discard-value-names -fPIC -fPIE -L/root/projects/uni-klee/build/lib  -lkleeRuntest" CXXFLAGS=$CFLAGS src/make-prime-list -j32
   # cp
   cp src/make-prime-list.c ../patched
   cp src/make-prime-list ../patched
