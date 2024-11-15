@@ -110,7 +110,7 @@ class RunSingle():
           patches.append(correct - 1)
         break
     print(patches)
-    query = self.meta["bug_id"] + ":" + ",".join([str(x) for x in patches])
+    query = self.meta["bug_id"] + ":0" # ",".join([str(x) for x in patches])
     cmd = f"symvass.py rerun {query} --lock=f --outdir-prefix={SYMVASS_PREFIX} "
     if extra == "k2-high":
       cmd += " --sym-level=high --additional='--symbolize-bound=2' --max-fork=1024,1024,1024"
