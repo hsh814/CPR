@@ -7,7 +7,7 @@ PROXY_C = cpr_proxy.c
 PROXY_OBJ = cpr_proxy.o
 OBJ_KLEE = $(SRC:%.c=%.o)
 
-all: cpr_runtime.o libcpr_runtime.a libcpr_runtime.so libcpr_runtime.bca libcpr_proxy.so libcpr_proxy.a libcpr_proxy.bca
+all: cpr_runtime.o libcpr_runtime.a libcpr_runtime.so libcpr_runtime.bca libcpr_proxy.so libcpr_proxy.a libcpr_proxy.bca libuni_klee_memory_check.a
 
 %.o: %.c $(DEP)
 	wllvm -g -fPIC -O0 -c -o $@ $< $(CFLAGS)
@@ -29,6 +29,10 @@ libcpr_runtime.bca: libcpr_runtime.a
 
 libcpr_proxy.bca: libcpr_proxy.a
 	extract-bc libcpr_proxy.a
+
+libuni_klee_memory_check.a: uni_klee_memory_check.c uni_klee_memory_check.h
+	wllvm -c -o uni_klee_memory_check.o uni_klee_memory_check.c
+	llvm-ar rcs $@ uni_klee_memory_check.o
 
 clean:
 	rm -f *.o

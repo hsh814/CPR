@@ -180,7 +180,10 @@ def collect_result(meta: dict):
   save_file = os.path.join(save_dir, f"table.sbsv")
   if os.path.exists(save_file):
     os.unlink(save_file)
-  os.link(os.path.join(conf.conf_files.out_dir, "table.sbsv"), save_file)
+  # copy file
+  with open(os.path.join(conf.conf_files.out_dir, "table.sbsv"), "r") as f:
+    with open(save_file, "w") as f2:
+      f2.write(f.read())
 
 def parse_result(file: str) -> sbsv.parser:
   parser = sbsv.parser()
