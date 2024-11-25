@@ -34,6 +34,21 @@ static struct uni_klee_node *uni_klee_vector_get(struct uni_klee_vector *vector,
   return &vector->data[index];
 }
 
+static struct uni_klee_node *uni_klee_vector_get_back(struct uni_klee_vector *vector) {
+  if (vector->size == 0) {
+    return NULL;
+  }
+  return &vector->data[vector->size - 1];
+}
+
+static void uni_klee_vector_pop(struct uni_klee_vector *vector) {
+  if (vector->size == 0) {
+    return;
+  }
+  vector->data[vector->size - 1] = (struct uni_klee_node){0, 0, 0, 0};
+  vector->size--;
+}
+
 static struct uni_klee_hash_map *uni_klee_hash_map_create(unsigned long long cap) {
   struct uni_klee_hash_map *hash_map = (struct uni_klee_hash_map *)malloc(sizeof(struct uni_klee_hash_map));
   hash_map->size = 0;
@@ -241,8 +256,10 @@ void uni_klee_heap_check(void **start_points, char **ids, int n) {
   fprintf(result_fp, "[heap-check] [begin]\n");
   // Build the hash map for matching the uni-klee address to actual address
   // Hash map for matching the uni-klee address to actual address
-  // First, complete the address_hash_map
-  struct uni_klee_hash_map *address_hash_map = uni_klee_hash_map_create(1024);
+  // First, complete the uni-klee to real address mapping && real address to uni-klee mapping
+  struct uni_klee_hash_map *u2a_hash_map = uni_klee_hash_map_create(1024);
+  struct uni_klee_hash_map *a2u_hash_map = uni_klee_hash_map_create(1024);
+  struct uni_klee_vector *u2a_queue = uni_klee_vector_create(16);
   for (int i = 0; i < n; i++) {
     char *id = ids[i];
     void *start_point = start_points[i];
@@ -255,35 +272,38 @@ void uni_klee_heap_check(void **start_points, char **ids, int n) {
       value = *(void **)start_point; // Read the value from the pointer
     }
     struct uni_klee_node actual_node = {(unsigned long long)start_point, 0, 0, (unsigned long long)value};
-    struct uni_klee_key_value_pair *kv_pair = uni_klee_hash_map_get(address_hash_map, node->value);
+    struct uni_klee_key_value_pair *kv_pair = uni_klee_hash_map_get(u2a_hash_map, node->value);
     if (kv_pair != NULL) {
       // Address already treated
       continue;
     } 
-    uni_klee_hash_map_insert(address_hash_map, node->value, actual_node);
-    
+    uni_klee_hash_map_insert(u2a_hash_map, node->value, actual_node);
     struct uni_klee_key_value_pair *ptr_pair = uni_klee_hash_map_get(uni_klee_ptr_hash_map, node->value);
     struct uni_klee_key_value_pair *base_pair = uni_klee_hash_map_get(uni_klee_base_hash_map, node->value);
+    // 1. First, check outgoing pointers from the base address
+    char *a_base_ptr = (char *)value;
     if (base_pair != NULL) {
       // This is base address: check all outgoing pointers in object
       for (unsigned long long i = 0; i < base_pair->map->table_size; i++) {
         // key: address from uni-klee
         // map: outgoing pointers from key
+        unsigned long long ubase = base_pair->value.base;
         struct uni_klee_key_value_pair *pair = base_pair->map->table[i];
         while (pair != NULL) {
-          struct uni_klee_node *actual_node = uni_klee_hash_map_get(address_hash_map, pair->key);
-          if (actual_node == NULL) {
-            // Read actual address from the pointer
-            // void *ptr = ((char *))
-            // uni_klee_hash_map_insert(address_hash_map, pair->key, (struct uni_klee_node){0, 0, 0, 0});
-          } else {
-          }
+          struct uni_klee_node *r_node = uni_klee_hash_map_get(u2a_hash_map, pair->key);
+          unsigned long long uoffset = pair->value.addr - ubase;
+          char *a_ptr = a_base_ptr + uoffset;
+          void *a_value = *(void **)a_ptr;
+          struct uni_klee_node a_node = {(unsigned long long)a_ptr, (unsigned long long)(a_ptr - uoffset), 0, (unsigned long long)a_value};
+          uni_klee_hash_map_insert(u2a_hash_map, pair->key, a_node);
+          uni_klee_hash_map_insert(a2u_hash_map, (unsigned long long)a_ptr, pair->value);
           pair = pair->next;
         }
       }
     } else {
       if (ptr_pair == NULL)
         continue;
+      // Check pointer from the node
     }
   }
   fprintf(result_fp, "[heap-check] [end]\n");
