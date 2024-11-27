@@ -31,7 +31,7 @@ libcpr_proxy.bca: libcpr_proxy.a
 	extract-bc libcpr_proxy.a
 
 libuni_klee_memory_check.a: uni_klee_memory_check.c uni_klee_memory_check.h
-	wllvm -c -o uni_klee_memory_check.o uni_klee_memory_check.c
+	wllvm -c -O0 -g -o uni_klee_memory_check.o uni_klee_memory_check.c
 	llvm-ar rcs $@ uni_klee_memory_check.o
 
 clean:
