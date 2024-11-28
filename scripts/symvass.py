@@ -769,7 +769,7 @@ def arg_parser(argv: List[str]) -> Config:
     parser.add_argument("-s", "--snapshot-prefix", help="Snapshot directory prefix", default="snapshot")
     parser.add_argument("-f", "--filter-prefix", help="Filter directory prefix", default="filter")
     parser.add_argument("-l", "--sym-level", help="Symbolization level", default="medium")
-    parser.add_argument("-m", "--max-fork", help="Max fork", default="256,256,256")
+    parser.add_argument("-m", "--max-fork", help="Max fork", default="256,256,64")
     parser.add_argument("-t", "--timeout", help="Timeout", default="12h")
     parser.add_argument("-k", "--lock", help="Handle lock behavior", default="i", choices=["i", "w", "f"])
     parser.add_argument("-r", "--rerun", help="Rerun last command with same option", action="store_true")

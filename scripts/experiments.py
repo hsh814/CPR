@@ -282,7 +282,7 @@ def main(argv: List[str]):
   if args.prefix != "":
     PREFIX = args.prefix
   else:
-    PREFIX = time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime())
+    PREFIX = time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime())
   if args.cmd == "exp":
     if args.extra != "exp":
       SYMVASS_PREFIX = args.extra

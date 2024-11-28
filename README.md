@@ -4,6 +4,7 @@
 # 0. Generate meta-data.json with scripts/meta.py (already done)
 # python3 scripts/meta.py
 # 1. Genenrate patches
+python3 scripts/sympatch.py reset patches
 python3 scripts/sympatch.py concrete patches
 python3 scripts/sympatch.py meta patches
 # 2. Run test

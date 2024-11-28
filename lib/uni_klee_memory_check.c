@@ -11,13 +11,50 @@
       fflush(f);     \
   } while (0)
 
+// Begin data structures
+typedef unsigned long long u64;
+
+struct uni_klee_node {
+  u64 addr;
+  u64 base;
+  u64 size;
+  u64 value;
+};
+
+struct uni_klee_vector {
+  u64 size;
+  u64 capacity;
+  struct uni_klee_node *data;
+};
+
+struct uni_klee_flat_map
+{
+  char **keys;
+  struct uni_klee_node *values;
+  u64 size;
+};
+
+struct uni_klee_key_value_pair {
+  u64 key;
+  struct uni_klee_node value;
+  struct uni_klee_hash_map *map;
+  struct uni_klee_key_value_pair *next;
+};
+
+struct uni_klee_hash_map {
+  u64 size;
+  u64 table_size;
+  struct uni_klee_key_value_pair **table;
+};
+// End data structures
+
 // Hash map for storing graph data from file
 static struct uni_klee_vector *uni_klee_ptr_edges = NULL;
 static struct uni_klee_hash_map *uni_klee_ptr_hash_map = NULL;
 static struct uni_klee_hash_map *uni_klee_base_hash_map = NULL;
 static struct uni_klee_flat_map *uni_klee_start_points_map = NULL;
 
-static struct uni_klee_vector *uni_klee_vector_create(unsigned long long cap) {
+static struct uni_klee_vector *uni_klee_vector_create(u64 cap) {
   struct uni_klee_vector *vector = (struct uni_klee_vector *)malloc(sizeof(struct uni_klee_vector));
   vector->size = 0;
   vector->capacity = cap;
@@ -34,7 +71,7 @@ static void uni_klee_vector_push_back(struct uni_klee_vector *vector, struct uni
   vector->data[vector->size++] = node;
 }
 
-static struct uni_klee_node *uni_klee_vector_get(struct uni_klee_vector *vector, unsigned long long index) {
+static struct uni_klee_node *uni_klee_vector_get(struct uni_klee_vector *vector, u64 index) {
   if (index >= vector->size) {
     return NULL;
   }
@@ -56,11 +93,11 @@ static void uni_klee_vector_pop(struct uni_klee_vector *vector) {
   vector->size--;
 }
 
-static unsigned long long uni_klee_vector_size(struct uni_klee_vector *vector) {
+static u64 uni_klee_vector_size(struct uni_klee_vector *vector) {
   return vector->size;
 }
 
-static struct uni_klee_hash_map *uni_klee_hash_map_create(unsigned long long cap) {
+static struct uni_klee_hash_map *uni_klee_hash_map_create(u64 cap) {
   struct uni_klee_hash_map *hash_map = (struct uni_klee_hash_map *)malloc(sizeof(struct uni_klee_hash_map));
   hash_map->size = 0;
   hash_map->table_size = cap;
@@ -69,19 +106,19 @@ static struct uni_klee_hash_map *uni_klee_hash_map_create(unsigned long long cap
   return hash_map;
 }
 
-static unsigned long long uni_klee_hash_map_fit(unsigned long long key, unsigned long long table_size) {
+static u64 uni_klee_hash_map_fit(u64 key, u64 table_size) {
   return key % table_size;
 }
 
 static void uni_klee_hash_map_resize(struct uni_klee_hash_map *map) {
-  unsigned long long new_table_size = map->table_size * 2;
+  u64 new_table_size = map->table_size * 2;
   struct uni_klee_key_value_pair **new_table = (struct uni_klee_key_value_pair **)malloc(sizeof(struct uni_klee_key_value_pair*) * new_table_size);
   memset(new_table, 0, sizeof(struct uni_klee_key_value_pair *) * new_table_size);
-  for (unsigned long long i = 0; i < map->table_size; i++) {
+  for (u64 i = 0; i < map->table_size; i++) {
     struct uni_klee_key_value_pair *pair = map->table[i];
     while (pair != NULL) {
       struct uni_klee_key_value_pair *next = pair->next;
-      unsigned long long new_index = uni_klee_hash_map_fit(pair->key, new_table_size);
+      u64 new_index = uni_klee_hash_map_fit(pair->key, new_table_size);
       pair->next = new_table[new_index];
       new_table[new_index] = pair;
       pair = next;
@@ -92,8 +129,8 @@ static void uni_klee_hash_map_resize(struct uni_klee_hash_map *map) {
   map->table_size = new_table_size;
 }
 
-static void uni_klee_hash_map_insert(struct uni_klee_hash_map *map, unsigned long long key, struct uni_klee_node value) {
-  unsigned long long index = uni_klee_hash_map_fit(key, map->table_size);
+static void uni_klee_hash_map_insert(struct uni_klee_hash_map *map, u64 key, struct uni_klee_node value) {
+  u64 index = uni_klee_hash_map_fit(key, map->table_size);
   struct uni_klee_key_value_pair *pair = map->table[index];
   while (pair != NULL) {
     if (pair->key == key) {
@@ -116,8 +153,8 @@ static void uni_klee_hash_map_insert(struct uni_klee_hash_map *map, unsigned lon
   }
 }
 
-static void uni_klee_hash_map_insert_base(struct uni_klee_hash_map *map, unsigned long long key, struct uni_klee_node value) {
-  unsigned long long index = uni_klee_hash_map_fit(key, map->table_size);
+static void uni_klee_hash_map_insert_base(struct uni_klee_hash_map *map, u64 key, struct uni_klee_node value) {
+  u64 index = uni_klee_hash_map_fit(key, map->table_size);
   struct uni_klee_key_value_pair *pair = map->table[index];
   while (pair != NULL) {
     if (pair->key == key) {
@@ -145,8 +182,8 @@ static void uni_klee_hash_map_insert_base(struct uni_klee_hash_map *map, unsigne
   }
 }
 
-static struct uni_klee_key_value_pair *uni_klee_hash_map_get(struct uni_klee_hash_map *map, unsigned long long key) {
-  unsigned long long index = uni_klee_hash_map_fit(key, map->table_size);
+static struct uni_klee_key_value_pair *uni_klee_hash_map_get(struct uni_klee_hash_map *map, u64 key) {
+  u64 index = uni_klee_hash_map_fit(key, map->table_size);
   struct uni_klee_key_value_pair *pair = map->table[index];
   while (pair != NULL) {
     if (pair->key == key) {
@@ -158,7 +195,7 @@ static struct uni_klee_key_value_pair *uni_klee_hash_map_get(struct uni_klee_has
 }
 
 static void uni_klee_hash_map_free(struct uni_klee_hash_map *map) {
-  for (unsigned long long i = 0; i < map->table_size; i++) {
+  for (u64 i = 0; i < map->table_size; i++) {
     struct uni_klee_key_value_pair *pair = map->table[i];
     while (pair != NULL) {
       struct uni_klee_key_value_pair *next = pair->next;
@@ -170,7 +207,7 @@ static void uni_klee_hash_map_free(struct uni_klee_hash_map *map) {
   free(map);
 }
 
-static struct uni_klee_flat_map *uni_klee_flat_map_create(unsigned long long size) {
+static struct uni_klee_flat_map *uni_klee_flat_map_create(u64 size) {
   struct uni_klee_flat_map *flat_map = (struct uni_klee_flat_map *)malloc(sizeof(struct uni_klee_flat_map));
   flat_map->keys = (char **)malloc(sizeof(char *) * (size + 1));
   flat_map->values = (struct uni_klee_node *)malloc(sizeof(struct uni_klee_node) * (size + 1));
@@ -181,7 +218,7 @@ static struct uni_klee_flat_map *uni_klee_flat_map_create(unsigned long long siz
 }
 
 static void uni_klee_flat_map_insert(struct uni_klee_flat_map *flat_map, char *key, struct uni_klee_node value) {
-  for (unsigned long long i = 0; i < flat_map->size; i++) {
+  for (u64 i = 0; i < flat_map->size; i++) {
     if (flat_map->keys[i] == NULL || strcmp(flat_map->keys[i], key) == 0) {
       if (flat_map->keys[i] == NULL) {
         flat_map->keys[i] = (char *)malloc(strlen(key) + 1);
@@ -194,7 +231,7 @@ static void uni_klee_flat_map_insert(struct uni_klee_flat_map *flat_map, char *k
 }
 
 static struct uni_klee_node *uni_klee_flat_map_get(struct uni_klee_flat_map *flat_map, char *key) {
-  for (unsigned long long i = 0; i < flat_map->size; i++) {
+  for (u64 i = 0; i < flat_map->size; i++) {
     if (flat_map->keys[i] == NULL) {
       return NULL;
     }
@@ -246,7 +283,7 @@ static void uni_klee_initialize_hash_map(int n) {
     }
   }
   // Generate the edge list
-  for (unsigned long long i = 0; i < uni_klee_ptr_hash_map->table_size; i++) {
+  for (u64 i = 0; i < uni_klee_ptr_hash_map->table_size; i++) {
     struct uni_klee_key_value_pair *pair = uni_klee_ptr_hash_map->table[i];
     while (pair != NULL) {
       uni_klee_vector_push_back(uni_klee_ptr_edges, pair->value);
@@ -281,7 +318,7 @@ void uni_klee_heap_check(void **start_points, char **ids, int n) {
     char *id = ids[i];
     void *start_point = start_points[i];
     struct uni_klee_node *node = uni_klee_flat_map_get(uni_klee_start_points_map, id);
-    UNI_LOGF(result_fp, "[heap-check] [id %s] [u-addr %llu] [a-addr %llu]\n", id, (unsigned long long)node, (unsigned long long)start_point);
+    UNI_LOGF(result_fp, "[mem] [id %s] [u-addr %llu] [a-addr %llu]\n", id, (u64)node, (u64)start_point);
     if (node == NULL) {
       continue;
     }
@@ -289,27 +326,27 @@ void uni_klee_heap_check(void **start_points, char **ids, int n) {
     if (start_point != NULL) { // Check if the pointer is NULL
       value = *(void **)start_point; // Read the value from the pointer
     }
-    struct uni_klee_node actual_node = {(unsigned long long)start_point, 0, 0, (unsigned long long)value};
+    struct uni_klee_node actual_node = {(u64)start_point, 0, 0, (u64)value};
     struct uni_klee_key_value_pair *kv_pair = uni_klee_hash_map_get(u2a_hash_map, node->value);
     if (kv_pair != NULL) {
       // Address already treated
       continue;
     }
     uni_klee_hash_map_insert(u2a_hash_map, node->value, actual_node);
-    uni_klee_vector_push_back(u2a_queue, (struct uni_klee_node){node->value, 0, 0, (unsigned long long)start_point});
+    uni_klee_vector_push_back(u2a_queue, (struct uni_klee_node){node->value, 0, 0, (u64)start_point});
     while (uni_klee_vector_size(u2a_queue) > 0) {
       struct uni_klee_node *node = uni_klee_vector_get_back(u2a_queue);
-      unsigned long long u_addr = node->addr;
-      unsigned long long u_base = node->base;
-      unsigned long long a_addr = node->value;
+      u64 u_addr = node->addr;
+      u64 u_base = node->base;
+      u64 a_addr = node->value;
       uni_klee_vector_pop(u2a_queue);
       struct uni_klee_key_value_pair *pair = uni_klee_hash_map_get(uni_klee_ptr_hash_map, u_addr);
       struct uni_klee_key_value_pair *base_pair = uni_klee_hash_map_get(uni_klee_base_hash_map, u_addr);
       char *a_base_ptr = (char *)a_addr;
       if (base_pair) {
         // This is base address: check all outgoing pointers in object
-        unsigned long long ubase = base_pair->key;
-        for (unsigned long long i = 0; i < base_pair->map->table_size; i++) {
+        u64 ubase = base_pair->key;
+        for (u64 i = 0; i < base_pair->map->table_size; i++) {
           // key: address from uni-klee
           // map: outgoing pointers from key
           struct uni_klee_key_value_pair *pair = base_pair->map->table[i];
@@ -319,37 +356,71 @@ void uni_klee_heap_check(void **start_points, char **ids, int n) {
               pair = pair->next;
               continue;
             }
-            unsigned long long uoffset = pair->value.addr - ubase;
+            u64 uoffset = pair->value.addr - ubase;
             char *a_ptr = a_base_ptr + uoffset;
             if (a_base_ptr == NULL) {
-              UNI_LOGF(result_fp, "[heap-check] [error] [null-pointer] [addr %llu] [base %llu] [offset %llu]\n", pair->value.addr, ubase, uoffset);
+              UNI_LOGF(result_fp, "[mem] [error] [null-pointer] [addr %llu] [base %llu] [offset %llu]\n", pair->value.addr, ubase, uoffset);
               continue;
             }
             void *a_value = *(void **)a_ptr;
-            UNI_LOGF(result_fp, "[heap-check] [mem-edge] [u-addr %llu] [u-offset %llu] [a-addr %llu] [a-value %llu]\n", pair->key, uoffset, (unsigned long long)a_ptr, (unsigned long long)a_value);
-            struct uni_klee_node a_node = {(unsigned long long)a_ptr, (unsigned long long)(a_ptr - uoffset), 0, (unsigned long long)a_value};
+            UNI_LOGF(result_fp, "[mem] [mem-edge] [u-addr %llu] [u-offset %llu] [a-addr %llu] [a-value %llu]\n", pair->key, uoffset, (u64)a_ptr, (u64)a_value);
+            struct uni_klee_node a_node = {(u64)a_ptr, (u64)(a_ptr - uoffset), 0, (u64)a_value};
             uni_klee_hash_map_insert(u2a_hash_map, pair->key, a_node);
-            uni_klee_hash_map_insert(a2u_hash_map, (unsigned long long)a_ptr, pair->value);
+            uni_klee_hash_map_insert(a2u_hash_map, (u64)a_ptr, pair->value);
             if (a_value != NULL)
-              uni_klee_vector_push_back(u2a_queue, (struct uni_klee_node){pair->value.value, (unsigned long long)a_ptr, 0, (unsigned long long)a_value});
+              uni_klee_vector_push_back(u2a_queue, (struct uni_klee_node){pair->value.value, (u64)a_ptr, 0, (u64)a_value});
             pair = pair->next;
           }
         }
       } else {
         if (pair == NULL) {
-          UNI_LOGF(result_fp, "[heap-check] [error] [no-node] [u-addr %llu] [a-addr %llu]\n", u_addr, a_addr);
+          UNI_LOGF(result_fp, "[mem] [pass] [no-node] [u-addr %llu] [a-addr %llu]\n", u_addr, a_addr);
           continue;
         }
-        unsigned long long u_offset = u_addr - u_base;
+        u64 u_offset = u_addr - u_base;
         void *a_value = *(void **)a_addr;
-        struct uni_klee_node a_node = {(unsigned long long)a_addr, (unsigned long long)(a_addr - u_offset), 0, (unsigned long long)a_value};
-        UNI_LOGF(result_fp, "[heap-check] [ptr-edge] [u-addr %llu] [u-offset %llu] [a-addr %llu] [a-value %llu]\n", u_addr, u_offset, a_addr, (unsigned long long)a_value);
+        struct uni_klee_node a_node = {(u64)a_addr, (u64)(a_addr - u_offset), 0, (u64)a_value};
+        UNI_LOGF(result_fp, "[mem] [ptr-edge] [u-addr %llu] [u-offset %llu] [a-addr %llu] [a-value %llu]\n", u_addr, u_offset, a_addr, (u64)a_value);
         uni_klee_hash_map_insert(u2a_hash_map, u_addr, a_node);
-        uni_klee_hash_map_insert(a2u_hash_map, (unsigned long long)a_addr, pair->value);
+        uni_klee_hash_map_insert(a2u_hash_map, (u64)a_addr, pair->value);
         if (a_value != NULL)
-          uni_klee_vector_push_back(u2a_queue, (struct uni_klee_node){pair->value.value, (unsigned long long)a_addr, 0, (unsigned long long)a_value});
+          uni_klee_vector_push_back(u2a_queue, (struct uni_klee_node){pair->value.value, (u64)a_addr, 0, (u64)a_value});
       }
-
+    }
+  }
+  UNI_LOGF(result_fp, "[heap-check] [u2a-hash-map] [size %llu]\n", u2a_hash_map->size);
+  for (u64 i = 0; i < uni_klee_vector_size(uni_klee_ptr_edges); i++) {
+    struct uni_klee_node *node = uni_klee_vector_get(uni_klee_ptr_edges, i);
+    u64 u_addr = node->addr;
+    u64 u_value = node->value;
+    struct uni_klee_key_value_pair *pair = uni_klee_hash_map_get(u2a_hash_map, u_addr);
+    if (pair == NULL) {
+      UNI_LOGF(result_fp, "[heap-check] [error] [no-mapping] [u-addr %llu] [u-value %llu]\n", u_addr, u_value);
+      continue;
+    }
+    u64 a_addr = pair->value.addr;
+    u64 a_value = pair->value.value;
+    struct uni_klee_key_value_pair *u_value_pair = uni_klee_hash_map_get(uni_klee_ptr_hash_map, u_value);
+    struct uni_klee_key_value_pair *a_value_pair = uni_klee_hash_map_get(u2a_hash_map, u_value);
+    if (u_value_pair == NULL && a_value_pair == NULL) { // Both are not pointer of pointer
+      if (u_value == NULL && a_value == NULL) {
+        // OK
+        UNI_LOGF(result_fp, "[heap-check] [ok] [u-addr %llu] [u-value %llu] [a-addr %llu] [a-value %llu]\n", u_addr, u_value, a_addr, a_value);
+      } else if (u_value != NULL && a_value != NULL) {
+        // Also OK
+        UNI_LOGF(result_fp, "[heap-check] [ok] [u-addr %llu] [u-value %llu] [a-addr %llu] [a-value %llu]\n", u_addr, u_value, a_addr, a_value);
+      } else {
+        UNI_LOGF(result_fp, "[heap-check] [error] [value-mismatch] [u-addr %llu] [u-value %llu] [a-addr %llu] [a-value %llu]\n", u_addr, u_value, a_addr, a_value);
+      }
+    } else if (u_value_pair != NULL && a_value_pair != NULL) {
+      u64 a_value_from_uni_klee = a_value_pair->value.addr;
+      if (a_value != a_value_from_uni_klee) {
+        UNI_LOGF(result_fp, "[heap-check] [error] [value-mismatch] [u-addr %llu] [u-value %llu] [a-addr %llu] [a-value %llu]\n", u_addr, u_value, a_addr, a_value);
+      } else {
+        UNI_LOGF(result_fp, "[heap-check] [ok] [u-addr %llu] [u-value %llu] [a-addr %llu] [a-value %llu]\n", u_addr, u_value, a_addr, a_value);
+      }
+    } else { // Error
+      UNI_LOGF(result_fp, "[heap-check] [error] [value-mismatch] [u-addr %llu] [u-value %llu] [a-addr %llu] [a-value %llu]\n", u_addr, u_value, a_addr, a_value);
     }
   }
   UNI_LOGF(result_fp, "[heap-check] [end]\n");

@@ -208,6 +208,7 @@ def main(args: List[str]):
     "concrete": "Generate concrete patches",
     "buggy": "Generate buggy patches from meta",
     "meta": "Generate patches as meta program",
+    "reset": "Remove concrete/"
   }
   root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
   opt = args[1]
@@ -240,8 +241,12 @@ def main(args: List[str]):
       continue
     if "vars" not in meta:
       continue
+    if opt == "reset":
+      os.system(f"rm -rf {outdir}/concrete")
+      continue
     if opt == "compile":
       compile(f"{outdir}/concrete")
+      continue
     vars = meta["vars"]
     if opt == "init":
       dir = os.getcwd()
