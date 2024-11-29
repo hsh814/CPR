@@ -400,6 +400,10 @@ void uni_klee_heap_check(void **start_points, char **ids, int n) {
     }
     u64 a_addr = pair->value.addr;
     u64 a_value = pair->value.value;
+    if (u_value == 1) { // Don't care about the value
+      UNI_LOGF(result_fp, "[heap-check] [ok] [u-addr %llu] [u-value %llu] [a-addr %llu] [a-value %llu]\n", u_addr, u_value, a_addr, a_value);
+      continue;
+    }
     struct uni_klee_key_value_pair *u_value_pair = uni_klee_hash_map_get(uni_klee_ptr_hash_map, u_value);
     struct uni_klee_key_value_pair *a_value_pair = uni_klee_hash_map_get(u2a_hash_map, u_value);
     if (u_value_pair == NULL && a_value_pair == NULL) { // Both are not pointer of pointer
@@ -419,7 +423,7 @@ void uni_klee_heap_check(void **start_points, char **ids, int n) {
       } else {
         UNI_LOGF(result_fp, "[heap-check] [ok] [u-addr %llu] [u-value %llu] [a-addr %llu] [a-value %llu]\n", u_addr, u_value, a_addr, a_value);
       }
-    } else { // Error
+    } else {
       UNI_LOGF(result_fp, "[heap-check] [error] [value-mismatch] [u-addr %llu] [u-value %llu] [a-addr %llu] [a-value %llu]\n", u_addr, u_value, a_addr, a_value);
     }
   }
