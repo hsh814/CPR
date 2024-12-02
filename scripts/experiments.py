@@ -229,6 +229,10 @@ def final_analysis(dir: str):
       best = result["sym-out"]["best"][0]["cnt"]
       best_patches = str_to_list(result["sym-out"]["best"][0]["patches"])
       best_found = correct_patch in best_patches
+      if len(result["sym-in"]) == 0:
+        default = meta_data[0]["all-patches"]
+      if meta_data[0]["correct-input"] == 0:
+        best = meta_data[0]["all-patches"]
       results.append({
         "project": project,
         "bug": bug,
