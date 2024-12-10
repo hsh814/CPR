@@ -115,7 +115,7 @@ class RunSingle():
     if extra == "k2-high":
       cmd += " --sym-level=high --additional='--symbolize-bound=2' --max-fork=1024,1024,1024"
     if extra == "high":
-      cmd += " --sym-level=high --max-fork=1024,1024,1024"
+      cmd += " --sym-level=high --max-fork=1024,1024,128"
     if extra == "k2":
       cmd += " --additional='--symbolize-bound=2' --max-fork=1024,1024,1024"
     if extra == "low":
@@ -275,7 +275,7 @@ def run_cmd(opt: str, meta_data: List[dict], extra: str):
 
 def main(argv: List[str]):
   parser = argparse.ArgumentParser(description="Run symvass experiments")
-  parser.add_argument("cmd", type=str, help="Command to run", choices=["exp", "high", "k2", "k2-high", "analyze", "final"], default="exp")
+  parser.add_argument("cmd", type=str, help="Command to run", choices=["filter", "exp", "high", "k2", "k2-high", "analyze", "final"], default="exp")
   parser.add_argument("-e", "--extra", type=str, help="Subcommand", default="exp")
   parser.add_argument("-o", "--output", type=str, help="Output directory", default="out", required=False)
   parser.add_argument("-p", "--prefix", type=str, help="Output prefix", default="", required=False)
@@ -290,6 +290,8 @@ def main(argv: List[str]):
   if args.cmd == "exp":
     if args.extra != "exp":
       SYMVASS_PREFIX = args.extra
+  if args.cmd == "filter":
+    SYMVASS_PREFIX = "filter"
   if args.symvass_prefix != "":
     SYMVASS_PREFIX = args.symvass_prefix
   if args.cmd == "final":

@@ -178,8 +178,7 @@ class Config(uni_klee.Config):
             self.append_snapshot_cmd(result)
         else:
             add_opts = list()
-            if self.cmd == "cmp":
-                add_opts.append("--start-from-snapshot")
+            add_opts.append("--start-from-snapshot")
             self.append_cmd(result, ",".join(self.patch_ids), add_opts)
         bin_file = os.path.basename(self.project_conf["binary_path"])
         target = bin_file + ".bc"

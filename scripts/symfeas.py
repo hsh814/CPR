@@ -18,56 +18,6 @@ import uni_klee
 import sympatch
 
 
-def get_trace(dir: str, id: int):
-    dp = uni_klee.DataLogParser(dir)
-    dp.read_data_log("data.log")
-    result = dp.generate_table_v2(dp.cluster())
-    graph = result["graph"]
-    state_id = id
-    parent_states = dp.get_parent_states(graph, state_id)
-    state_filter = set(parent_states)
-    state_filter.add(state_id)
-    done = set()
-    prev = -1
-    trace = list()
-    with open(os.path.join(dir, "trace.log"), "r") as f:
-        lines = f.readlines()
-        for line in lines:
-            if line.startswith("[state"):
-                tokens = dp.parser_level_1(line)
-                if len(tokens) < 3:
-                    continue
-                state = dp.parse_state_id(tokens[0])
-                if tokens[1] == "B":
-                    continue
-                if state in state_filter:
-                    if state in done:
-                        continue
-                    if prev != state:
-                        if prev > state:
-                            continue
-                        trace.append(f"[state {prev}] -> [state {state}]")
-                        done.add(prev)
-                        prev = state
-                    trace.append(line.strip())
-    with open(os.path.join(dir, f"state-{id}.log"), "w") as f:
-        for line in trace:
-            f.write(line + "\n")
-
-
-def convert_to_sbsv(dir: str):
-    with open(f"{dir}/run.stats", "r") as f:
-        lines = f.readlines()
-        header = lines[0].strip().replace("(", "").replace(")", "").split(",")
-        with open(f"{dir}/run.stats.sbsv", "w") as f:
-            for i in range(1, len(lines)):
-                line = lines[i].strip().replace("(", "").replace(")", "")
-                tokens = line.split(",")
-                f.write(
-                    f"[stats] [inst {tokens[0]}] [fb {tokens[1]}] [pb {tokens[2]}] [nb {tokens[3]}] [ut {tokens[4]}] [ns {tokens[5]}] [mu {tokens[6]}] [nq {tokens[7]}] [nqc {tokens[8]}] [no {tokens[9]}] [wt {tokens[10]}] [ci {tokens[11]}] [ui {tokens[12]}] [qt {tokens[13]}] [st {tokens[14]}] [cct {tokens[15]}] [ft {tokens[16]}] [rt {tokens[17]}] [qccm {tokens[18]}] [ccch {tokens[19]}]\n"
-                )
-
-
 class ConfigFiles(uni_klee.ConfigFiles):
     def __init__(self):
         self.root_dir = uni_klee.ROOT_DIR
@@ -858,13 +808,9 @@ class Runner(uni_klee.Runner):
 
 def main(argv: list) -> int:
     os.chdir(uni_klee.ROOT_DIR)
-    cmd = argv[1]
-    if cmd != "trace":
-        conf = arg_parser(argv)
-        runner = Runner(conf)
-        runner.run()
-    elif cmd == "trace":
-        get_trace(argv[2], int(argv[3]))
+    conf = arg_parser(argv)
+    runner = Runner(conf)
+    runner.run()
 
 
 if __name__ == "__main__":
