@@ -642,27 +642,12 @@ class SymvassAnalyzer:
 def arg_parser(argv: List[str]) -> Config:
     # Remaining: c, e, g, h, i, j, n, q, t, u, v, w, x, y, z
     parser = argparse.ArgumentParser(description="Test script for uni-klee")
-    parser.add_argument("cmd", help="Command to execute", choices=["run", "rerun", "snapshot", "clean", "kill", "filter", "analyze"])
+    parser.add_argument("cmd", help="Command to execute", choices=["build"])
     parser.add_argument("query", help="Query for bugid and patch ids: <bugid>[:<patchid>] # ex) 5321:1,2,3,r5-10")
     parser.add_argument("-a", "--additional", help="Additional arguments", default="")
-    parser.add_argument("-d", "--debug", help="Debug mode", action="store_true")
-    parser.add_argument("-o", "--outdir", help="Output directory", default="")
-    parser.add_argument("-p", "--outdir-prefix", help="Output directory prefix(\"out\" for out dir)", default="uni-m-out")
-    parser.add_argument("-b", "--snapshot-base-patch", help="Patches for snapshot", default="buggy")
-    parser.add_argument("-s", "--snapshot-prefix", help="Snapshot directory prefix", default="snapshot")
-    parser.add_argument("-f", "--filter-prefix", help="Filter directory prefix", default="filter")
-    parser.add_argument("-l", "--sym-level", help="Symbolization level", default="medium")
-    parser.add_argument("-m", "--max-fork", help="Max fork", default="64,64,64")
-    parser.add_argument("-k", "--lock", help="Handle lock behavior", default="i", choices=["i", "w", "f"])
-    parser.add_argument("-r", "--rerun", help="Rerun last command with same option", action="store_true")
-    parser.add_argument("-z", "--analyze", help="Analyze symvass data", action="store_true")
     args = parser.parse_args(argv[1:])
-    conf = Config(args.cmd, args.query, args.debug, args.sym_level, args.max_fork)
-    if args.analyze:
-        conf.conf_files.out_dir = args.query
-        return conf
-    conf.init(args.snapshot_base_patch, args.rerun, args.additional, args.lock)
-    conf.conf_files.set_out_dir(args.outdir, args.outdir_prefix, conf.bug_info, args.snapshot_prefix, args.filter_prefix)
+    conf = Config(args.cmd, args.query, True, "medium", "64,64,64")
+    conf.init("", False, args.additional, "", "")
     return conf
 
 
@@ -677,7 +662,12 @@ class Runner(uni_klee.Runner):
         print(f"Executing: {cmd}")
         if env is None:
             env = os.environ
-        proc = subprocess.run(cmd, shell=True, cwd=dir, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if self.config.debug:
+            proc = subprocess.Popen(cmd, shell=True, cwd=dir, env=env, stdout=sys.stdout, stderr=sys.stderr)
+            proc.wait()
+        else:
+            proc = subprocess.Popen(cmd, shell=True, cwd=dir, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            proc.wait()
         if self.config.debug or proc.returncode != 0:
             log_file = os.path.join(
                 self.config.conf_files.get_log_dir(), f"{log_prefix}.log"
@@ -699,20 +689,6 @@ class Runner(uni_klee.Runner):
                 pass
         return proc.returncode
 
-    def execute_snapshot(self, cmd: str, dir: str, env: dict = None):
-        if self.config.cmd in ["rerun", "snapshot"]:
-            self.execute("rm -rf " + self.config.conf_files.snapshot_dir, dir, "rm")
-        if self.config.cmd == "filter":
-            self.execute("rm -rf " + self.config.conf_files.filter_dir, dir, "rm")
-            self.execute(cmd, dir, "filter", env)
-            return
-        if not os.path.exists(self.config.conf_files.snapshot_file):
-            if self.config.debug:
-                print(
-                    f"snapshot file {self.config.conf_files.snapshot_file} does not exist"
-                )
-            self.execute(cmd, dir, "snapshot", env)
-    
     def print_list(self, l: List[Tuple[str, int]]):
         for item, index in l:
             print(f"{index}) {item}")
@@ -732,78 +708,13 @@ class Runner(uni_klee.Runner):
                 if res == index:
                     return (item, index)
 
-    def get_dir(self):
-        print("Set_dir")
-        dir = self.config.conf_files.out_dir
-        # self.filter_dir = self.config.conf_files.filter_dir
-        if not os.path.exists(dir):
-            print(f"{dir} does not exist")
-            out_dirs = self.config.conf_files.find_all_nums(
-                self.config.conf_files.out_base_dir,
-                self.config.conf_files.out_dir_prefix,
-            )
-            out_dir = self.interactive_select(out_dirs, "dir")[0]
-            if out_dir == "":
-                print("Exit")
-                return
-            dir = os.path.join(self.config.conf_files.out_base_dir, out_dir)
-        print(f"Using {dir}")
-        return dir
-
     def run(self):
         if self.config.cmd == "analyze":
             analyzer = SymvassAnalyzer(self.get_dir())
             analyzer.analyze_v2()
             return
-        if self.config.cmd in ["clean", "kill"]:
-            # 1. Find all processes
-            processes = uni_klee.global_config.get_current_processes()
-            for proc in processes:
-                if proc == self.config.bug_info["id"]:
-                    with open(uni_klee.global_config.get_lock_file(self.config.bug_info["bug_id"]),"r") as f:
-                        lines = f.readlines()
-                        if len(lines) > 1:
-                            print(f"Kill process {lines[0]}")
-                            try:
-                                os.kill(int(lines[0]), signal.SIGTERM)
-                            except OSError as e:
-                                print(e.errno)
-                    # 2. Remove lock file
-                    os.remove(
-                        uni_klee.global_config.get_lock_file(
-                            self.config.bug_info["bug_id"]
-                        )
-                    )
-            # 3. Remove output directory
-            if self.config.cmd == "clean":
-                out_dirs = self.config.conf_files.find_all_nums(
-                    self.config.conf_files.out_base_dir,
-                    self.config.conf_files.out_dir_prefix,
-                )
-                for out_dir in out_dirs:
-                    print(f"Remove {out_dir[0]}")
-                    os.system(
-                        f"rm -rf {os.path.join(self.config.conf_files.out_base_dir, out_dir[0])}"
-                    )
-            return
-        lock_file = uni_klee.global_config.get_lock_file(self.config.bug_info["bug_id"])
-        lock = uni_klee.acquire_lock(lock_file, self.config.lock, self.config.conf_files.out_dir)
-        try:
-            if lock < 0:
-                print(f"Cannot acquire lock {lock_file}")
-                return
-            cmd = self.config.get_cmd_opts(True)
-            self.execute_snapshot(cmd, self.config.workdir)
-            if self.config.cmd not in ["snapshot", "filter"]:
-                cmd = self.config.get_cmd_opts(False)
-                self.execute(cmd, self.config.workdir, "uni-klee")
-                analyzer = SymvassAnalyzer(self.get_dir())
-                analyzer.analyze_v2()
-        except Exception as e:
-            print(f"Exception: {e}")
-            print(traceback.format_exc())
-        finally:
-            uni_klee.release_lock(lock_file, lock)
+        elif self.config.cmd == "build":
+            self.execute("./val.sh", self.config.conf_files.project_dir, "val-build")
 
 
 def main(argv: list) -> int:

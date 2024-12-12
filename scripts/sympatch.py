@@ -208,7 +208,8 @@ def main(args: List[str]):
     "concrete": "Generate concrete patches",
     "buggy": "Generate buggy patches from meta",
     "meta": "Generate patches as meta program",
-    "reset": "Remove concrete/"
+    "reset": "Remove concrete/",
+    "val-build": "Build the validation program"
   }
   root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
   opt = args[1]
@@ -252,6 +253,12 @@ def main(args: List[str]):
       dir = os.getcwd()
       os.chdir(outdir)
       os.system("./init.sh")
+      os.chdir(dir)
+      continue
+    if opt == "val-build":
+      dir = os.getcwd()
+      os.chdir(outdir)
+      os.system("./val.sh")
       os.chdir(dir)
       continue
     if opt == "meta":

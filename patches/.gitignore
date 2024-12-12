@@ -14,6 +14,7 @@ concrete/
 */*/*/pacfix
 */*/*/pc-src
 */*/*/pc-runtime
+*/*/*/val-*
 */*/*/*-bak
 */*/*/repair-out
 */*/*/runtime

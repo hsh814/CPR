@@ -275,7 +275,7 @@ def run_cmd(opt: str, meta_data: List[dict], extra: str):
 
 def main(argv: List[str]):
   parser = argparse.ArgumentParser(description="Run symvass experiments")
-  parser.add_argument("cmd", type=str, help="Command to run", choices=["filter", "exp", "high", "k2", "k2-high", "analyze", "final"], default="exp")
+  parser.add_argument("cmd", type=str, help="Command to run", choices=["filter", "exp", "high", "k2", "analyze", "final"], default="exp")
   parser.add_argument("-e", "--extra", type=str, help="Subcommand", default="exp")
   parser.add_argument("-o", "--output", type=str, help="Output directory", default="out", required=False)
   parser.add_argument("-p", "--prefix", type=str, help="Output prefix", default="", required=False)
