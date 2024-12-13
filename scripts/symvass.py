@@ -754,11 +754,77 @@ class SymvassAnalyzer:
                     if not crashed and base_reg == crash_reg:
                         result.append((crash_id, base_meta["state"], crash_meta["state"], crash))
         self.generate_table(cluster, result)
+    
+    def mem_file_parser(self, filename: str) -> sbsv.parser:
+        parser = sbsv.parser()
+        parser.add_schema("[node] [addr: int] [base: int] [size: int] [value: int]")
+        parser.add_schema("[sym] [arg] [index: int] [size: int] [name: str]")
+        parser.add_schema("[sym] [heap] [type: str] [addr: int] [base: int] [size: int] [name: str]")
+        with open(filename, "r") as f:
+            parser.load(f)
+        return parser
+    
+    def cluster_symbolic_inputs(self):
+        dp = SymvassDataLogSbsvParser(self.dir)
+        analyzer = DataAnalyzer(dp)
+        analyzer.analyze()
+        cluster = self.cluster(analyzer)
+        # symbolic_trace = self.symbolic_trace(analyzer)
+        # buggy_trace = self.buggy_trace(analyzer)
+        mem_cluster: Dict[frozenset, List[int]] = dict()
+        result = list()
+        # Collect only useful symbolic inputs: use analyze_v2 code
+        for crash_state in cluster:
+            base_meta = analyzer.meta_data[crash_state]
+            crash_id = base_meta["crashId"]
+            base = base_meta["patches"]
+            base_reg = base_meta["reg"]
+            is_crash = base_meta["isCrash"]
+            for crash_test in cluster[crash_state]:
+                if crash_test not in analyzer.meta_data:
+                    continue
+                crash_meta = analyzer.meta_data[crash_test]
+                crash = crash_meta["patches"]
+                crash_reg = crash_meta["reg"]
+                crashed = crash_meta["actuallyCrashed"]
+                # If input is feasible:
+                # crash -> not crash
+                # not crash -> not crash + preserve behavior
+                if is_crash:
+                    if not crashed:
+                        result.append(crash_meta["state"])
+                else:
+                    if not crashed and base_reg == crash_reg:
+                        result.append(crash_meta["state"])
+        # Cluster collected symbolic inputs
+        for state in result:
+            # filename: 1 -> test000001.mem (6 digits)
+            mem_file = os.path.join(self.dir, f"test{state:06d}.mem")
+            parser = self.mem_file_parser(mem_file)
+            data = parser.get_result()
+            nodes = list()
+            for node in data["node"]:
+                addr = node["addr"]
+                base = node["base"]
+                size = node["size"]
+                value = node["value"]
+                nodes.append((addr, base, size, value))
+            key = frozenset(nodes)
+            if key not in mem_cluster:
+                mem_cluster[key] = list()
+            mem_cluster[key].append(state)
+        # Save cluster
+        ser_mem_cluster = list()
+        for key, value in mem_cluster.items():
+            ser_mem_cluster.append({"file": os.path.join(self.dir, f"test{value[0]:06d}.mem"), "nodes": value})
+        with open(os.path.join(self.dir, "symin-cluster.json"), "w") as f:
+            json.dump(ser_mem_cluster, f, indent=2)
+            
 
 def arg_parser(argv: List[str]) -> Config:
     # Remaining: c, e, h, i, j, n, q, t, u, v, w, x, y
     parser = argparse.ArgumentParser(description="Test script for uni-klee")
-    parser.add_argument("cmd", help="Command to execute", choices=["run", "rerun", "snapshot", "clean", "kill", "filter", "analyze"])
+    parser.add_argument("cmd", help="Command to execute", choices=["run", "rerun", "snapshot", "clean", "kill", "filter", "analyze", "symgroup"])
     parser.add_argument("query", help="Query for bugid and patch ids: <bugid>[:<patchid>] # ex) 5321:1,2,3,r5-10")
     parser.add_argument("-a", "--additional", help="Additional arguments", default="")
     parser.add_argument("-d", "--debug", help="Debug mode", action="store_true")
@@ -903,6 +969,10 @@ class Runner(uni_klee.Runner):
             analyzer = SymvassAnalyzer(self.get_dir(), self.config.bug_info)
             analyzer.analyze_v2()
             return
+        if self.config.cmd == "symgroup":
+            analyzer = SymvassAnalyzer(self.get_dir(), self.config.bug_info)
+            analyzer.cluster_symbolic_inputs()
+            return
         if self.config.cmd in ["clean", "kill"]:
             # 1. Find all processes
             processes = uni_klee.global_config.get_current_processes()
@@ -954,16 +1024,16 @@ class Runner(uni_klee.Runner):
             uni_klee.release_lock(lock_file, lock)
 
 
-def main(argv: list) -> int:
+def main() -> int:
     os.chdir(uni_klee.ROOT_DIR)
-    cmd = argv[1]
+    cmd = sys.argv[1]
     if cmd != "trace":
-        conf = arg_parser(argv)
+        conf = arg_parser(sys.argv)
         runner = Runner(conf)
         runner.run()
     elif cmd == "trace":
-        get_trace(argv[2], int(argv[3]))
+        get_trace(sys.argv[2], int(sys.argv[3]))
 
 
 if __name__ == "__main__":
-    main(sys.argv)
+    main()
