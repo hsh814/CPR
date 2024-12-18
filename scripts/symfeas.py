@@ -72,15 +72,46 @@ def run_fuzzer(subject_name: str):
     runtime_dir = os.path.join(subject_dir, "runtime")
     out_no = find_num(runtime_dir, "aflrun-out")
     out_dir = os.path.join(runtime_dir, f"aflrun-out-{out_no}")
-    
+    in_dir = os.path.join(runtime_dir, "in")
+    if not os.path.exists(in_dir):
+        os.makedirs(in_dir)
+        os.system(f"cp {os.path.join(subject_dir, conf['poc_path'])} {in_dir}/")
+    env = os.environ.copy()
+    env["AFL_NO_UI"] = "1"
+    bin = os.path.basename(conf["binary_path"])
+    opts = conf["test_input_list"].replace("$POC", "@@")
+    cmd = f"timeout 12h /root/projects/AFLRun/afl-fuzz -C -i ./in -o {out_dir} -m none -t 2000ms -- ./{bin}.aflrun {opts}"
+    print(f"Running fuzzer: {cmd}")
+    return
+    proc = subprocess.run(cmd, shell=True, cwd=runtime_dir, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if proc.returncode != 0:
+        print(f"Fuzzer failed {proc.stderr.read()}")
+    print("Fuzzer finished")
+    # Collect results in val-runtime
+    val_dir = os.path.join(subject_dir, "val-runtime")
+    conc_inputs_dir = val_dir + "/concrete-inputs"
+    if os.path.exists(conc_inputs_dir):
+        os.system(f"rm -rf {conc_inputs_dir}")
+    os.makedirs(conc_inputs_dir, exist_ok=True)
+    # Copy from crashes
+    for seed in os.listdir(f"{out_dir}/default/crashes"):
+        if seed == "README.txt":
+            continue
+        os.system(f"cp {out_dir}/default/crashes/{seed} {conc_inputs_dir}/")
+    # Copy from queue
+    for seed in os.listdir(f"{out_dir}/default/queue"):
+        if os.path.isdir(f"{out_dir}/default/queue/{seed}"):
+            continue
+        os.system(f"cp {out_dir}/default/queue/{seed} {conc_inputs_dir}/")
     
 
 def main():
     parser = argparse.ArgumentParser(description="Symbolic Input Feasibility Analysis")
     parser.add_argument("cmd", help="Command to run", choices=["fuzz", "check"])
+    parser.add_argument("subject", help="Subject to run", default="")
     parser.add_argument("-i", "--input", help="Input file", default="")
     parser.add_argument("-o", "--output", help="Output file", default="")
-    parser.add_argument("-s", "--subject", help="Subject", default="")
+    # parser.add_argument("-s", "--subject", help="Subject", default="")
     args = parser.parse_args(sys.argv[1:])
     if args.cmd == "fuzz":
         run_fuzzer(args.subject)

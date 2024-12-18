@@ -121,6 +121,10 @@ class RunSingle():
     if extra == "low":
       cmd += " --sym-level=low --max-fork=1024,1024,1024"
     return cmd
+  
+  def get_fuzz_cmd(self) -> str:
+    return f"symvass.py fuzz {self.meta['bug_id']}"
+  
   def get_cmd(self, opt: str, extra: str) -> str:
     # if "correct" not in self.meta:
     #   print("No correct patch")
@@ -136,6 +140,8 @@ class RunSingle():
       return self.get_exp_cmd(extra)
     if opt == "analyze":
       return self.get_analyze_cmd()
+    if opt == "fuzz":
+      return self.get_fuzz_cmd()
     print(f"Unknown opt: {opt}")
     return None
 
@@ -275,7 +281,7 @@ def run_cmd(opt: str, meta_data: List[dict], extra: str):
 
 def main(argv: List[str]):
   parser = argparse.ArgumentParser(description="Run symvass experiments")
-  parser.add_argument("cmd", type=str, help="Command to run", choices=["filter", "exp", "analyze", "final"], default="exp")
+  parser.add_argument("cmd", type=str, help="Command to run", choices=["filter", "exp", "analyze", "final", "fuzz"], default="exp")
   parser.add_argument("-e", "--extra", type=str, help="Subcommand", default="exp")
   parser.add_argument("-o", "--output", type=str, help="Output directory", default="out", required=False)
   parser.add_argument("-p", "--prefix", type=str, help="Output prefix", default="", required=False)
