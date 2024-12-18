@@ -1,9 +1,8 @@
 #!/bin/bash
 rm -rf source
-git clone https://github.com/vadz/libtiff.git
-mv libtiff source
+git clone https://github.com/vadz/libtiff.git source
 pushd source
-  git checkout f3069a5
+  git checkout 9a72a69
 popd
 
 export AFLRUN=/root/projects/AFLRun
@@ -13,9 +12,9 @@ pushd aflrun_build
   TMP_DIR=$PWD/temp
   mkdir aflrun_tmp
   export AFLRUN_TMP=$PWD/aflrun_tmp
-  echo "tiff2ps.c:2470" > $TMP_DIR/BBtargets.txt
+  echo "tif_ojpeg.c:816" > $TMP_DIR/BBtargets.txt
   export AFLRUN_BB_TARGETS=$TMP_DIR/BBtargets.txt
-  export AFLRUN_TARGETS="tiff2ps"
+  export AFLRUN_TARGETS="tiffmedian"
   # export ADDITIONAL_FLAGS="-flto -fuse-ld=gold -Wl,-plugin-opt=save-temps"
   export FORCE_UNSAFE_CONFIGURE=1
   CC=$AFLRUN/afl-clang-lto CXX=$AFLRUN/afl-clang-lto++ ASAN_OPTIONS=detect_leaks=0 ../source/configure
@@ -23,5 +22,5 @@ pushd aflrun_build
 popd
 
 rm -r runtime && mkdir runtime
-cp aflrun_build/tools/tiff2ps ./runtime/tiff2ps.aflrun
+cp aflrun_build/tools/tiffmedian ./runtime/tiffmedian.aflrun
 
