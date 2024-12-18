@@ -21,6 +21,6 @@ pushd aflrun_build
   CC=$AFLRUN/afl-clang-lto CXX=$AFLRUN/afl-clang-lto++ ASAN_OPTIONS=detect_leaks=0 make CFLAGS="-static -fsanitize=address -fsanitize=undefined -g" CXXFLAGS="-static -fsanitize=address -fsanitize=undefined -g" -j10
 popd
 
-rm -r runtime && mkdir runtime
+rm -rf runtime && mkdir runtime
 cp aflrun_build/tools/tiffmedian ./runtime/tiffmedian.aflrun
 
