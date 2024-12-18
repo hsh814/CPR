@@ -4,7 +4,8 @@
 .idea
 main/__pycache__/
 logs
-*/.DS_Store
+.DS_Store
+*_build/
 error-log
 concrete/
 */*/*/src
