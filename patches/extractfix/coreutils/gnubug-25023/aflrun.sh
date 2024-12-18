@@ -29,4 +29,5 @@ pushd aflrun_build
   CC=$AFLRUN/afl-clang-lto CXX=$AFLRUN/afl-clang-lto++ ASAN_OPTIONS=detect_leaks=0 make CFLAGS="-Wno-error -fsanitize=address -fsanitize=undefined -g" CXXFLAGS="-Wno-error -fsanitize=address -fsanitize=undefined -g" -j 10
 popd
 
-cp ./aflrun_build/src/pr ./pr.aflrun
+rm -r runtime && mkdir runtime
+cp ./aflrun_build/src/pr runtime/pr.aflrun

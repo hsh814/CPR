@@ -33,4 +33,5 @@ pushd aflrun_build
   CC=$AFLRUN/afl-clang-lto CXX=$AFLRUN/afl-clang-lto++ ASAN_OPTIONS=detect_leaks=0 make CFLAGS="$ADDITIONAL_FLAGS -Wno-error -fsanitize=address -ggdb" CXXFLAGS="$ADDITIONAL_FLAGS -Wno-error -fsanitize=address -ggdb" LDFLAGS="-fsanitize=address" -j10
 popd
 
-cp ./aflrun_build/src/shred ./shred.aflrun
+rm -r runtime && mkdir runtime
+cp ./aflrun_build/src/shred runtime/shred.aflrun
