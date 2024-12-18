@@ -190,6 +190,12 @@ class Config(uni_klee.Config):
             target_cmd = self.project_conf["test_input_list"].replace("$POC", poc_path)
             result.append(target_cmd)
         return " ".join(result)
+    
+    def get_cmd_for_original(self, poc: str) -> str:
+        if "test_input_list" in self.project_conf:
+            target_cmd = self.project_conf["test_input_list"].replace("$POC", poc)
+            return target_cmd
+        return ""
 
 class SymvassDataLogSbsvParser():
     dir: str
@@ -819,12 +825,46 @@ class SymvassAnalyzer:
             ser_mem_cluster.append({"file": os.path.join(self.dir, f"test{value[0]:06d}.mem"), "nodes": value})
         with open(os.path.join(self.dir, "symin-cluster.json"), "w") as f:
             json.dump(ser_mem_cluster, f, indent=2)
-            
+    
+    def verify_feasibility(self, config: Config, inputs_dir: str, output_dir: str):
+        with open(os.path.join(self.dir, "symin-cluster.json"), "r") as f:
+            mem_cluster = json.load(f)
+        inputs = os.listdir(inputs_dir)
+        runner = Runner(config)
+        bin_file = os.path.basename(config.project_conf["binary_path"])
+        validation_runtime = os.path.join(config.conf_files.project_dir, "val-runtime")
+        validation_binary = os.path.join(validation_runtime, bin_file)
+        group_id = 0
+        for cluster in mem_cluster:
+            group_id += 1
+            group_out_dir = os.path.join(output_dir, f"group{group_id}")
+            os.makedirs(group_out_dir, exist_ok=True)
+            nodes = cluster["nodes"]
+            mem_file = cluster["file"]
+            # First, run val binary with concrete inputs + mem_file
+            env = os.environ.copy()
+            env["UNI_KLEE_MEM_BASE_FILE"] = os.path.join(self.dir, "base-mem.graph")
+            env["UNI_KLEE_MEM_FILE"] = mem_file
+            input_id = 0
+            for cinput in inputs:
+                c_file = os.path.join(inputs_dir, cinput)
+                if os.path.isdir(c_file):
+                    continue
+                input_id += 1
+                env_local = env.copy()
+                local_out_file = os.path.join(group_out_dir, f"out-{input_id}.txt")
+                with open(local_out_file, "w") as f:
+                    f.write(f"[input] [id {input_id}] [symgroup {group_id}] [file {cinput}]")
+                env_local["UNI_KLEE_MEM_RESULT"] = local_out_file
+                print(f"[val] [group {group_id}] [input {input_id}] [out {local_out_file}]")
+                opts = config.get_cmd_for_original(c_file)
+                cmd = f"{validation_binary} {opts}"
+                runner.execute(cmd, validation_runtime, "quiet", env_local)
 
 def arg_parser(argv: List[str]) -> Config:
     # Remaining: c, e, h, i, j, n, q, t, u, v, w, x, y
     parser = argparse.ArgumentParser(description="Test script for uni-klee")
-    parser.add_argument("cmd", help="Command to execute", choices=["run", "rerun", "snapshot", "clean", "kill", "filter", "analyze", "symgroup"])
+    parser.add_argument("cmd", help="Command to execute", choices=["run", "rerun", "snapshot", "clean", "kill", "filter", "analyze", "symgroup", "symval"])
     parser.add_argument("query", help="Query for bugid and patch ids: <bugid>[:<patchid>] # ex) 5321:1,2,3,r5-10")
     parser.add_argument("-a", "--additional", help="Additional arguments", default="")
     parser.add_argument("-d", "--debug", help="Debug mode", action="store_true")
@@ -892,7 +932,7 @@ class Runner(uni_klee.Runner):
             print(f"Timeout {timeout} seconds {cmd}")
             self.kill_proc_tree(proc.pid)
             stdout, stderr = proc.communicate()
-        if self.config.debug or (proc.returncode != 0 and not timeout_reached):
+        if log_prefix != "quiet" and (self.config.debug or (proc.returncode != 0 and not timeout_reached)):
             log_file = os.path.join(
                 self.config.conf_files.get_log_dir(), f"{log_prefix}.log"
             )
@@ -965,14 +1005,19 @@ class Runner(uni_klee.Runner):
         return dir
 
     def run(self):
-        if self.config.cmd == "analyze":
+
+        if self.config.cmd in ["analyze", "symgroup", "symval"]:
             analyzer = SymvassAnalyzer(self.get_dir(), self.config.bug_info)
-            analyzer.analyze_v2()
+            if self.config.cmd == "analyze":
+                analyzer.analyze_v2()
+            elif self.config.cmd == "symgroup":
+                analyzer.cluster_symbolic_inputs()
+            else:
+                val_dir = os.path.join(self.config.conf_files.project_dir, "val-runtime")
+                val_out_dir = os.path.join(val_dir, "val-out-" + str(self.config.conf_files.find_num(val_dir, "val-out")))
+                analyzer.verify_feasibility(self.config, self.config.additional, val_out_dir)
             return
-        if self.config.cmd == "symgroup":
-            analyzer = SymvassAnalyzer(self.get_dir(), self.config.bug_info)
-            analyzer.cluster_symbolic_inputs()
-            return
+        
         if self.config.cmd in ["clean", "kill"]:
             # 1. Find all processes
             processes = uni_klee.global_config.get_current_processes()
@@ -1004,6 +1049,7 @@ class Runner(uni_klee.Runner):
                         f"rm -rf {os.path.join(self.config.conf_files.out_base_dir, out_dir[0])}"
                     )
             return
+
         lock_file = uni_klee.global_config.get_lock_file(self.config.bug_info["bug_id"])
         lock = uni_klee.acquire_lock(lock_file, self.config.lock, self.config.conf_files.out_dir)
         try:
