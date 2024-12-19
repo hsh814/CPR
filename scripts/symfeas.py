@@ -59,6 +59,19 @@ def find_num(dir: str, name: str) -> int:
             break
     return result
 
+def read_config_file(file_path: str) -> Dict[str, str]:
+    result = dict()
+    if os.path.exists(file_path):
+        with open(file_path, "r") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                parts = line.split("=")
+                if len(parts) == 2:
+                    result[parts[0].strip()] = parts[1].strip()
+    return result
+
 def run_fuzzer(subject_name: str):
     # Find subject
     subject = None
@@ -69,23 +82,28 @@ def run_fuzzer(subject_name: str):
     conf = uni_klee.global_config.get_meta_data_info_by_id(subject["id"])["conf"]
     # Run fuzzer
     subject_dir = os.path.join(ROOT_DIR, "patches", subject["benchmark"], subject["subject"], subject["bug_id"])
+    config_for_fuzz = read_config_file(os.path.join(subject_dir, "config"))
+    if len(config_for_fuzz) > 0:
+        conf["test_input_list"] = config_for_fuzz["cmd"].replace("<exploit>", "$POC")
+        conf["poc_path"] = os.path.basename(config_for_fuzz["exploit"])
+    print(conf)
     runtime_dir = os.path.join(subject_dir, "runtime")
     out_no = find_num(runtime_dir, "aflrun-out")
     out_dir = os.path.join(runtime_dir, f"aflrun-out-{out_no}")
     in_dir = os.path.join(runtime_dir, "in")
-    if not os.path.exists(in_dir):
-        os.makedirs(in_dir)
-        os.system(f"cp {os.path.join(subject_dir, conf['poc_path'])} {in_dir}/")
+    if os.path.exists(in_dir):
+        os.system(f"rm -rf {in_dir}")
+    os.makedirs(in_dir)
+    os.system(f"cp {os.path.join(subject_dir, conf['poc_path'])} {in_dir}/")
     env = os.environ.copy()
     env["AFL_NO_UI"] = "1"
     bin = os.path.basename(conf["binary_path"])
     opts = conf["test_input_list"].replace("$POC", "@@")
     cmd = f"timeout 12h /root/projects/AFLRun/afl-fuzz -C -i ./in -o {out_dir} -m none -t 2000ms -- ./{bin}.aflrun {opts}"
     print(f"Running fuzzer: {cmd}")
-    return
-    proc = subprocess.run(cmd, shell=True, cwd=runtime_dir, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    proc = subprocess.run(cmd, shell=True, cwd=runtime_dir, env=env)
     if proc.returncode != 0:
-        print(f"Fuzzer failed {proc.stderr.read()}")
+        print(f"Fuzzer failed {proc.stderr}")
     print("Fuzzer finished")
     # Collect results in val-runtime
     val_dir = os.path.join(subject_dir, "val-runtime")

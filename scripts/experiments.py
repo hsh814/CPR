@@ -123,7 +123,7 @@ class RunSingle():
     return cmd
   
   def get_fuzz_cmd(self) -> str:
-    return f"symvass.py fuzz {self.meta['bug_id']}"
+    return f"symfeas.py fuzz {self.meta['bug_id']}"
   
   def get_cmd(self, opt: str, extra: str) -> str:
     # if "correct" not in self.meta:

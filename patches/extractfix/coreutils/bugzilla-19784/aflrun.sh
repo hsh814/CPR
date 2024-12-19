@@ -17,7 +17,7 @@ pushd aflrun_build
   TMP_DIR=$PWD/temp
   mkdir aflrun_tmp
   export AFLRUN_TMP=$PWD/aflrun_tmp
-  echo "make-prime-list.c:218" > $TMP_DIR/BBtargets.txt
+  echo "make-prime-list.c:216" > $TMP_DIR/BBtargets.txt
   export AFLRUN_BB_TARGETS=$TMP_DIR/BBtargets.txt
   export AFLRUN_TARGETS="make-prime-list"
   # export ADDITIONAL_FLAGS="-flto -fuse-ld=gold -Wl,-plugin-opt=save-temps"
@@ -26,4 +26,5 @@ pushd aflrun_build
   CC=$AFLRUN/afl-clang-lto CXX=$AFLRUN/afl-clang-lto++ ASAN_OPTIONS=detect_leaks=0 make CFLAGS="-Wno-error -fsanitize=address -g" src/make-prime-list
 popd
 
-cp aflrun_build/src/make-prime-list ./make-prime-list.aflrun
+rm -rf runtime && mkdir runtime
+cp aflrun_build/src/make-prime-list runtime/make-prime-list.aflrun
