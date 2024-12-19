@@ -827,6 +827,8 @@ class SymvassAnalyzer:
             json.dump(ser_mem_cluster, f, indent=2)
     
     def verify_feasibility(self, config: Config, inputs_dir: str, output_dir: str):
+        if not os.path.exists(os.path.join(self.dir, "symin-cluster.json")):
+            self.cluster_symbolic_inputs()
         with open(os.path.join(self.dir, "symin-cluster.json"), "r") as f:
             mem_cluster = json.load(f)
         inputs = os.listdir(inputs_dir)
@@ -853,13 +855,14 @@ class SymvassAnalyzer:
                 input_id += 1
                 env_local = env.copy()
                 local_out_file = os.path.join(group_out_dir, f"out-{input_id}.txt")
-                with open(local_out_file, "w") as f:
-                    f.write(f"[input] [id {input_id}] [symgroup {group_id}] [file {cinput}]")
                 env_local["UNI_KLEE_MEM_RESULT"] = local_out_file
                 print(f"[val] [group {group_id}] [input {input_id}] [out {local_out_file}]")
                 opts = config.get_cmd_for_original(c_file)
                 cmd = f"{validation_binary} {opts}"
                 runner.execute(cmd, validation_runtime, "quiet", env_local)
+                if os.path.exists(local_out_file):
+                    with open(local_out_file, "a") as f:
+                        f.write(f"[input] [id {input_id}] [symgroup {group_id}] [file {cinput}]")
 
 def arg_parser(argv: List[str]) -> Config:
     # Remaining: c, e, h, i, j, n, q, t, u, v, w, x, y
@@ -1015,7 +1018,10 @@ class Runner(uni_klee.Runner):
             else:
                 val_dir = os.path.join(self.config.conf_files.project_dir, "val-runtime")
                 val_out_dir = os.path.join(val_dir, "val-out-" + str(self.config.conf_files.find_num(val_dir, "val-out")))
-                analyzer.verify_feasibility(self.config, self.config.additional, val_out_dir)
+                conc_inputs_dir = self.config.additional
+                if conc_inputs_dir == "":
+                    conc_inputs_dir = os.path.join(self.config.conf_files.project_dir, "runtime", "concrete-inputs")
+                analyzer.verify_feasibility(self.config, conc_inputs_dir, val_out_dir)
             return
         
         if self.config.cmd in ["clean", "kill"]:

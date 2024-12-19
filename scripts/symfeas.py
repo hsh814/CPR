@@ -72,13 +72,17 @@ def read_config_file(file_path: str) -> Dict[str, str]:
                     result[parts[0].strip()] = parts[1].strip()
     return result
 
-def run_fuzzer(subject_name: str):
-    # Find subject
+def get_metadata(subject_name: str) -> dict:
     subject = None
     for sub in uni_klee.global_config.get_meta_data_list():
         if subject_name.lower() in sub["bug_id"].lower():
             subject = sub
             break
+    return subject
+
+def run_fuzzer(subject_name: str):
+    # Find subject
+    subject = get_metadata(subject_name)
     conf = uni_klee.global_config.get_meta_data_info_by_id(subject["id"])["conf"]
     # Run fuzzer
     subject_dir = os.path.join(ROOT_DIR, "patches", subject["benchmark"], subject["subject"], subject["bug_id"])
@@ -125,7 +129,7 @@ def run_fuzzer(subject_name: str):
 
 def main():
     parser = argparse.ArgumentParser(description="Symbolic Input Feasibility Analysis")
-    parser.add_argument("cmd", help="Command to run", choices=["fuzz", "check"])
+    parser.add_argument("cmd", help="Command to run", choices=["fuzz", "check", "fuzz-build", "val-build", "build"])
     parser.add_argument("subject", help="Subject to run", default="")
     parser.add_argument("-i", "--input", help="Input file", default="")
     parser.add_argument("-o", "--output", help="Output file", default="")
@@ -135,6 +139,18 @@ def main():
         run_fuzzer(args.subject)
     elif args.cmd == "check":
         parse_smt2_file(args.input)
+    elif args.cmd == "fuzz-build":
+        subject = get_metadata(args.subject)
+        subject_dir = os.path.join(ROOT_DIR, "patches", subject["benchmark"], subject["subject"], subject["bug_id"])
+        subprocess.run(f"./aflrun.sh", cwd=subject_dir, shell=True)
+    elif args.cmd == "val-build":
+        subject = get_metadata(args.subject)
+        subject_dir = os.path.join(ROOT_DIR, "patches", subject["benchmark"], subject["subject"], subject["bug_id"])
+        subprocess.run(f"./val.sh", cwd=subject_dir, shell=True)
+    elif args.cmd == "build":
+        subject = get_metadata(args.subject)
+        subject_dir = os.path.join(ROOT_DIR, "patches", subject["benchmark"], subject["subject"], subject["bug_id"])
+        subprocess.run(f"./init.sh", cwd=subject_dir, shell=True)
     
 
 if __name__ == "__main__":

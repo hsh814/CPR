@@ -140,7 +140,7 @@ class RunSingle():
       return self.get_exp_cmd(extra)
     if opt == "analyze":
       return self.get_analyze_cmd()
-    if opt == "fuzz":
+    if opt == "fuzz": # clean with rm -r patches/*/*/*/runtime/aflrun-out-*
       return self.get_fuzz_cmd()
     print(f"Unknown opt: {opt}")
     return None
