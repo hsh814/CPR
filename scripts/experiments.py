@@ -122,9 +122,16 @@ class RunSingle():
       cmd += " --sym-level=low --max-fork=1024,1024,1024"
     return cmd
   
-  def get_fuzz_cmd(self) -> str:
-    return f"symfeas.py fuzz {self.meta['bug_id']}"
-  
+  def get_fuzz_cmd(self, extra: str) -> str:
+    if extra == "exp":
+      return f"symfeas.py fuzz {self.meta['bug_id']}"
+    if extra == "build":
+      return f"symfeas.py build {self.meta['bug_id']}"
+    if extra == "val-build":
+      return f"symfeas.py val-build {self.meta['bug_id']}"
+    if extra == "fuzz-build":
+      return f"symfeas.py fuzz-build {self.meta['bug_id']}"
+    
   def get_cmd(self, opt: str, extra: str) -> str:
     # if "correct" not in self.meta:
     #   print("No correct patch")
@@ -141,7 +148,7 @@ class RunSingle():
     if opt == "analyze":
       return self.get_analyze_cmd()
     if opt == "fuzz": # clean with rm -r patches/*/*/*/runtime/aflrun-out-*
-      return self.get_fuzz_cmd()
+      return self.get_fuzz_cmd(extra)
     print(f"Unknown opt: {opt}")
     return None
 
