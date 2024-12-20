@@ -108,7 +108,7 @@ class ConfigFiles(uni_klee.ConfigFiles):
             self.out_dir = os.path.join(self.out_base_dir, f"{out_dir_prefix}-{no}")
         self.snapshot_dir = os.path.join(self.out_base_dir, self.snapshot_prefix)
         self.filter_dir = os.path.join(self.out_base_dir, filter_prefix)
-        print(f"Use snapshot {self.bid} snapshot-last.json ...")
+        # print(f"Use snapshot {self.bid} snapshot-last.json ...")
         self.snapshot_file = os.path.join(self.snapshot_dir, "snapshot-last.json")
 
 class Config(uni_klee.Config):

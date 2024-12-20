@@ -118,15 +118,15 @@ def run_fuzzer(subject_name: str, debug: bool = False):
         os.system(f"rm -rf {conc_inputs_dir}")
     os.makedirs(conc_inputs_dir, exist_ok=True)
     # Copy from crashes
-    for seed in os.listdir(f"{out_dir}/default/crashes"):
-        if seed == "README.txt":
-            continue
-        os.system(f"cp {out_dir}/default/crashes/{seed} {conc_inputs_dir}/")
+    # for seed in os.listdir(f"{out_dir}/default/crashes"):
+    #     if seed == "README.txt":
+    #         continue
+    os.system(f"rsync -az {out_dir}/default/crashes/ {conc_inputs_dir}/")
     # Copy from queue
-    for seed in os.listdir(f"{out_dir}/default/queue"):
-        if os.path.isdir(f"{out_dir}/default/queue/{seed}"):
-            continue
-        os.system(f"cp {out_dir}/default/queue/{seed} {conc_inputs_dir}/")
+    # for seed in os.listdir(f"{out_dir}/default/queue"):
+    #     if os.path.isdir(f"{out_dir}/default/queue/{seed}"):
+    #         continue
+    os.system(f"rsync -az {out_dir}/default/queue/ {conc_inputs_dir}/")
     
 
 def main():

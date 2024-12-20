@@ -189,10 +189,10 @@ class ConfigFiles:
     self.snapshot_dir = os.path.join(self.out_base_dir, self.snapshot_prefix)
     self.filter_dir = os.path.join(self.out_base_dir, filter_prefix)
     if "snapshot" in bug_info:
-      print(f"Use snapshot {self.bid} {bug_info['snapshot']}")
+      # print(f"Use snapshot {self.bid} {bug_info['snapshot']}")
       self.snapshot_file = os.path.join(self.snapshot_dir, bug_info["snapshot"])
     else:
-      print(f"Use snapshot {self.bid} snapshot-last.json ...")
+      # print(f"Use snapshot {self.bid} snapshot-last.json ...")
       self.snapshot_file = os.path.join(self.snapshot_dir, "snapshot-last.json")
   def find_num(self, dir: str, name: str) -> int:
     result = 0
