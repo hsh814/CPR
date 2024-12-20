@@ -837,6 +837,8 @@ class SymvassAnalyzer:
         validation_runtime = os.path.join(config.conf_files.project_dir, "val-runtime")
         validation_binary = os.path.join(validation_runtime, bin_file)
         group_id = 0
+        timeout = config.timeout
+        config.timeout = "10s"
         for cluster in mem_cluster:
             group_id += 1
             group_out_dir = os.path.join(output_dir, f"group{group_id}")
@@ -852,6 +854,8 @@ class SymvassAnalyzer:
                 c_file = os.path.join(inputs_dir, cinput)
                 if os.path.isdir(c_file):
                     continue
+                if cinput == "README.txt":
+                    continue
                 input_id += 1
                 env_local = env.copy()
                 local_out_file = os.path.join(group_out_dir, f"out-{input_id}.txt")
@@ -863,6 +867,7 @@ class SymvassAnalyzer:
                 if os.path.exists(local_out_file):
                     with open(local_out_file, "a") as f:
                         f.write(f"[input] [id {input_id}] [symgroup {group_id}] [file {cinput}]")
+        config.timeout = timeout
 
 def arg_parser(argv: List[str]) -> Config:
     # Remaining: c, e, h, i, j, n, q, t, u, v, w, x, y
@@ -1021,7 +1026,7 @@ class Runner(uni_klee.Runner):
                 val_out_dir = os.path.join(val_dir, "val-out-" + str(self.config.conf_files.find_num(val_dir, "val-out")))
                 conc_inputs_dir = self.config.additional
                 if conc_inputs_dir == "":
-                    conc_inputs_dir = os.path.join(self.config.conf_files.project_dir, "runtime", "concrete-inputs")
+                    conc_inputs_dir = os.path.join(val_dir, "concrete-inputs")
                 analyzer.verify_feasibility(self.config, conc_inputs_dir, val_out_dir)
             return
         

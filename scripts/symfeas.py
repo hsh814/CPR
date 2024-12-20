@@ -111,6 +111,11 @@ def run_fuzzer(subject_name: str, debug: bool = False):
     if proc.returncode != 0:
         print(f"Fuzzer failed {proc.stderr}")
     print("Fuzzer finished")
+    collect_val_runtime(subject_dir, out_dir)
+
+
+def collect_val_runtime(subject_dir: str, out_dir: str):
+    print(f"Collecting val runtime from {out_dir}")
     # Collect results in val-runtime
     val_dir = os.path.join(subject_dir, "val-runtime")
     conc_inputs_dir = val_dir + "/concrete-inputs"
@@ -131,7 +136,7 @@ def run_fuzzer(subject_name: str, debug: bool = False):
 
 def main():
     parser = argparse.ArgumentParser(description="Symbolic Input Feasibility Analysis")
-    parser.add_argument("cmd", help="Command to run", choices=["fuzz", "check", "fuzz-build", "val-build", "build"])
+    parser.add_argument("cmd", help="Command to run", choices=["fuzz", "check", "fuzz-build", "val-build", "build", "collect-inputs"])
     parser.add_argument("subject", help="Subject to run", default="")
     parser.add_argument("-i", "--input", help="Input file", default="")
     parser.add_argument("-o", "--output", help="Output file", default="")
@@ -154,6 +159,11 @@ def main():
         subject = get_metadata(args.subject)
         subject_dir = os.path.join(ROOT_DIR, "patches", subject["benchmark"], subject["subject"], subject["bug_id"])
         subprocess.run(f"./init.sh", cwd=subject_dir, shell=True)
+    elif args.cmd == "collect-inputs":
+        subject = get_metadata(args.subject)
+        subject_dir = os.path.join(ROOT_DIR, "patches", subject["benchmark"], subject["subject"], subject["bug_id"])
+        out_no = find_num(os.path.join(subject_dir, "runtime"), "aflrun-out")
+        collect_val_runtime(subject_dir, os.path.join(subject_dir, "runtime", f"aflrun-out-{out_no - 1}"))
     
 
 if __name__ == "__main__":

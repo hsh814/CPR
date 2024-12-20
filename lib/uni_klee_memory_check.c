@@ -328,6 +328,15 @@ static void uni_klee_initialize_hash_map(int n) {
   fclose(mem_fp);
 }
 
+static char *uni_klee_dex_string(char *value, u64 size) {
+  char *result = malloc(2 * size + 1);
+  for (u64 i = 0; i < size; i++) {
+    sprintf(result + 2 * i, "%02x", (unsigned char)value[i]);
+  }
+  result[2 * size] = '\0';
+  return result;
+}
+
 void uni_klee_heap_check(u64 *start_points, int n) {
   char *result_file = getenv("UNI_KLEE_MEM_RESULT");
   if (result_file == NULL)
@@ -355,8 +364,11 @@ void uni_klee_heap_check(u64 *start_points, int n) {
       UNI_LOGF("[arg] [err-no-info] [index %d] [value %llu]\n", i, (u64)start_point);
       continue;
     }
-    if (!arg->is_ptr) {
-      UNI_LOGF(result_fp, "[val] [arg] [index %d] [value %llu] [size %llu] [name %s]\n", arg->index, (u64)start_point, arg->size, arg->name);
+    if (!arg->is_ptr && arg->size <= 8) {
+      u64 tmp = (u64)start_point;
+      char *dex = uni_klee_dex_string((char *)&tmp, arg->size);
+      UNI_LOGF(result_fp, "[val] [arg] [index %d] [value %s] [size %llu] [name %s] [num %llu]\n", arg->index, dex, arg->size, arg->name, tmp);
+      free(dex);
       continue;
     }
     void *value = NULL;
@@ -488,30 +500,25 @@ void uni_klee_heap_check(u64 *start_points, int n) {
         continue;
       }
       char *a_base_ptr = (char *)a_addr;
-      char data[size];
-      memcpy(data, a_base_ptr, size);
       // Print the data as hex string
-      char hex[2 * size + 1];
-      for (u64 i = 0; i < size; i++) {
-        sprintf(hex + 2 * i, "%02x", data[i]);
-      }
-      hex[2 * size] = '\0';
+      char *hex = uni_klee_dex_string(a_base_ptr, size);
       u64 value = 0;
       if (size == 1) {
-        unsigned char v = *(unsigned char *)data;
+        unsigned char v = *(unsigned char *)a_base_ptr;
         value = (u64)v;
       } else if (size == 2) {
-        unsigned short v = *(unsigned short *)data;
+        unsigned short v = *(unsigned short *)a_base_ptr;
         value = (u64)v;
       } else if (size == 4) {
-        unsigned int v = *(unsigned int *)data;
+        unsigned int v = *(unsigned int *)a_base_ptr;
         value = (u64)v;
       } else if (size == 8) {
-        value = *(u64 *)data;
+        value = *(u64 *)a_base_ptr;
       } else {
-        value = *(u64 *)data;
+        value = *(u64 *)a_base_ptr;
       }
       UNI_LOGF(result_fp, "[val] [heap] [u-addr %llu] [name %s] [value %s] [size %llu] [num %llu]\n", u_addr, name, hex, size, value);
+      free(hex);
     }
   }
   UNI_LOGF(result_fp, "[heap-check] [end]\n");
