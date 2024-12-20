@@ -80,7 +80,7 @@ def get_metadata(subject_name: str) -> dict:
             break
     return subject
 
-def run_fuzzer(subject_name: str):
+def run_fuzzer(subject_name: str, debug: bool = False):
     # Find subject
     subject = get_metadata(subject_name)
     conf = uni_klee.global_config.get_meta_data_info_by_id(subject["id"])["conf"]
@@ -105,7 +105,9 @@ def run_fuzzer(subject_name: str):
     opts = conf["test_input_list"].replace("$POC", "@@")
     cmd = f"timeout 12h /root/projects/AFLRun/afl-fuzz -C -i ./in -o {out_dir} -m none -t 2000ms -- ./{bin}.aflrun {opts}"
     print(f"Running fuzzer: {cmd}")
-    proc = subprocess.run(cmd, shell=True, cwd=runtime_dir, env=env)
+    stdout = sys.stdout if debug else subprocess.DEVNULL
+    stderr = sys.stderr # if debug else subprocess.DEVNULL
+    proc = subprocess.run(cmd, shell=True, cwd=runtime_dir, env=env, stdout=stdout, stderr=stderr)
     if proc.returncode != 0:
         print(f"Fuzzer failed {proc.stderr}")
     print("Fuzzer finished")
@@ -133,10 +135,11 @@ def main():
     parser.add_argument("subject", help="Subject to run", default="")
     parser.add_argument("-i", "--input", help="Input file", default="")
     parser.add_argument("-o", "--output", help="Output file", default="")
+    parser.add_argument("-d", "--debug", help="Debug mode", action="store_true")
     # parser.add_argument("-s", "--subject", help="Subject", default="")
     args = parser.parse_args(sys.argv[1:])
     if args.cmd == "fuzz":
-        run_fuzzer(args.subject)
+        run_fuzzer(args.subject, args.debug)
     elif args.cmd == "check":
         parse_smt2_file(args.input)
     elif args.cmd == "fuzz-build":

@@ -926,7 +926,8 @@ class Runner(uni_klee.Runner):
             else:
                 timeout = int(self.config.timeout.strip("s"))
         timeout += 60
-        proc = subprocess.Popen(cmd, shell=True, cwd=dir, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        stdout = subprocess.PIPE if self.config.debug else subprocess.DEVNULL
+        proc = subprocess.Popen(cmd, shell=True, cwd=dir, env=env, stdout=stdout, stderr=subprocess.PIPE)
         timeout_reached = False
         try:
             stdout, stderr = proc.communicate(timeout=timeout)
