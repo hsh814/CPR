@@ -863,6 +863,7 @@ class SymvassAnalyzer:
                 print(f"[val] [group {group_id}] [input {input_id}] [out {local_out_file}]")
                 opts = config.get_cmd_for_original(c_file)
                 cmd = f"{validation_binary} {opts}"
+                # if cmd == "": input as stdin
                 runner.execute(cmd, validation_runtime, "quiet", env_local)
                 if os.path.exists(local_out_file):
                     with open(local_out_file, "a") as f:

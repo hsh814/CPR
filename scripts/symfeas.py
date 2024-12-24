@@ -80,16 +80,17 @@ def get_metadata(subject_name: str) -> dict:
             break
     return subject
 
-def run_fuzzer(subject_name: str, debug: bool = False):
-    # Find subject
-    subject = get_metadata(subject_name)
+def get_conf(subject: dict, subject_dir: str) -> Dict[str, str]:
     conf = uni_klee.global_config.get_meta_data_info_by_id(subject["id"])["conf"]
-    # Run fuzzer
-    subject_dir = os.path.join(ROOT_DIR, "patches", subject["benchmark"], subject["subject"], subject["bug_id"])
     config_for_fuzz = read_config_file(os.path.join(subject_dir, "config"))
     if len(config_for_fuzz) > 0:
         conf["test_input_list"] = config_for_fuzz["cmd"].replace("<exploit>", "$POC")
         conf["poc_path"] = os.path.basename(config_for_fuzz["exploit"])
+    return conf
+
+def run_fuzzer(subject: dict, subject_dir: str, debug: bool = False):
+    # Find subject
+    conf = get_conf(subject, subject_dir)
     print(conf)
     runtime_dir = os.path.join(subject_dir, "runtime")
     out_no = find_num(runtime_dir, "aflrun-out")
@@ -123,48 +124,109 @@ def collect_val_runtime(subject_dir: str, out_dir: str):
         os.system(f"rm -rf {conc_inputs_dir}")
     os.makedirs(conc_inputs_dir, exist_ok=True)
     # Copy from crashes
-    # for seed in os.listdir(f"{out_dir}/default/crashes"):
-    #     if seed == "README.txt":
-    #         continue
     os.system(f"rsync -az {out_dir}/default/crashes/ {conc_inputs_dir}/")
     # Copy from queue
-    # for seed in os.listdir(f"{out_dir}/default/queue"):
-    #     if os.path.isdir(f"{out_dir}/default/queue/{seed}"):
-    #         continue
     os.system(f"rsync -az {out_dir}/default/queue/ {conc_inputs_dir}/")
     
+def clear_val(dir: str):
+    files = os.listdir(dir)
+    for f in files:
+        file = os.path.join(dir, f)
+        if f.startswith("core.") and os.path.isfile(file):
+            os.remove(file)
+
+def run_val(subject: dict, subject_dir: str, uni_klee_prefix: str, debug: bool = False):
+    conf = get_conf(subject, subject_dir)
+    val_runtime = os.path.join(subject_dir, "val-runtime")
+    val_bin = os.path.join(val_runtime, conf["binary_path"])
+    val_out_no = find_num(val_runtime, "val-out")
+    val_out_dir = os.path.join(val_runtime, f"val-out-{val_out_no}")
+    
+    out_no = find_num(os.path.join(subject_dir, "patched"), uni_klee_prefix)
+    out_dir = os.path.join(subject_dir, "patched", f"{uni_klee_prefix}-{out_no - 1}")
+    symin_cluster_json = os.path.join(out_dir, "symin-cluster.json")
+    if not os.path.exists(symin_cluster_json):
+        print(f"symin-cluster.json not found in {out_dir}")
+        return
+    with open(symin_cluster_json, "r") as f:
+        cluster = json.load(f)
+        
+    conc_inputs_dir = os.path.join(val_runtime, "concrete-inputs")
+    cinputs = os.listdir(conc_inputs_dir)
+    
+    for i, c in enumerate(cluster):
+        print(f"Processing cluster {i}")
+        file = c["file"]
+        nodes = c["nodes"]
+        group_out_dir = os.path.join(val_out_dir, f"group-{i}")
+        os.makedirs(group_out_dir, exist_ok=True)
+        env = os.environ.copy()
+        env["UNI_KLEE_MEM_BASE_FILE"] = os.path.join(out_dir, "base_mem.graph")
+        env["UNI_KLEE_MEM_FILE"] = file
+        results = list()
+        for cid, cinput in enumerate(cinputs):
+            c_file = os.path.join(conc_inputs_dir, cinput)
+            if os.path.isdir(c_file):
+                continue
+            if cinput == "README.txt":
+                continue
+            env_local = env.copy()
+            local_out_file = os.path.join(group_out_dir, f"val-{cid}.txt")
+            env_local["UNI_KLEE_MEM_RESULT"] = local_out_file
+            env_str = f"UNI_KLEE_MEM_BASE_FILE={env['UNI_KLEE_MEM_BASE_FILE']} UNI_KLEE_MEM_FILE={env['UNI_KLEE_MEM_FILE']} UNI_KLEE_MEM_RESULT={local_out_file}"
+            if "test_input_list" in conf:
+                use_stdin = conf["test_input_list"].find("$POC") == -1
+                target_cmd = conf["test_input_list"].replace("$POC", c_file)
+                if use_stdin:
+                    target_cmd = f"cat {c_file} | {val_bin} {target_cmd}"
+                else:
+                    target_cmd = f"{val_bin} {target_cmd}"
+            else:
+                target_cmd = val_bin
+            try:
+                subprocess.run(target_cmd, shell=True, env=env_local, cwd=val_runtime, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
+            except subprocess.TimeoutExpired:
+                print(f"Timeout for {target_cmd}")
+                continue
+            except Exception as e:
+                print(f"Error for {target_cmd}: {e}")
+                continue
+            print(f"Finished{cid}: {env_str} {target_cmd}")
+            if os.path.exists(local_out_file):
+                results.append(local_out_file)
+                with open(local_out_file, "a") as f:
+                    f.write(f"[input] [id {cid}] [symgroup {i}] [file {cinput}]")
+        clear_val(val_runtime)
+        # if len(results) > 0:
+
 
 def main():
     parser = argparse.ArgumentParser(description="Symbolic Input Feasibility Analysis")
-    parser.add_argument("cmd", help="Command to run", choices=["fuzz", "check", "fuzz-build", "val-build", "build", "collect-inputs"])
+    parser.add_argument("cmd", help="Command to run", choices=["fuzz", "check", "fuzz-build", "val-build", "build", "collect-inputs", "val"])
     parser.add_argument("subject", help="Subject to run", default="")
     parser.add_argument("-i", "--input", help="Input file", default="")
     parser.add_argument("-o", "--output", help="Output file", default="")
     parser.add_argument("-d", "--debug", help="Debug mode", action="store_true")
+    parser.add_argument("-u", "--uni-klee-prefix", help="UniKlee prefix", default="uni-m-out")
     # parser.add_argument("-s", "--subject", help="Subject", default="")
     args = parser.parse_args(sys.argv[1:])
+    subject = get_metadata(args.subject)
+    subject_dir = os.path.join(ROOT_DIR, "patches", subject["benchmark"], subject["subject"], subject["bug_id"])
     if args.cmd == "fuzz":
-        run_fuzzer(args.subject, args.debug)
+        run_fuzzer(subject, subject_dir, args.debug)
     elif args.cmd == "check":
         parse_smt2_file(args.input)
     elif args.cmd == "fuzz-build":
-        subject = get_metadata(args.subject)
-        subject_dir = os.path.join(ROOT_DIR, "patches", subject["benchmark"], subject["subject"], subject["bug_id"])
         subprocess.run(f"./aflrun.sh", cwd=subject_dir, shell=True)
     elif args.cmd == "val-build":
-        subject = get_metadata(args.subject)
-        subject_dir = os.path.join(ROOT_DIR, "patches", subject["benchmark"], subject["subject"], subject["bug_id"])
         subprocess.run(f"./val.sh", cwd=subject_dir, shell=True)
     elif args.cmd == "build":
-        subject = get_metadata(args.subject)
-        subject_dir = os.path.join(ROOT_DIR, "patches", subject["benchmark"], subject["subject"], subject["bug_id"])
         subprocess.run(f"./init.sh", cwd=subject_dir, shell=True)
     elif args.cmd == "collect-inputs":
-        subject = get_metadata(args.subject)
-        subject_dir = os.path.join(ROOT_DIR, "patches", subject["benchmark"], subject["subject"], subject["bug_id"])
         out_no = find_num(os.path.join(subject_dir, "runtime"), "aflrun-out")
         collect_val_runtime(subject_dir, os.path.join(subject_dir, "runtime", f"aflrun-out-{out_no - 1}"))
-    
+    elif args.cmd == "val":
+        run_val(subject, subject_dir, args.uni_klee_prefix, args.debug)
 
 if __name__ == "__main__":
     main()

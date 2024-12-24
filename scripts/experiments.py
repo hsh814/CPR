@@ -50,7 +50,8 @@ def execute(cmd: str, dir: str, log_file: str, log_dir: str, prefix: str, meta: 
   print(f"Done {prefix}: {end - start}s")
   with open(os.path.join(GLOBAL_LOG_DIR, "time.log"), "a") as f:
     f.write(f"{prefix},{end - start}\n")
-  collect_result(meta)
+  if log_dir == "exp":
+    collect_result(meta)
   if proc.returncode != 0:
     print(f"Failed to execute: {cmd}")
     try:
@@ -125,12 +126,10 @@ class RunSingle():
   def get_fuzz_cmd(self, extra: str) -> str:
     if extra == "exp":
       return f"symfeas.py fuzz {self.meta['bug_id']}"
-    if extra == "build":
-      return f"symfeas.py build {self.meta['bug_id']}"
-    if extra == "val-build":
-      return f"symfeas.py val-build {self.meta['bug_id']}"
-    if extra == "fuzz-build":
-      return f"symfeas.py fuzz-build {self.meta['bug_id']}"
+    if extra in ["build", "val-build", "fuzz_build", "collect-inputs"]:
+      return f"symfeas.py {extra} {self.meta['bug_id']}"
+    print(f"Unknown extra: {extra}")
+    exit(1)
     
   def get_cmd(self, opt: str, extra: str) -> str:
     # if "correct" not in self.meta:

@@ -361,7 +361,7 @@ void uni_klee_heap_check(u64 *start_points, int n) {
     struct uni_klee_arg *arg = uni_klee_flat_map_get(uni_klee_start_points_map, i);
     UNI_LOGF(result_fp, "[mem] [index %d] [u-addr %llu] [a-addr %llu]\n", i, (u64)arg, (u64)start_point);
     if (arg == NULL) {
-      UNI_LOGF("[arg] [err-no-info] [index %d] [value %llu]\n", i, (u64)start_point);
+      UNI_LOGF(result_fp, "[arg] [err-no-info] [index %d] [value %llu]\n", i, (u64)start_point);
       continue;
     }
     if (!arg->is_ptr && arg->size <= 8) {

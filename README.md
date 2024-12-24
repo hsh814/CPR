@@ -1,14 +1,34 @@
 # CPR Benchmark
 ## Setup
 ```shell
+export PATH=/root/projects/CPR/scripts:$PATH
 # 0. Generate meta-data.json with scripts/meta.py (already done)
 # python3 scripts/meta.py
 # 1. Genenrate patches
 python3 scripts/sympatch.py reset patches
 python3 scripts/sympatch.py concrete patches
 python3 scripts/sympatch.py meta patches
-# 2. Run test
-python3 scripts/symvass.py run 5321
+# 2. Build (for single)
+symfeas.py init 5321 # Run ./init.sh
+symfeas.py val-build 5321 # ./val.sh
+symfeas.py fuzz-build 5321 # ./aflrun.sh
+# 2. Build (for all)
+experiments.py fuzz --extra val-build
+experiments.py fuzz --extra init
+experiments.py fuzz --extra fuzz-build
+# 3. Run test (for single)
+symvass.py run 5321
+# 3. Run test (for all)
+experiments.py exp
+# 4. Run fuzzer (for single)
+symfeas.py fuzz 5321
+symfeas.py collect-inputs 5321
+# 4. Run fuzzer (for all)
+experiments.py fuzz
+experiments.py fuzz --extra collect-inputs
+# 5. Symbolic input validation
+symvass.py symgroup 5321
+symfeas.py val 5321
 ```
 
 ## Test
