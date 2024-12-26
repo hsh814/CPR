@@ -13,22 +13,29 @@ symfeas.py init 5321 # Run ./init.sh
 symfeas.py val-build 5321 # ./val.sh
 symfeas.py fuzz-build 5321 # ./aflrun.sh
 # 2. Build (for all)
-experiments.py fuzz --extra val-build
 experiments.py fuzz --extra init
+experiments.py fuzz --extra val-build
 experiments.py fuzz --extra fuzz-build
 # 3. Run test (for single)
-symvass.py run 5321
+symvass.py rerun 5321
+symvass.py rerun 5321 --sym-level=high --max-fork=1024,1024,128
 # 3. Run test (for all)
 experiments.py exp
+experiments.py exp --extra high
 # 4. Run fuzzer (for single)
 symfeas.py fuzz 5321
 symfeas.py collect-inputs 5321
 # 4. Run fuzzer (for all)
 experiments.py fuzz
 experiments.py fuzz --extra collect-inputs
-# 5. Symbolic input validation
+# 5. Symbolic input validation (for single)
 symvass.py symgroup 5321
 symfeas.py val 5321
+symfeas.py feas 5321
+# 5. Symbolic input validation (for all)
+experiments.py analyze --extra symgroup
+experiments.py fuzz --extra val
+exepriments.py fuzz --extra feas
 ```
 
 ## Test

@@ -18,8 +18,9 @@ import uni_klee
 import sympatch
 
 import pysmt.environment
-from pysmt.shortcuts import Symbol, BVType, ArrayType, And, BV, Select, BVConcat, BVULT, Bool, Not, Ite, Equals
+from pysmt.shortcuts import Symbol, BVType, ArrayType, And, BV, Select, BVConcat, BVULT, Bool, Not, Ite, Equals, is_sat
 from pysmt.smtlib.parser import SmtLibParser
+from pysmt.smtlib.script import SmtLibScript
 from pysmt.typing import BV32, BV8, BV64
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -34,17 +35,16 @@ def parse_smt2_file(file_path: str):
     print("Formulae: ", formulae)
     print("Symbols: ", symbols)
     
-def parse_mem_result_file(file_path: str) -> sbsv.parser:
+def parse_mem_result_file(file_path: str) -> dict:
     parser = sbsv.parser()
     parser.add_schema("[mem] [index: int] [u-addr: int] [a-addr: int]")
     parser.add_schema("[heap-check] [error] [no-mapping] [u-addr: int] [u-value: int]")
     parser.add_schema("[heap-check] [error] [value-mismatch] [u-addr: int] [u-value: int] [a-addr: int] [a-value: int]")
     parser.add_schema("[heap-check] [ok] [u-addr: int] [u-value: int] [a-addr: int] [a-value: int]")
-    parser.add_schema("[val] [arg] [index: int] [value: int] [size: int] [name: str]")
+    parser.add_schema("[val] [arg] [index: int] [value: str] [size: int] [name: str] [num: int]")
     parser.add_schema("[val] [error] [no-mapping] [u-addr: int] [name: str]")
-    parser.add_schema("[mem] [error] [null-pointer] [addr: int] [name: str]")
-    parser.add_schema("[val] [heap] [u-addr: int] [name: str] [value: int] [size: int]")
-    parser.add_schema("[val] [obj] [u-addr: int] [name: str] [value: str] [size: int]")
+    parser.add_schema("[val] [error] [null-pointer] [addr: int] [name: str]")
+    parser.add_schema("[val] [heap] [u-addr: int] [name: str] [value: str] [size: int] [num: int]")
     with open(file_path, "r") as f:
         return parser.load(f)
 
@@ -138,7 +138,7 @@ def clear_val(dir: str):
 def run_val(subject: dict, subject_dir: str, uni_klee_prefix: str, debug: bool = False):
     conf = get_conf(subject, subject_dir)
     val_runtime = os.path.join(subject_dir, "val-runtime")
-    val_bin = os.path.join(val_runtime, conf["binary_path"])
+    val_bin = os.path.join(val_runtime, os.path.basename(conf["binary_path"]))
     val_out_no = find_num(val_runtime, "val-out")
     val_out_dir = os.path.join(val_runtime, f"val-out-{val_out_no}")
     
@@ -150,9 +150,20 @@ def run_val(subject: dict, subject_dir: str, uni_klee_prefix: str, debug: bool =
         return
     with open(symin_cluster_json, "r") as f:
         cluster = json.load(f)
+    
+    os.makedirs(val_out_dir, exist_ok=True)
+    
+    with open(os.path.join(val_out_dir, "val.json"), "w") as f:
+        save_obj = dict()
+        save_obj["uni_klee_out_dir"] = out_dir
+        save_obj["val_out_dir"] = val_out_dir
+        save_obj["cluster"] = cluster
+        json.dump(save_obj, f, indent=2)
         
     conc_inputs_dir = os.path.join(val_runtime, "concrete-inputs")
     cinputs = os.listdir(conc_inputs_dir)
+    tmp_inputs_dir = os.path.join(val_runtime, "inputs")
+    os.makedirs(tmp_inputs_dir, exist_ok=True)
     
     for i, c in enumerate(cluster):
         print(f"Processing cluster {i}")
@@ -161,15 +172,18 @@ def run_val(subject: dict, subject_dir: str, uni_klee_prefix: str, debug: bool =
         group_out_dir = os.path.join(val_out_dir, f"group-{i}")
         os.makedirs(group_out_dir, exist_ok=True)
         env = os.environ.copy()
-        env["UNI_KLEE_MEM_BASE_FILE"] = os.path.join(out_dir, "base_mem.graph")
+        env["UNI_KLEE_MEM_BASE_FILE"] = os.path.join(out_dir, "base-mem.graph")
         env["UNI_KLEE_MEM_FILE"] = file
-        results = list()
         for cid, cinput in enumerate(cinputs):
-            c_file = os.path.join(conc_inputs_dir, cinput)
-            if os.path.isdir(c_file):
+            original_file = os.path.join(conc_inputs_dir, cinput)
+            if os.path.isdir(original_file):
                 continue
             if cinput == "README.txt":
                 continue
+            c_file = os.path.join(tmp_inputs_dir, f"val{cid}")
+            if os.path.exists(c_file):
+                os.unlink(c_file)
+            os.link(original_file, c_file)
             env_local = env.copy()
             local_out_file = os.path.join(group_out_dir, f"val-{cid}.txt")
             env_local["UNI_KLEE_MEM_RESULT"] = local_out_file
@@ -191,18 +205,159 @@ def run_val(subject: dict, subject_dir: str, uni_klee_prefix: str, debug: bool =
             except Exception as e:
                 print(f"Error for {target_cmd}: {e}")
                 continue
-            print(f"Finished{cid}: {env_str} {target_cmd}")
+            print(f"Finished {cid}: {env_str} {target_cmd}")
             if os.path.exists(local_out_file):
-                results.append(local_out_file)
                 with open(local_out_file, "a") as f:
                     f.write(f"[input] [id {cid}] [symgroup {i}] [file {cinput}]")
         clear_val(val_runtime)
-        # if len(results) > 0:
 
+
+def load_smt_file(file_path: str) -> Tuple[SmtLibScript, pysmt.environment.Environment]:
+    pysmt.environment.push_env()
+    cur_env = pysmt.environment.get_env()
+    parser = SmtLibParser(cur_env)
+    with open(file_path, "r") as f:
+        script = parser.get_script(f)
+    return script, cur_env
+
+def get_var_from_script(script: SmtLibScript, name: str, cur_env: pysmt.environment.Environment):
+    # Access the parser's cache which contains declared variables
+    existing_symbol = None
+    for s in script.get_declared_symbols():
+        if s.symbol_name() == name:
+            existing_symbol = s
+            break
+    return existing_symbol
+
+
+def get_bv_const(cur_env: pysmt.environment.Environment, value: str, size: int):
+    bytes_data = bytearray.fromhex(value)
+    int_val = int.from_bytes(bytes_data, byteorder="little")
+    bv = cur_env.formula_manager.BV(int_val, size * 8)
+    return bv
+
+
+def read_val_out_file(file_path: str, script: SmtLibScript, cur_env: pysmt.environment.Environment):
+    result = parse_mem_result_file(file_path)
+    if result is None:
+        return None
+    if len(result["heap-check"]["error"]["no-mapping"]) > 0 or len(result["val"]["error"]["no-mapping"]) > 0:
+        print("Memory mismatch")
+        return None
+    if len(result["val"]["error"]["null-pointer"]) > 0:
+        print("Null pointer")
+        return None
+    if len(result["heap-check"]["error"]["value-mismatch"]) > 0:
+        print("Value mismatch")
+        return None
+    formula = script.get_last_formula()
+    for heap in result["val"]["heap"]:
+        addr = heap["u-addr"]
+        name = heap["name"]
+        value = heap["value"]
+        size = heap["size"]
+        num = heap["num"]
+        print(f"Heap: {addr} {name} {value} {size} {num}")
+        # Build the bitvector formula
+        # value: hex string little endian
+        # size: number of bytes
+        # num: number of elements
+        # Get variable already declared in script
+        val = get_bv_const(cur_env, value, size)
+        var = get_var_from_script(script, name, cur_env)
+        if var is None:
+            print(f"Variable {name} not found")
+            continue
+        bv = None
+        for i in range(size):
+            index_bv = cur_env.formula_manager.BV(i, 32)
+            byte_bv = cur_env.formula_manager.Select(var, index_bv)
+            if bv is None:
+                bv = byte_bv
+            else:
+                bv = cur_env.formula_manager.BVConcat(byte_bv, bv)
+        # Add constraint
+        eq = Equals(bv, val)
+        formula = And(formula, eq)
+    for arg in result["val"]["arg"]:
+        index = arg["index"]
+        value = arg["value"]
+        size = arg["size"]
+        name = arg["name"]
+        print(f"Arg: {index} {value} {size} {name}")
+        val = get_bv_const(cur_env, value, size)
+        var = get_var_from_script(script, name, cur_env)
+        if var is None:
+            print(f"Variable {name} not found")
+            continue
+        bv = None
+        for i in range(size):
+            index_bv = cur_env.formula_manager.BV(i, 32)
+            byte_bv = cur_env.formula_manager.Select(var, index_bv)
+            if bv is None:
+                bv = byte_bv
+            else:
+                bv = cur_env.formula_manager.BVConcat(byte_bv, bv)
+        eq = cur_env.formula_manager.Equals(bv, val)
+        formula = cur_env.formula_manager.And(formula, eq)
+    if is_sat(formula):
+        print("SAT")
+        return "SAT"
+    else:
+        print("UNSAT")
+        return "UNSAT"
+        
+        
+def parse_val_results(val_out_dir: str):
+    if not os.path.exists(val_out_dir) or not os.path.exists(os.path.join(val_out_dir, "val.json")):
+        print(f"Val out dir or {val_out_dir}/val.json not found")
+        return
+    with open(os.path.join(val_out_dir, "val.json"), "r") as f:
+        result = json.load(f)
+    uni_klee_out_dir = result["uni_klee_out_dir"]
+    val_out_dir = result["val_out_dir"]
+    cluster = result["cluster"]
+    result = dict()
+    result["uni_klee_out_dir"] = uni_klee_out_dir
+    result["val_out_dir"] = val_out_dir
+    result["val"] = list()
+    for i, c in enumerate(cluster):
+        print(f"Processing cluster {i}")
+        nodes = c["nodes"]
+        group_out_dir = os.path.join(val_out_dir, f"group-{i}")
+        vals = os.listdir(group_out_dir)
+        group_result = dict()
+        group_result["group_id"] = i
+        group_result["nodes"] = nodes
+        group_result["nodes_result"] = list()
+        result["val"].append(group_result)
+        for node in nodes:
+            node_file = os.path.join(uni_klee_out_dir, f"test{node:06d}.smt2")
+            node_result = dict()
+            node_result["node_id"] = node
+            node_result["result"] = list()
+            group_result["nodes_result"].append(node_result)
+            succ = False
+            for val in vals:
+                script, cur_env = load_smt_file(node_file)
+                local_out_file = os.path.join(group_out_dir, val)
+                res = read_val_out_file(local_out_file, script, cur_env)
+                pysmt.environment.pop_env()
+                if res is not None:
+                    node_result["result"].append({"val_file": val, "result": res})
+                    if res == "SAT":
+                        succ = True
+                        break
+                else:
+                    node_result["result"].append({"val_file": val, "result": "ERROR"})
+            node_result["success"] = succ
+        print(f"Finished cluster {i}")
+    with open(os.path.join(val_out_dir, "result.json"), "w") as f:
+        json.dump(result, f, indent=2)
 
 def main():
     parser = argparse.ArgumentParser(description="Symbolic Input Feasibility Analysis")
-    parser.add_argument("cmd", help="Command to run", choices=["fuzz", "check", "fuzz-build", "val-build", "build", "collect-inputs", "val"])
+    parser.add_argument("cmd", help="Command to run", choices=["fuzz", "check", "fuzz-build", "val-build", "build", "collect-inputs", "val", "feas"])
     parser.add_argument("subject", help="Subject to run", default="")
     parser.add_argument("-i", "--input", help="Input file", default="")
     parser.add_argument("-o", "--output", help="Output file", default="")
@@ -227,6 +382,11 @@ def main():
         collect_val_runtime(subject_dir, os.path.join(subject_dir, "runtime", f"aflrun-out-{out_no - 1}"))
     elif args.cmd == "val":
         run_val(subject, subject_dir, args.uni_klee_prefix, args.debug)
+    elif args.cmd == "feas":
+        val_dir = os.path.join(subject_dir, "val-runtime")
+        no = find_num(val_dir, "val-out")
+        val_out_dir = os.path.join(val_dir, f"val-out-{no - 1}")
+        parse_val_results(val_out_dir)
 
 if __name__ == "__main__":
     main()

@@ -83,7 +83,9 @@ class RunSingle():
     return f"symvass.py clean {self.meta['bug_id']} --lock=w"
   def get_filter_cmd(self) -> str:
     return f"symvass.py filter {self.meta['bug_id']} --lock=f"
-  def get_analyze_cmd(self) -> str:
+  def get_analyze_cmd(self, extra: str = "") -> str:
+    if extra != "":
+      return f"symvass.py {extra} {self.meta['bug_id']} --use-last -p {SYMVASS_PREFIX}"
     return f"symvass.py analyze {self.meta['bug_id']} --use-last -p {SYMVASS_PREFIX}"
   def get_exp_cmd(self, extra: str = "") -> str:
     if "correct" not in self.meta:
@@ -126,7 +128,7 @@ class RunSingle():
   def get_fuzz_cmd(self, extra: str) -> str:
     if extra == "exp":
       return f"symfeas.py fuzz {self.meta['bug_id']}"
-    if extra in ["build", "val-build", "fuzz_build", "collect-inputs"]:
+    if extra in ["build", "val-build", "fuzz_build", "collect-inputs", "val", "feas"]:
       return f"symfeas.py {extra} {self.meta['bug_id']}"
     print(f"Unknown extra: {extra}")
     exit(1)
@@ -145,7 +147,7 @@ class RunSingle():
     if opt == "exp":
       return self.get_exp_cmd(extra)
     if opt == "analyze":
-      return self.get_analyze_cmd()
+      return self.get_analyze_cmd(extra)
     if opt == "fuzz": # clean with rm -r patches/*/*/*/runtime/aflrun-out-*
       return self.get_fuzz_cmd(extra)
     print(f"Unknown opt: {opt}")
