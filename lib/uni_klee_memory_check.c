@@ -496,7 +496,7 @@ void uni_klee_heap_check(u64 *start_points, int n) {
       }
       u64 a_addr = a_pair->value.addr;
       if (a_addr == NULL) {
-        UNI_LOGF(result_fp, "[mem] [error] [null-pointer] [addr %llu] [name %s]\n", u_addr, name);
+        UNI_LOGF(result_fp, "[val] [error] [null-pointer] [addr %llu] [name %s]\n", u_addr, name);
         continue;
       }
       char *a_base_ptr = (char *)a_addr;
