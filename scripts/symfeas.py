@@ -321,6 +321,7 @@ def parse_val_results(val_out_dir: str):
     result["uni_klee_out_dir"] = uni_klee_out_dir
     result["val_out_dir"] = val_out_dir
     result["val"] = list()
+    rf = open(os.path.join(val_out_dir, "result.sbsv"), "w")
     for i, c in enumerate(cluster):
         print(f"Processing cluster {i}")
         nodes = c["nodes"]
@@ -345,13 +346,18 @@ def parse_val_results(val_out_dir: str):
                 pysmt.environment.pop_env()
                 if res is not None:
                     node_result["result"].append({"val_file": val, "result": res})
+                    rf.write(f"[res] [c {i}] [n {node}] [res {res}] [val {val}]\n")
                     if res == "SAT":
                         succ = True
                         break
                 else:
                     node_result["result"].append({"val_file": val, "result": "ERROR"})
+                    rf.write(f"[res] [c {i}] [n {node}] [res ERROR] [val {val}]\n")
             node_result["success"] = succ
+            if succ:
+                rf.write(f"[success] [c {i}] [n {node}]\n")
         print(f"Finished cluster {i}")
+    rf.close()
     with open(os.path.join(val_out_dir, "result.json"), "w") as f:
         json.dump(result, f, indent=2)
 
