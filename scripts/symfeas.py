@@ -240,16 +240,16 @@ def get_bv_const(cur_env: pysmt.environment.Environment, value: str, size: int):
 def read_val_out_file(file_path: str, script: SmtLibScript, cur_env: pysmt.environment.Environment):
     result = parse_mem_result_file(file_path)
     if result is None:
-        return None
-    if len(result["heap-check"]["error"]["no-mapping"]) > 0 or len(result["val"]["error"]["no-mapping"]) > 0:
+        return "INTERNAL_ERR"
+    if len(result["heap-check"]["error"]["no-mapping"]) > 0: #  or len(result["val"]["error"]["no-mapping"]) > 0
         print("Memory mismatch")
-        return None
+        return "MEM_MISMATCH"
     if len(result["val"]["error"]["null-pointer"]) > 0:
         print("Null pointer")
-        return None
+        return "NULL_PTR"
     if len(result["heap-check"]["error"]["value-mismatch"]) > 0:
         print("Value mismatch")
-        return None
+        return "VAL_MISMATCH"
     formula = script.get_last_formula()
     for heap in result["val"]["heap"]:
         addr = heap["u-addr"]

@@ -771,39 +771,18 @@ class SymvassAnalyzer:
         return parser
     
     def cluster_symbolic_inputs(self):
-        dp = SymvassDataLogSbsvParser(self.dir)
-        analyzer = DataAnalyzer(dp)
-        analyzer.analyze()
-        cluster = self.cluster(analyzer)
+        if not os.path.exists(os.path.join(self.dir, "table.sbsv")):
+            self.analyze_v2()
+        parser = sbsv.parser()
+        parser.add_schema("[sym-in] [id: int] [base: int] [test: int] [cnt: int] [patches: str]")
+        with open(os.path.join(self.dir, "table.sbsv"), "r") as f:
+            result = parser.load(f)
         # symbolic_trace = self.symbolic_trace(analyzer)
         # buggy_trace = self.buggy_trace(analyzer)
         mem_cluster: Dict[frozenset, List[int]] = dict()
-        result = list()
-        # Collect only useful symbolic inputs: use analyze_v2 code
-        for crash_state in cluster:
-            base_meta = analyzer.meta_data[crash_state]
-            crash_id = base_meta["crashId"]
-            base = base_meta["patches"]
-            base_reg = base_meta["reg"]
-            is_crash = base_meta["isCrash"]
-            for crash_test in cluster[crash_state]:
-                if crash_test not in analyzer.meta_data:
-                    continue
-                crash_meta = analyzer.meta_data[crash_test]
-                crash = crash_meta["patches"]
-                crash_reg = crash_meta["reg"]
-                crashed = crash_meta["actuallyCrashed"]
-                # If input is feasible:
-                # crash -> not crash
-                # not crash -> not crash + preserve behavior
-                if is_crash:
-                    if not crashed:
-                        result.append(crash_meta["state"])
-                else:
-                    if not crashed and base_reg == crash_reg:
-                        result.append(crash_meta["state"])
         # Cluster collected symbolic inputs
-        for state in result:
+        for sym_in in result["sym-in"]:
+            state = sym_in["test"]
             # filename: 1 -> test000001.mem (6 digits)
             mem_file = os.path.join(self.dir, f"test{state:06d}.mem")
             parser = self.mem_file_parser(mem_file)

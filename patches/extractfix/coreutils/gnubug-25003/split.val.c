@@ -527,15 +527,18 @@ void uni_klee_heap_check(u64 *start_points, int n) {
       u64 u_base = pair->value.base;
       u64 size = pair->value.size;
       pair = pair->next;
+      u64 a_addr = 0;
       struct uni_klee_key_value_pair *a_pair = uni_klee_hash_map_get(u2a_value_map, u_addr);
       if (a_pair == NULL) {
-        UNI_LOGF(result_fp, "[val] [error] [no-mapping] [u-addr %llu] [name %s]\n", u_addr, name);
-        continue;
-      }
-      u64 a_addr = a_pair->value.addr;
-      if (a_addr == NULL) {
-        UNI_LOGF(result_fp, "[val] [error] [null-pointer] [addr %llu] [name %s]\n", u_addr, name);
-        continue;
+        // Search using u_base
+        a_pair = uni_klee_hash_map_get(u2a_hash_map, u_base);
+        if (a_pair == NULL) {
+          UNI_LOGF(result_fp, "[val] [error] [no-mapping] [u-addr %llu] [name %s]\n", u_addr, name);
+          continue;
+        }
+        a_addr = a_pair->value.addr + (u_addr - u_base);
+      } else {
+        a_addr = a_pair->value.addr;
       }
       char *a_base_ptr = (char *)a_addr;
       // Print the data as hex string
