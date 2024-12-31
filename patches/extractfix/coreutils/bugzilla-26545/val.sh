@@ -15,6 +15,7 @@ pushd val-src
   git checkout $commit_id
   git clone https://github.com/coreutils/gnulib.git
   # Build
+  sed -i '217d' Makefile.am
   ./bootstrap
     # Patch
   cp ../shred.val.c ${patched_dir}/${patched_file}

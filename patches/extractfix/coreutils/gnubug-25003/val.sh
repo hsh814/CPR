@@ -14,8 +14,9 @@ bin_file=split
 git clone $project_url val-src
 pushd val-src
   git checkout $commit_id
-  git clone https://github.com/coreutils/gnulib.git
   # Build
+  git clone https://github.com/coreutils/gnulib.git
+  sed -i '229d' Makefile.am
   ./bootstrap
     # Patch
   cp ../${pc_file} ${patched_dir}/${patched_file}

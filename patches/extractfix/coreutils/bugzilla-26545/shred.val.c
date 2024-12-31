@@ -1740,10 +1740,11 @@ clear_random_data (void)
   randint_all_free (randint_source);
 }
 
-
+#include "/root/projects/CPR/lib/argv-fuzz-inl.h"
 int
 main (int argc, char **argv)
 {
+  AFL_INIT_SET03("./shred", "/root/projects/CPR/patches/extractfix/coreutils/bugzilla-26545/dummy");
   bool ok = true;
   struct Options flags = { 0, };
   char **file;

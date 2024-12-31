@@ -14,7 +14,6 @@ git clone $project_url val-src
 pushd val-src
   git checkout $commit_id
   git clone https://github.com/coreutils/gnulib.git
-  # Build
   ./bootstrap
   # Patch
   cp ../pr.val.c ${patched_dir}/${patched_file}

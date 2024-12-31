@@ -1379,9 +1379,11 @@ separator_string (const char *optarg_S)
   col_sep_string = optarg_S;
 }
 
+#include "/root/projects/CPR/lib/argv-fuzz-inl.h"
 int
 main (int argc, char **argv)
 {
+  AFL_INIT_SET0234("./pr", "/root/projects/CPR/patches/extractfix/coreutils/gnubug-25023/dummy", "-m", "/root/projects/CPR/patches/extractfix/coreutils/gnubug-25023/dummy");
   unsigned int n_files;
   bool old_options = false;
   bool old_w = false;
