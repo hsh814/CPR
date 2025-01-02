@@ -88,6 +88,38 @@ def get_conf(subject: dict, subject_dir: str) -> Dict[str, str]:
         conf["poc_path"] = os.path.basename(config_for_fuzz["exploit"])
     return conf
 
+
+def run_fuzzer_multi(subject: dict, subject_dir: str, debug: bool = False):
+    # Find subject
+    conf = get_conf(subject, subject_dir)
+    print(conf)
+    runtime_dir = os.path.join(subject_dir, "runtime")
+    out_no = find_num(runtime_dir, "aflrun-multi-out")
+    out_dir = os.path.join(runtime_dir, f"aflrun-multi-out-{out_no}")
+
+    in_dir = in_dir = os.path.join(subject_dir, "seed")
+    if not os.path.exists(in_dir): # Single seed
+        in_dir = os.path.join(runtime_dir, "in")
+        if os.path.exists(in_dir):
+            os.system(f"rm -rf {in_dir}")
+        os.makedirs(in_dir)
+        os.system(f"cp {os.path.join(subject_dir, conf['poc_path'])} {in_dir}/")
+    
+    env = os.environ.copy()
+    env["AFL_NO_UI"] = "1"
+    bin = os.path.basename(conf["binary_path"])
+    opts = conf["test_input_list"].replace("$POC", "@@")
+    cmd = f"timeout 12h /root/projects/AFLRun/afl-fuzz -C -i {in_dir} -o {out_dir} -m none -t 2000ms -- ./{bin}.aflrun {opts}"
+    print(f"Running fuzzer: {cmd}")
+    stdout = sys.stdout if debug else subprocess.DEVNULL
+    stderr = sys.stderr # if debug else subprocess.DEVNULL
+    proc = subprocess.run(cmd, shell=True, cwd=runtime_dir, env=env, stdout=stdout, stderr=stderr)
+    if proc.returncode != 0:
+        print(f"Fuzzer failed {proc.stderr}")
+    print("Fuzzer finished")
+    collect_val_runtime(subject_dir, out_dir)
+
+
 def run_fuzzer(subject: dict, subject_dir: str, debug: bool = False):
     # Find subject
     conf = get_conf(subject, subject_dir)
@@ -95,16 +127,18 @@ def run_fuzzer(subject: dict, subject_dir: str, debug: bool = False):
     runtime_dir = os.path.join(subject_dir, "runtime")
     out_no = find_num(runtime_dir, "aflrun-out")
     out_dir = os.path.join(runtime_dir, f"aflrun-out-{out_no}")
+
     in_dir = os.path.join(runtime_dir, "in")
     if os.path.exists(in_dir):
         os.system(f"rm -rf {in_dir}")
     os.makedirs(in_dir)
     os.system(f"cp {os.path.join(subject_dir, conf['poc_path'])} {in_dir}/")
+    
     env = os.environ.copy()
     env["AFL_NO_UI"] = "1"
     bin = os.path.basename(conf["binary_path"])
     opts = conf["test_input_list"].replace("$POC", "@@")
-    cmd = f"timeout 12h /root/projects/AFLRun/afl-fuzz -C -i ./in -o {out_dir} -m none -t 2000ms -- ./{bin}.aflrun {opts}"
+    cmd = f"timeout 12h /root/projects/AFLRun/afl-fuzz -C -i {in_dir} -o {out_dir} -m none -t 2000ms -- ./{bin}.aflrun {opts}"
     print(f"Running fuzzer: {cmd}")
     stdout = sys.stdout if debug else subprocess.DEVNULL
     stderr = sys.stderr # if debug else subprocess.DEVNULL
@@ -363,7 +397,7 @@ def parse_val_results(val_out_dir: str):
 
 def main():
     parser = argparse.ArgumentParser(description="Symbolic Input Feasibility Analysis")
-    parser.add_argument("cmd", help="Command to run", choices=["fuzz", "check", "fuzz-build", "val-build", "build", "collect-inputs", "val", "feas"])
+    parser.add_argument("cmd", help="Command to run", choices=["fuzz", "fuzz-seeds", "check", "fuzz-build", "val-build", "build", "collect-inputs", "val", "feas"])
     parser.add_argument("subject", help="Subject to run", default="")
     parser.add_argument("-i", "--input", help="Input file", default="")
     parser.add_argument("-o", "--output", help="Output file", default="")
@@ -375,6 +409,8 @@ def main():
     subject_dir = os.path.join(ROOT_DIR, "patches", subject["benchmark"], subject["subject"], subject["bug_id"])
     if args.cmd == "fuzz":
         run_fuzzer(subject, subject_dir, args.debug)
+    elif args.cmd == "fuzz-seeds":
+        run_fuzzer_multi(subject, subject_dir, args.debug)
     elif args.cmd == "check":
         parse_smt2_file(args.input)
     elif args.cmd == "fuzz-build":

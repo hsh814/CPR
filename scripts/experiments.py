@@ -128,7 +128,7 @@ class RunSingle():
   def get_fuzz_cmd(self, extra: str) -> str:
     if extra == "exp":
       return f"symfeas.py fuzz {self.meta['bug_id']}"
-    if extra in ["build", "val-build", "fuzz_build", "collect-inputs", "val", "feas"]:
+    if extra in ["build", "val-build", "fuzz-build", "fuzz-seeds", "collect-inputs", "val", "feas"]:
       return f"symfeas.py {extra} {self.meta['bug_id']}"
     print(f"Unknown extra: {extra}")
     exit(1)
