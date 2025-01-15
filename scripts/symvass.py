@@ -718,13 +718,28 @@ class SymvassAnalyzer:
                 meta_data_info = uni_klee.global_config.get_meta_data_info_by_id(self.bug_info["id"])
                 f.write(f"[meta-data] [correct {correct_patch}] [all-patches {len(meta_data_info['meta_program']['patches'])}] [sym-input {len(result)}] [correct-input {correct_input_num}]\n")
 
+        all_patches = len(meta_data_info['meta_program']['patches'])
+        sym_input_id = 0
         with open(os.path.join(self.dir, "table.md"), "w") as md:
             md.write("# Symvass Result\n")
-            md.write(f"| crashId | base | test | patches |\n")
-            md.write("| ------- | ---- | ---- | ------- |\n")
+            md.write(f"| symbolic input | ")
+            for p in range(all_patches):
+                md.write(f"p{p} | ")
+            md.write("\n")
+            md.write(f"| --- | ")
+            for p in range(all_patches):
+              md.write("--- | ")
+            md.write("\n")
             for res in result:
                 crash_id, base, test, patches = res
-                md.write(f"| {crash_id} | {base} | {test} | {patches} |\n")
+                md.write(f"| i{sym_input_id} | ")
+                sym_input_id += 1
+                for p in range(all_patches):
+                    if p in patches:
+                        md.write(f"O | ")
+                    else:
+                        md.write("X | ")
+                md.write("\n")
             md.write("\n")
     
     def analyze_v2(self):

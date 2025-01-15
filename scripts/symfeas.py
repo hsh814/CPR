@@ -35,18 +35,22 @@ def parse_smt2_file(file_path: str):
     print("Formulae: ", formulae)
     print("Symbols: ", symbols)
     
-def parse_mem_result_file(file_path: str) -> dict:
+def parse_mem_result_file(file_path: str) -> sbsv.parser:
     parser = sbsv.parser()
     parser.add_schema("[mem] [index: int] [u-addr: int] [a-addr: int]")
     parser.add_schema("[heap-check] [error] [no-mapping] [u-addr: int] [u-value: int]")
     parser.add_schema("[heap-check] [error] [value-mismatch] [u-addr: int] [u-value: int] [a-addr: int] [a-value: int]")
     parser.add_schema("[heap-check] [ok] [u-addr: int] [u-value: int] [a-addr: int] [a-value: int]")
+    parser.add_schema("[heap-check] [begin]")
+    parser.add_schema("[heap-check] [end]")
     parser.add_schema("[val] [arg] [index: int] [value: str] [size: int] [name: str] [num: int]")
     parser.add_schema("[val] [error] [no-mapping] [u-addr: int] [name: str]")
     parser.add_schema("[val] [error] [null-pointer] [addr: int] [name: str]")
     parser.add_schema("[val] [heap] [u-addr: int] [name: str] [value: str] [size: int] [num: int]")
+    parser.add_group("heap-check", "heap-check$begin", "heap-check$end")
     with open(file_path, "r") as f:
-        return parser.load(f)
+        parser.load(f)
+        return parser
 
 
 def find_num(dir: str, name: str) -> int:
@@ -109,7 +113,7 @@ def run_fuzzer_multi(subject: dict, subject_dir: str, debug: bool = False):
     env["AFL_NO_UI"] = "1"
     bin = os.path.basename(conf["binary_path"])
     opts = conf["test_input_list"].replace("$POC", "@@")
-    cmd = f"timeout 12h /root/projects/AFLRun/afl-fuzz -C -i {in_dir} -o {out_dir} -m none -t 2000ms -- ./{bin}.aflrun {opts}"
+    cmd = f"timeout 24h /root/projects/AFLRun/afl-fuzz -C -i {in_dir} -o {out_dir} -m none -t 2000ms -- ./{bin}.aflrun {opts}"
     print(f"Running fuzzer: {cmd}")
     stdout = sys.stdout if debug else subprocess.DEVNULL
     stderr = sys.stderr # if debug else subprocess.DEVNULL
@@ -271,21 +275,20 @@ def get_bv_const(cur_env: pysmt.environment.Environment, value: str, size: int):
     return bv
 
 
-def read_val_out_file(file_path: str, script: SmtLibScript, cur_env: pysmt.environment.Environment):
-    result = parse_mem_result_file(file_path)
-    if result is None:
-        return "INTERNAL_ERR"
-    if len(result["heap-check"]["error"]["no-mapping"]) > 0: #  or len(result["val"]["error"]["no-mapping"]) > 0
+def read_val_out_file(parser: sbsv.parser, index: Tuple[int, int], script: SmtLibScript, cur_env: pysmt.environment.Environment):
+    # Check error
+    if len(parser.get_result_by_index("heap-check$error$no-mapping", index)) > 0: #  or len(result["val"]["error"]["no-mapping"]) > 0
         print("Memory mismatch")
         return "MEM_MISMATCH"
-    if len(result["val"]["error"]["null-pointer"]) > 0:
+    if len(parser.get_result_by_index("val$error$null-pointer", index)) > 0:
         print("Null pointer")
         return "NULL_PTR"
-    if len(result["heap-check"]["error"]["value-mismatch"]) > 0:
+    if len(parser.get_result_by_index("heap-check$error$value-mismatch", index)) > 0:
         print("Value mismatch")
         return "VAL_MISMATCH"
+    # Read values and check satisfiability
     formula = script.get_last_formula()
-    for heap in result["val"]["heap"]:
+    for heap in parser.get_result_by_index("val$heap", index):
         addr = heap["u-addr"]
         name = heap["name"]
         value = heap["value"]
@@ -313,7 +316,7 @@ def read_val_out_file(file_path: str, script: SmtLibScript, cur_env: pysmt.envir
         # Add constraint
         eq = Equals(bv, val)
         formula = And(formula, eq)
-    for arg in result["val"]["arg"]:
+    for arg in parser.get_result_by_index("val$arg", index):
         index = arg["index"]
         value = arg["value"]
         size = arg["size"]
@@ -374,19 +377,29 @@ def parse_val_results(val_out_dir: str):
             group_result["nodes_result"].append(node_result)
             succ = False
             for val in vals:
-                script, cur_env = load_smt_file(node_file)
                 local_out_file = os.path.join(group_out_dir, val)
-                res = read_val_out_file(local_out_file, script, cur_env)
-                pysmt.environment.pop_env()
-                if res is not None:
-                    node_result["result"].append({"val_file": val, "result": res})
-                    rf.write(f"[res] [c {i}] [n {node}] [res {res}] [val {val}]\n")
-                    if res == "SAT":
-                        succ = True
-                        break
-                else:
-                    node_result["result"].append({"val_file": val, "result": "ERROR"})
-                    rf.write(f"[res] [c {i}] [n {node}] [res ERROR] [val {val}]\n")
+                parser = parse_mem_result_file(local_out_file)
+                indices = parser.get_group_index("heap-check")
+                if len(indices) == 0:
+                    print(f"No heap-check in {local_out_file}")
+                    node_result["result"].append({"val_file": val, "result": "NOT_DONE"})
+                    rf.write(f"[res] [c {i}] [n {node}] [res NOT_DONE] [val {val}]\n")
+                    continue
+                if len(indices) > 1:
+                    print(f"Multiple heap-check ({len(indices)}) in {local_out_file}")
+                for index in indices:
+                    script, cur_env = load_smt_file(node_file) # push_env
+                    res = read_val_out_file(parser, index, script, cur_env)
+                    pysmt.environment.pop_env()
+                    if res is not None:
+                        node_result["result"].append({"val_file": val, "result": res})
+                        rf.write(f"[res] [c {i}] [n {node}] [res {res}] [val {val}]\n")
+                        if res == "SAT":
+                            succ = True
+                            break
+                    else:
+                        node_result["result"].append({"val_file": val, "result": "ERROR"})
+                        rf.write(f"[res] [c {i}] [n {node}] [res ERROR] [val {val}]\n")
             node_result["success"] = succ
             if succ:
                 rf.write(f"[success] [c {i}] [n {node}]\n")
@@ -403,6 +416,7 @@ def main():
     parser.add_argument("-o", "--output", help="Output file", default="")
     parser.add_argument("-d", "--debug", help="Debug mode", action="store_true")
     parser.add_argument("-u", "--uni-klee-prefix", help="UniKlee prefix", default="uni-m-out")
+    parser.add_argument("-p", "--prefix", help="Prefix of fuzzer out: default aflrun-multi-out", default="aflrun-multi-out")
     # parser.add_argument("-s", "--subject", help="Subject", default="")
     args = parser.parse_args(sys.argv[1:])
     subject = get_metadata(args.subject)
