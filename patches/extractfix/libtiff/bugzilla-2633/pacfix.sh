@@ -35,17 +35,18 @@ rm -rf dafl_source && mkdir dafl_source
 pushd dafl_source
   DAFL_SELECTIVE_COV="/root/projects/CPR/patches/extractfix/libtiff/bugzilla-2633/sparrow-out/bug/slice_func.txt" \
   DAFL_DFG_SCORE="/root/projects/CPR/patches/extractfix/libtiff/bugzilla-2633/sparrow-out/bug/slice_dfg.txt" \
-  ASAN_OPTIONS=detect_leaks=0 CC=/root/projects/DAFL/afl-clang-fast CXX=/root/projects/DAFL/afl-clang-fast++ \
+  ASAN_OPTIONS=detect_leaks=0 CC=/root/projects/CLUDAFL/afl-clang-fast CXX=/root/projects/CLUDAFL/afl-clang-fast++ \
   CMAKE_EXPORT_COMPILE_COMMANDS=1 CFLAGS="-DFORTIFY_SOURCE=2 -fno-omit-frame-pointer -fsanitize=address -ggdb -Wno-error" \
   CXXFLAGS="$CFLAGS" ../source/configure
 
   DAFL_SELECTIVE_COV="/root/projects/CPR/patches/extractfix/libtiff/bugzilla-2633/sparrow-out/bug/slice_func.txt" \
   DAFL_DFG_SCORE="/root/projects/CPR/patches/extractfix/libtiff/bugzilla-2633/sparrow-out/bug/slice_dfg.txt" \
-  ASAN_OPTIONS=detect_leaks=0 CC=/root/projects/DAFL/afl-clang-fast CXX=/root/projects/DAFL/afl-clang-fast++ \
+  ASAN_OPTIONS=detect_leaks=0 CC=/root/projects/CLUDAFL/afl-clang-fast CXX=/root/projects/CLUDAFL/afl-clang-fast++ \
   make CFLAGS="-static -fsanitize=address -fsanitize=undefined -g" CXXFLAGS="-static -fsanitize=address -fsanitize=undefined -g" -j10
 popd
 
-cp dafl_source/tools/tiffcrop ./tiffcrop.instrumented
+rm -rf dafl-runtime && mkdir dafl-runtime
+cp dafl_source/tools/tiffcrop dafl-runtime/tiffcrop
 
-# AFL_NO_UI=1 timeout 12h /root/projects/DAFL/afl-fuzz -C -t 2000ms -m none -i ./in -p /home/yuntong/vulnfix/data/libtiff/cve_2016_5321/sparrow-out/bug/slice_dfg.txt -o 2024-04-04-test -- ./tiffcrop.instrumented @@ /tmp/out.tmp
+# AFL_NO_UI=1 timeout 12h /root/projects/DAFL/afl-fuzz -C -t 2000ms -m none -i ./in -p /home/yuntong/vulnfix/data/libtiff/cve_2016_5321/sparrow-out/bug/slice_dfg.txt -o 2024-04-04-test -- ./tiffcrop @@ /tmp/out.tmp
 

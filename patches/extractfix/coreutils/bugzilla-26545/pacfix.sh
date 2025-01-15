@@ -50,13 +50,14 @@ rm -rf dafl_source && mkdir dafl_source
 pushd dafl_source
   DAFL_SELECTIVE_COV="/root/projects/CPR/patches/extractfix/coreutils/bugzilla-26545/sparrow-out/bug/slice_func.txt" \
   DAFL_DFG_SCORE="/root/projects/CPR/patches/extractfix/coreutils/bugzilla-26545/sparrow-out/bug/slice_dfg.txt" \
-  ASAN_OPTIONS=detect_leaks=0 CC=/root/projects/DAFL/afl-clang-fast CXX=/root/projects/DAFL/afl-clang-fast++ \
+  ASAN_OPTIONS=detect_leaks=0 CC=/root/projects/CLUDAFL/afl-clang-fast CXX=/root/projects/CLUDAFL/afl-clang-fast++ \
   ../source/configure
 
   DAFL_SELECTIVE_COV="/root/projects/CPR/patches/extractfix/coreutils/bugzilla-26545/sparrow-out/bug/slice_func.txt" \
   DAFL_DFG_SCORE="/root/projects/CPR/patches/extractfix/coreutils/bugzilla-26545/sparrow-out/bug/slice_dfg.txt" \
-  ASAN_OPTIONS=detect_leaks=0 CC=/root/projects/DAFL/afl-clang-fast CXX=/root/projects/DAFL/afl-clang-fast++ \
+  ASAN_OPTIONS=detect_leaks=0 CC=/root/projects/CLUDAFL/afl-clang-fast CXX=/root/projects/CLUDAFL/afl-clang-fast++ \
   make CFLAGS="-Wno-error -fsanitize=address -ggdb" CXXFLAGS="-Wno-error -fsanitize=address -ggdb" LDFLAGS="-fsanitize=address" -j10
 popd
 
-cp dafl_source/src/shred ./shred.instrumented
+rm -rf dafl-runtime && mkdir dafl-runtime
+cp dafl_source/src/shred dafl-runtime/shred

@@ -16,18 +16,6 @@ pushd source
   ./bootstrap
 popd
 
-rm -rf pacfix
-cp -r source pacfix
-pushd pacfix
-  FORCE_UNSAFE_CONFIGURE=1 ./configure --disable-silent-rules
-  make  CFLAGS="-Wno-error -fsanitize=address -fsanitize=undefined -g" CXXFLAGS="-Wno-error -fsanitize=address -fsanitize=undefined -g" -j 10 > make.log
-  cat make.log | grep split.c
-  gcc -E -I. -I../source -I./lib  -Ilib -I../source/lib -Isrc -I../source/src  -Werror -fno-common -W -Wabi -Waddress -Waggressive-loop-optimizations -Wall -Wattributes -Wbad-function-cast -Wbool-compare -Wbuiltin-macro-redefined -Wcast-align -Wchar-subscripts -Wchkp -Wclobbered -Wcomment -Wcomments -Wcoverage-mismatch -Wcpp -Wdate-time -Wdeprecated -Wdeprecated-declarations -Wdesignated-init -Wdisabled-optimization -Wdiscarded-array-qualifiers -Wdiscarded-qualifiers -Wdiv-by-zero -Wdouble-promotion -Wduplicated-cond -Wempty-body -Wendif-labels -Wenum-compare -Wextra -Wformat-contains-nul -Wformat-extra-args -Wformat-security -Wformat-signedness -Wformat-y2k -Wformat-zero-length -Wframe-address -Wfree-nonheap-object -Whsa -Wignored-attributes -Wignored-qualifiers -Wimplicit -Wimplicit-function-declaration -Wimplicit-int -Wincompatible-pointer-types -Winit-self -Wint-conversion -Wint-to-pointer-cast -Winvalid-memory-model -Winvalid-pch -Wjump-misses-init -Wlogical-not-parentheses -Wmain -Wmaybe-uninitialized -Wmemset-transposed-args -Wmisleading-indentation -Wmissing-braces -Wmissing-declarations -Wmissing-field-initializers -Wmissing-include-dirs -Wmissing-parameter-type -Wmissing-prototypes -Wmultichar -Wnarrowing -Wnonnull -Wnonnull-compare -Wnull-dereference -Wodr -Wold-style-declaration -Wold-style-definition -Wopenmp-simd -Woverflow -Woverlength-strings -Woverride-init -Wpacked -Wpacked-bitfield-compat -Wparentheses -Wpointer-arith -Wpointer-sign -Wpointer-to-int-cast -Wpragmas -Wreturn-local-addr -Wreturn-type -Wscalar-storage-order -Wsequence-point -Wshadow -Wshift-count-negative -Wshift-count-overflow -Wshift-negative-value -Wsizeof-array-argument -Wsizeof-pointer-memaccess -Wstrict-aliasing -Wstrict-overflow -Wstrict-prototypes -Wsuggest-attribute=const -Wsuggest-attribute=noreturn -Wsuggest-attribute=pure -Wsuggest-final-methods -Wsuggest-final-types -Wswitch -Wswitch-bool -Wsync-nand -Wtautological-compare -Wtrampolines -Wtrigraphs -Wuninitialized -Wunknown-pragmas -Wunused -Wunused-but-set-parameter -Wunused-but-set-variable -Wunused-function -Wunused-label -Wunused-local-typedefs -Wunused-macros -Wunused-parameter -Wunused-result -Wunused-value -Wunused-variable -Wvarargs -Wvariadic-macros -Wvector-operation-performance -Wvolatile-register-var -Wwrite-strings -Warray-bounds=2 -Wnormalized=nfc -Wshift-overflow=2 -Wunused-const-variable=2 -Wno-sign-compare -Wno-type-limits -Wno-unused-parameter -Wno-format-nonliteral -Wlogical-op -fdiagnostics-show-option -funit-at-a-time -Wno-error -fsanitize=address -fsanitize=undefined -g -MT src/split.o -MD -MP -MF $depbase.Tpo -c src/split.c > split.c.i
-  cilly --domakeCFG --gcc=/usr/bin/gcc-7 --out=tmp.c split.c.i
-  mv tmp.c ./split.c.i.c 
-  cp split.c.i.c src/split.c
-popd
-/root/projects/pacfix/main.exe -uniklee -lv_only 1 config
 cp ./split.pacfix.c ./source/src/split.c
 
 rm -rf smake_source && mkdir smake_source
@@ -50,13 +38,14 @@ rm -rf dafl_source && mkdir dafl_source
 pushd dafl_source
   FORCE_UNSAFE_CONFIGURE=1 DAFL_SELECTIVE_COV="/root/projects/CPR/patches/extractfix/coreutils/gnubug-25003/sparrow-out/bug/slice_func.txt" \
   DAFL_DFG_SCORE="/root/projects/CPR/patches/extractfix/coreutils/gnubug-25003/sparrow-out/bug/slice_dfg.txt" \
-  ASAN_OPTIONS=detect_leaks=0 CC=/root/projects/DAFL/afl-clang-fast CXX=/root/projects/DAFL/afl-clang-fast++ \
+  ASAN_OPTIONS=detect_leaks=0 CC=/root/projects/CLUDAFL/afl-clang-fast CXX=/root/projects/CLUDAFL/afl-clang-fast++ \
   ../source/configure
 
   DAFL_SELECTIVE_COV="/root/projects/CPR/patches/extractfix/coreutils/gnubug-25003/sparrow-out/bug/slice_func.txt" \
   DAFL_DFG_SCORE="/root/projects/CPR/patches/extractfix/coreutils/gnubug-25003/sparrow-out/bug/slice_dfg.txt" \
-  ASAN_OPTIONS=detect_leaks=0 CC=/root/projects/DAFL/afl-clang-fast CXX=/root/projects/DAFL/afl-clang-fast++ \
+  ASAN_OPTIONS=detect_leaks=0 CC=/root/projects/CLUDAFL/afl-clang-fast CXX=/root/projects/CLUDAFL/afl-clang-fast++ \
   make CFLAGS="-Wno-error -fsanitize=address -fsanitize=undefined -g" CXXFLAGS="-Wno-error -fsanitize=address -fsanitize=undefined -g" -j 10
 popd
 
-cp dafl_source/src/split ./split.instrumented
+rm -rf dafl-runtime && mkdir dafl-runtime
+cp dafl_source/src/split dafl-runtime/split
