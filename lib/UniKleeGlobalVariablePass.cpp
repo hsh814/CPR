@@ -4,12 +4,13 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/raw_ostream.h"
-#include <regex>
 #include <fstream>
+#include <iomanip>
+#include <regex>
+#include <set>
 #include <sstream>
 #include <string>
 #include <vector>
-#include <set>
 
 using namespace llvm;
 
@@ -22,31 +23,44 @@ struct GlobalVariablePass : public ModulePass {
     LLVMContext &Context = M.getContext();
     IRBuilder<> Builder(Context);
 
-    Function *GetEnv = cast<Function>(
-        M.getOrInsertFunction("getenv",
-                              PointerType::getUnqual(Type::getInt8Ty(Context)),
-                              PointerType::getUnqual(Type::getInt8Ty(Context)))
-            .getCallee());
+    Function *Fprintf = M.getFunction("fprintf");
+    if (!Fprintf) {
+      errs() << "Could not find existing declaration of fprintf.\n";
+      return false;
+    }
 
-    Function *Fprintf = cast<Function>(
-        M.getOrInsertFunction(
-             "fprintf", Type::getInt32Ty(Context),
-             PointerType::getUnqual(Type::getInt8Ty(Context)), // FILE*
-             PointerType::getUnqual(Type::getInt8Ty(Context)), // const char*
-             nullptr)
-            .getCallee());
+    Function *GetEnv = M.getFunction("getenv");
+    if (!GetEnv) {
+      errs() << "Could not find existing declaration of getenv"
+             << "\n";
+      return false;
+    }
+    Function *Fopen = M.getFunction("fopen");
+    if (!Fopen) {
+      errs() << "Could not find existing declaration of fopen"
+             << "\n";
+      return false;
+    }
+    Function *Fclose = M.getFunction("fclose");
 
-    Function *Fopen = cast<Function>(
-        M.getOrInsertFunction("fopen",
-                              PointerType::getUnqual(Type::getInt8Ty(Context)),
-                              PointerType::getUnqual(Type::getInt8Ty(Context)),
-                              PointerType::getUnqual(Type::getInt8Ty(Context)))
-            .getCallee());
+    if (!Fclose) {
+      errs() << "Could not find existing declaration of fclose"
+             << "\n";
+      return false;
+    }
 
-    Function *Fclose = cast<Function>(
-        M.getOrInsertFunction("fclose", Type::getInt32Ty(Context),
-                              PointerType::getUnqual(Type::getInt8Ty(Context)))
-            .getCallee());
+    // Declare the uni_klee_hex_string function
+    FunctionType *funcType =
+        FunctionType::get(PointerType::getUnqual(Type::getInt8Ty(Context)),
+                          {PointerType::getUnqual(Type::getInt8Ty(Context)),
+                           Type::getInt64Ty(Context)},
+                          false);
+    Function *uniKleeHexStringFunc = M.getFunction("uni_klee_hex_string");
+
+    if (!uniKleeHexStringFunc) {
+      errs() << "Function uni_klee_hex_string not found.\n";
+      return false;
+    }
 
     // Read environment variable UNI_KLEE_SYMBOLIC_GLOBALS_FILE
     const char *EnvVarName = "UNI_KLEE_SYMBOLIC_GLOBALS_FILE";
@@ -63,15 +77,18 @@ struct GlobalVariablePass : public ModulePass {
       return false;
     }
 
-    std::map<std::string, std::string> TargetVariables;
+    std::map<std::string, std::pair<std::string, int>> TargetVariables;
     std::string Line;
-    std::regex lineRegex(R"(\[array\s+([\w\.]+)\]\s+\[name\s+([\w\.]+)\])"); 
+    std::regex lineRegex(
+        R"(\[size\s+(\d+)\]\s+\[array\s+([\w\.]+)\]\s+\[name\s+([\w\.]+)\])");
     while (std::getline(GlobalsFile, Line)) {
       if (!Line.empty()) {
         std::smatch match;
-        if (std::regex_search(Line, match, lineRegex) && match.size() > 2) {
-          TargetVariables[match.str(2)] = match.str(1);
-          errs() << "Found target variable: " << match.str(2) << "=" << match.str(1) << "\n";
+        if (std::regex_search(Line, match, lineRegex) && match.size() > 3) {
+          TargetVariables[match.str(3)] = {match.str(2),
+                                           std::stoi(match.str(1))};
+          errs() << "Found target variable: " << match.str(2) << "="
+                 << match.str(3) << ", size = " << match.str(1) << "\n";
         }
       }
     }
@@ -90,6 +107,11 @@ struct GlobalVariablePass : public ModulePass {
     BasicBlock &EntryBlock = HeapCheckFunc->getEntryBlock();
     Builder.SetInsertPoint(&EntryBlock, EntryBlock.begin());
 
+    DILocation *FuncLoc = nullptr;
+    if (auto *SP = HeapCheckFunc->getSubprogram()) {
+       FuncLoc = DILocation::get(Context, SP->getLine(), 0, SP);
+    }
+
     for (GlobalVariable &GV : M.globals()) {
       if (!GV.hasName())
         continue;
@@ -98,7 +120,14 @@ struct GlobalVariablePass : public ModulePass {
 
       if (TargetVariables.count(VarName) > 0) {
         errs() << "Found target variable: " << VarName << "\n";
-        std::string symName = TargetVariables[VarName];
+        std::string symName = TargetVariables[VarName].first;
+        int size = TargetVariables[VarName].second;
+
+        // Set debug location for inserted instructions
+        if (FuncLoc) {
+          errs() << "Setting debug location for " << VarName << "\n";
+          Builder.SetCurrentDebugLocation(FuncLoc);
+        }
 
         // getenv("UNI_KLEE_MEM_RESULT")
         Value *EnvVar = Builder.CreateGlobalStringPtr("UNI_KLEE_MEM_RESULT");
@@ -108,26 +137,39 @@ struct GlobalVariablePass : public ModulePass {
         Value *AppendMode = Builder.CreateGlobalStringPtr("a");
         Value *FileHandle = Builder.CreateCall(Fopen, {FilePath, AppendMode});
 
-        // fprintf(f, "Variable: %s = %d\n", VarName, GV)
-        Value *FormatStr = Builder.CreateGlobalStringPtr("[global] [sym \n");
-        Value *VarNameStr = Builder.CreateGlobalStringPtr(VarName);
-        Value *VarValue = Builder.CreateLoad(GV.getValueType(), &GV);
+        // Prepare format string and variable name string
+        Value *FormatStr =
+            Builder.CreateGlobalStringPtr("[global] [sym %s] [value %s]\n");
+        Value *VarNameStr = Builder.CreateGlobalStringPtr(symName);
 
+        // Load the variable value
+        Value *VarPtr = Builder.CreatePointerCast(
+            &GV, PointerType::getUnqual(Type::getInt8Ty(Context)));
+
+        // Get size as an LLVM Value
+        Value *SizeValue = ConstantInt::get(Type::getInt64Ty(Context), size);
+
+        // Call uni_klee_hex_string to get hex string
+        Value *HexString =
+            Builder.CreateCall(uniKleeHexStringFunc, {VarPtr, SizeValue});
+
+        // Output the hex string
         Builder.CreateCall(Fprintf,
-                           {FileHandle, FormatStr, VarNameStr, VarValue});
+                           {FileHandle, FormatStr, VarNameStr, HexString});
 
         // fclose(f)
         Builder.CreateCall(Fclose, {FileHandle});
+        Builder.SetCurrentDebugLocation(nullptr);
 
         Modified = true;
       }
     }
-
     return Modified;
   }
 };
 } // namespace
 
+// opt -load lib/UniKleeGlobalVariablePass.so -global-var-pass < test.bc > out.bc
 char GlobalVariablePass::ID = 0;
 static RegisterPass<GlobalVariablePass> X("global-var-pass",
                                           "Track Global Variables Pass");
