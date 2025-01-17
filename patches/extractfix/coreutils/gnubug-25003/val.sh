@@ -30,3 +30,8 @@ pushd val-src
   cp ${patched_dir}/${patched_file} ../val-runtime
   cp build/${bin_dir}/${bin_file} ../val-runtime
 popd
+
+pushd val-runtime
+  extract-bc ${bin_file}
+  llvm-dis ${bin_file}.bc
+popd

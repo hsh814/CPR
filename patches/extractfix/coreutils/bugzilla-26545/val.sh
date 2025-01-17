@@ -22,7 +22,7 @@ pushd val-src
   rm -rf build
   mkdir build
   pushd build
-    FORCE_UNSAFE_CONFIGURE=1 CC=clang CXX=clang++ ../configure CFLAGS="-g -O0 -fno-discard-value-names -static -fPIE -fPIC -L$LIB_DIR -luni_klee_memory_check" CXXFLAGS="$CFLAGS"
+    FORCE_UNSAFE_CONFIGURE=1 CC=wllvm CXX=wllvm++ ../configure CFLAGS="-g -O0 -fno-discard-value-names -static -fPIE -fPIC -L$LIB_DIR -luni_klee_memory_check" CXXFLAGS="$CFLAGS"
     make -j32
   popd
   # cp

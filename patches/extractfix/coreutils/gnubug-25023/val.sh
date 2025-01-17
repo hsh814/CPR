@@ -20,10 +20,15 @@ pushd val-src
   rm -rf build
   mkdir build
   pushd build
-    FORCE_UNSAFE_CONFIGURE=1 CC=clang CXX=clang++ ../configure CFLAGS="-Wno-error -fsanitize=address -fsanitize=undefined -g -L$LIB_DIR -luni_klee_memory_check" CXXFLAGS="-Wno-error -fsanitize=address -fsanitize=undefined -g -L$LIB_DIR -luni_klee_memory_check"
+    FORCE_UNSAFE_CONFIGURE=1 CC=wllvm CXX=wllvm++ ../configure CFLAGS="-Wno-error -fsanitize=address -fsanitize=undefined -g -L$LIB_DIR -luni_klee_memory_check" CXXFLAGS="-Wno-error -fsanitize=address -fsanitize=undefined -g -L$LIB_DIR -luni_klee_memory_check"
     make  -j32
   popd
   # cp
   cp ${patched_dir}/${patched_file} ../val-runtime
   cp build/${bin_dir}/${bin_file} ../val-runtime
+popd
+
+pushd val-runtime
+  extract-bc ${bin_file}
+  llvm-dis ${bin_file}.bc
 popd
