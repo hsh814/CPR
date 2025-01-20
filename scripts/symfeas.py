@@ -173,15 +173,22 @@ def clear_val(dir: str):
         if f.startswith("core.") and os.path.isfile(file):
             os.remove(file)
 
-def run_val(subject: dict, subject_dir: str, uni_klee_prefix: str, debug: bool = False):
+def run_val(subject: dict, subject_dir: str, symvass_prefix: str, debug: bool = False):
     conf = get_conf(subject, subject_dir)
     val_runtime = os.path.join(subject_dir, "val-runtime")
     val_bin = os.path.join(val_runtime, os.path.basename(conf["binary_path"]))
-    val_out_no = find_num(val_runtime, "val-out")
-    val_out_dir = os.path.join(val_runtime, f"val-out-{val_out_no}")
+    val_out_no = find_num(val_runtime, symvass_prefix)
+    val_out_dir = os.path.join(val_runtime, f"{symvass_prefix}-{val_out_no}")
     
-    out_no = find_num(os.path.join(subject_dir, "patched"), uni_klee_prefix)
-    out_dir = os.path.join(subject_dir, "patched", f"{uni_klee_prefix}-{out_no - 1}")
+    out_no = find_num(os.path.join(subject_dir, "patched"), symvass_prefix)
+    out_dir = os.path.join(subject_dir, "patched", f"{symvass_prefix}-{out_no - 1}")
+    if os.path.exists(os.path.join(out_dir, "base-mem.symbolic-globals")):
+        with open(os.path.join(out_dir, "base-mem.symbolic-globals")) as f:
+            globals = f.readlines()
+            if len(globals) > 1:
+                # with open("/root/projects/CPR/out/out.txt", "a") as f:
+                #     f.write(f"{subject_dir} {len(globals)}\n")
+                pass
     symin_cluster_json = os.path.join(out_dir, "symin-cluster.json")
     if not os.path.exists(symin_cluster_json):
         print(f"symin-cluster.json not found in {out_dir}")
@@ -388,6 +395,8 @@ def parse_val_results(val_out_dir: str):
                 if len(indices) > 1:
                     print(f"Multiple heap-check ({len(indices)}) in {local_out_file}")
                 for index in indices:
+                    if succ:
+                        break
                     script, cur_env = load_smt_file(node_file) # push_env
                     res = read_val_out_file(parser, index, script, cur_env)
                     pysmt.environment.pop_env()
@@ -415,7 +424,7 @@ def main():
     parser.add_argument("-i", "--input", help="Input file", default="")
     parser.add_argument("-o", "--output", help="Output file", default="")
     parser.add_argument("-d", "--debug", help="Debug mode", action="store_true")
-    parser.add_argument("-u", "--uni-klee-prefix", help="UniKlee prefix", default="uni-m-out")
+    parser.add_argument("-s", "--symvass-prefix", help="SymVass prefix", default="uni-m-out")
     parser.add_argument("-p", "--prefix", help="Prefix of fuzzer out: default aflrun-multi-out", default="aflrun-multi-out")
     # parser.add_argument("-s", "--subject", help="Subject", default="")
     args = parser.parse_args(sys.argv[1:])
@@ -437,11 +446,11 @@ def main():
         out_no = find_num(os.path.join(subject_dir, "runtime"), "aflrun-out")
         collect_val_runtime(subject_dir, os.path.join(subject_dir, "runtime", f"aflrun-out-{out_no - 1}"))
     elif args.cmd == "val":
-        run_val(subject, subject_dir, args.uni_klee_prefix, args.debug)
+        run_val(subject, subject_dir, args.symvass_prefix, args.debug)
     elif args.cmd == "feas":
         val_dir = os.path.join(subject_dir, "val-runtime")
-        no = find_num(val_dir, "val-out")
-        val_out_dir = os.path.join(val_dir, f"val-out-{no - 1}")
+        no = find_num(val_dir, args.symvass_prefix)
+        val_out_dir = os.path.join(val_dir, f"{args.symvass_prefix}-{no - 1}")
         parse_val_results(val_out_dir)
 
 if __name__ == "__main__":
