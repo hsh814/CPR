@@ -13,6 +13,7 @@ target = "readSeparateTilesIntoBuffer"
   code = "(x < y)"
   id = "2-0"
   no = 2
+  incomplete = false
 
 [[meta_data]]
 id = 2
@@ -29,6 +30,7 @@ target = "setImage1"
   code = "(x < y)"
   id = "3-0"
   no = 3
+  incomplete = false
 
 [[meta_data]]
 id = 3
@@ -45,6 +47,7 @@ target = "readextension"
   code = "(x >= 0)"
   id = "11-0"
   no = 45
+  incomplete = false
 
 [[meta_data]]
 id = 4
@@ -61,6 +64,7 @@ target = "PixarLogDecode"
   code = "(y > x)"
   id = "2-0"
   no = 2
+  incomplete = false
 
 [[meta_data]]
 id = 5
@@ -74,9 +78,10 @@ target = "TIFFNumberOfStrips"
   code = "(0)"
   id = "buggy"
   [meta_data.correct]
-  code = "(x == 0)"
-  id = "8-0"
-  no = 8
+  code = "(x != 0)"
+  id = "11-10"
+  no = 41
+  incomplete = false
 
 [[meta_data]]
 id = 6
@@ -93,6 +98,7 @@ target = "PSDataColorContig"
   code = "(x <= 0)"
   id = "8-2"
   no = 25
+  incomplete = true
 
 [[meta_data]]
 id = 7
@@ -109,6 +115,7 @@ target = "t2p_readwrite_pdf_image_tile"
   code = "(x > 4)"
   id = "6-0"
   no = 16
+  incomplete = false
 
 [[meta_data]]
 id = 8
@@ -125,6 +132,7 @@ target = "JPEGSetupEncode"
   code = "(x > 16)"
   id = "2-26"
   no = 28
+  incomplete = false
 
 [[meta_data]]
 id = 9
@@ -138,9 +146,10 @@ target = "cvtRaster"
   code = "(0)"
   id = "buggy"
   [meta_data.correct]
-  code = "(x == 0)"
-  id = "1-0"
-  no = 1
+  code = "(x == 0 || y == 0)"
+  id = "correct"
+  no = 101
+  incomplete = false
 
 [[meta_data]]
 id = 10
@@ -154,9 +163,10 @@ target = "JPEGSetupEncode"
   code = "(0)"
   id = "buggy"
   [meta_data.correct]
-  code = "(x == 0)"
-  id = "1-0"
-  no = 1
+  code = "(x == 0 || y == 0)"
+  id = "correct"
+  no = 131
+  incomplete = false
 
 [[meta_data]]
 id = 11
@@ -173,6 +183,7 @@ target = "OJPEGDecodeRaw"
   code = "(x == 0)"
   id = "1-0"
   no = 1
+  incomplete = false
 
 [[meta_data]]
 id = 12
@@ -189,6 +200,7 @@ target = "process_cu_tu_index"
   code = "((y + z) >= x)"
   id = "33-0"
   no = 33
+  incomplete = false
 
 [[meta_data]]
 id = 13
@@ -205,6 +217,7 @@ target = "decode_line_info"
   code = "(x == 0)"
   id = "6-10"
   no = 36
+  incomplete = false
 
 [[meta_data]]
 id = 14
@@ -221,6 +234,7 @@ target = "xmlStrncat"
   code = "(x<0)"
   id = "12-10"
   no = 82
+  incomplete = true
 
 [[meta_data]]
 id = 15
@@ -237,6 +251,7 @@ target = "xmlParseEndTag2"
   code = "(x>=y)"
   id = "10-0"
   no = 10
+  incomplete = false
 
 [[meta_data]]
 id = 16
@@ -253,6 +268,7 @@ target = "htmlParseNameComplex"
   code = "(y>(x-z))"
   id = "18-0"
   no = 18
+  incomplete = true
 
 [[meta_data]]
 id = 17
@@ -269,6 +285,7 @@ target = "xmlParseAttValueComplex"
   code = "(x > 0)"
   id = "correct"
   no = 135
+  incomplete = false
 
 [[meta_data]]
 id = 18
@@ -286,6 +303,7 @@ target = "xmlDumpElementContent"
   id = "1-0"
   no = 1
   ids = [ "1-0", "3-0",]
+  incomplete = true # content->c1 == NULL should be also checked
 
 [[meta_data]]
 id = 19
@@ -302,6 +320,7 @@ target = "get_8bit_row"
   code = "(t >= x)"
   id = "2-0"
   no = 2
+  incomplete = false
 
 [[meta_data]]
 id = 20
@@ -315,9 +334,10 @@ target = "jinit_write_bmp"
   code = "(1)"
   id = "buggy"
   [meta_data.correct]
-  code = "(x == 0)"
-  id = "10-10"
-  no = 58
+  code = "(x != 0)"
+  id = "correct"
+  no = 131
+  incomplete = false
 
 [[meta_data]]
 id = 21
@@ -334,6 +354,7 @@ target = "quantize_ord_dither"
   code = "((x == 0) && (t > 0))"
   id = "26-10"
   no = 336
+  incomplete = true
 
 [[meta_data]]
 id = 22
@@ -350,6 +371,7 @@ target = "get_sos"
   code = "(x < t)"
   id = "3-0"
   no = 3
+  incomplete = true
 
 [[meta_data]]
 id = 23
@@ -366,6 +388,7 @@ target = "fillpattern"
   code = "(size / 2 >= i)"
   id = "25-1"
   no = 26
+  incomplete = false
 
 [[meta_data]]
 id = 24
@@ -382,6 +405,7 @@ target = "bytes_chunk_extract"
   code = "(start < initial_read)"
   id = "6-0"
   no = 6
+  incomplete = false
 
 [[meta_data]]
 id = 25
@@ -398,6 +422,7 @@ target = "init_parameters"
   code = "(col_sep_length == 1)"
   id = "7-11"
   no = 56
+  incomplete = false
 
 [[meta_data]]
 id = 26
@@ -411,9 +436,10 @@ target = "main"
     code = "(1)"
     id = "buggy"
     [meta_data.correct]
-    code = "(i < size)"
-    id = "4-0"
-    no = 4
+    code = "((i + 1) < size)"
+    id = "42-11"
+    no = 593
+    incomplete = false
 
 [[meta_data]]
 id = 27
@@ -430,6 +456,7 @@ target = "jpc_siz_getparms"
   code = "((x == 0) || (x > 255) || (y == 0) || (y > 255))"
   id = "correct"
   no = 97
+  incomplete = true
 
 [[meta_data]]
 id = 28
@@ -446,6 +473,7 @@ target = "jpc_dec_process_siz"
   code = "(x <= y)"
   id = "correct"
   no = 18
+  incomplete = true
 
 [[meta_data]]
 id = 29
