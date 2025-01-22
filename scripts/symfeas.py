@@ -25,6 +25,12 @@ from pysmt.typing import BV32, BV8, BV64
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+def print_log(msg: str):
+    print(msg, file=sys.stderr)
+
+def print_out(msg: str):
+    print(msg, file=sys.stdout)
+
 def parse_smt2_file(file_path: str):
     pysmt.environment.push_env()
     parser = SmtLibParser()
@@ -32,8 +38,8 @@ def parse_smt2_file(file_path: str):
         script = parser.get_script(f)
     formulae = script.get_last_formula()
     symbols = script.get_declared_symbols()
-    print("Formulae: ", formulae)
-    print("Symbols: ", symbols)
+    print_log("Formulae: ", formulae)
+    print_log("Symbols: ", symbols)
     
 def parse_mem_result_file(file_path: str) -> sbsv.parser:
     parser = sbsv.parser()
@@ -96,7 +102,7 @@ def get_conf(subject: dict, subject_dir: str) -> Dict[str, str]:
 def run_fuzzer_multi(subject: dict, subject_dir: str, debug: bool = False):
     # Find subject
     conf = get_conf(subject, subject_dir)
-    print(conf)
+    print_log(conf)
     runtime_dir = os.path.join(subject_dir, "runtime")
     out_no = find_num(runtime_dir, "aflrun-multi-out")
     out_dir = os.path.join(runtime_dir, f"aflrun-multi-out-{out_no}")
@@ -114,20 +120,20 @@ def run_fuzzer_multi(subject: dict, subject_dir: str, debug: bool = False):
     bin = os.path.basename(conf["binary_path"])
     opts = conf["test_input_list"].replace("$POC", "@@")
     cmd = f"timeout 24h /root/projects/AFLRun/afl-fuzz -C -i {in_dir} -o {out_dir} -m none -t 2000ms -- ./{bin}.aflrun {opts}"
-    print(f"Running fuzzer: {cmd}")
+    print_log(f"Running fuzzer: {cmd}")
     stdout = sys.stdout if debug else subprocess.DEVNULL
     stderr = sys.stderr # if debug else subprocess.DEVNULL
     proc = subprocess.run(cmd, shell=True, cwd=runtime_dir, env=env, stdout=stdout, stderr=stderr)
     if proc.returncode != 0:
-        print(f"Fuzzer failed {proc.stderr}")
-    print("Fuzzer finished")
+        print_log(f"Fuzzer failed {proc.stderr}")
+    print_log("Fuzzer finished")
     collect_val_runtime(subject_dir, out_dir)
 
 
 def run_fuzzer(subject: dict, subject_dir: str, debug: bool = False):
     # Find subject
     conf = get_conf(subject, subject_dir)
-    print(conf)
+    print_log(conf)
     runtime_dir = os.path.join(subject_dir, "runtime")
     out_no = find_num(runtime_dir, "aflrun-out")
     out_dir = os.path.join(runtime_dir, f"aflrun-out-{out_no}")
@@ -143,18 +149,18 @@ def run_fuzzer(subject: dict, subject_dir: str, debug: bool = False):
     bin = os.path.basename(conf["binary_path"])
     opts = conf["test_input_list"].replace("$POC", "@@")
     cmd = f"timeout 12h /root/projects/AFLRun/afl-fuzz -C -i {in_dir} -o {out_dir} -m none -t 2000ms -- ./{bin}.aflrun {opts}"
-    print(f"Running fuzzer: {cmd}")
+    print_log(f"Running fuzzer: {cmd}")
     stdout = sys.stdout if debug else subprocess.DEVNULL
     stderr = sys.stderr # if debug else subprocess.DEVNULL
     proc = subprocess.run(cmd, shell=True, cwd=runtime_dir, env=env, stdout=stdout, stderr=stderr)
     if proc.returncode != 0:
-        print(f"Fuzzer failed {proc.stderr}")
-    print("Fuzzer finished")
+        print_log(f"Fuzzer failed {proc.stderr}")
+    print_log("Fuzzer finished")
     collect_val_runtime(subject_dir, out_dir)
 
 
 def collect_val_runtime(subject_dir: str, out_dir: str):
-    print(f"Collecting val runtime from {out_dir}")
+    print_log(f"Collecting val runtime from {out_dir}")
     # Collect results in val-runtime
     val_dir = os.path.join(subject_dir, "val-runtime")
     conc_inputs_dir = val_dir + "/concrete-inputs"
@@ -173,12 +179,12 @@ def clear_val(dir: str):
         if f.startswith("core.") and os.path.isfile(file):
             os.remove(file)
 
-def run_val(subject: dict, subject_dir: str, symvass_prefix: str, debug: bool = False):
+def run_val(subject: dict, subject_dir: str, symvass_prefix: str, val_prefix: str, debug: bool = False):
     conf = get_conf(subject, subject_dir)
     val_runtime = os.path.join(subject_dir, "val-runtime")
     val_bin = os.path.join(val_runtime, os.path.basename(conf["binary_path"]))
-    val_out_no = find_num(val_runtime, symvass_prefix)
-    val_out_dir = os.path.join(val_runtime, f"{symvass_prefix}-{val_out_no}")
+    val_out_no = find_num(val_runtime, val_prefix)
+    val_out_dir = os.path.join(val_runtime, f"{val_prefix}-{val_out_no}")
     
     out_no = find_num(os.path.join(subject_dir, "patched"), symvass_prefix)
     out_dir = os.path.join(subject_dir, "patched", f"{symvass_prefix}-{out_no - 1}")
@@ -191,7 +197,7 @@ def run_val(subject: dict, subject_dir: str, symvass_prefix: str, debug: bool = 
                 pass
     symin_cluster_json = os.path.join(out_dir, "symin-cluster.json")
     if not os.path.exists(symin_cluster_json):
-        print(f"symin-cluster.json not found in {out_dir}")
+        print_log(f"symin-cluster.json not found in {out_dir}")
         return
     with open(symin_cluster_json, "r") as f:
         cluster = json.load(f)
@@ -206,12 +212,17 @@ def run_val(subject: dict, subject_dir: str, symvass_prefix: str, debug: bool = 
         json.dump(save_obj, f, indent=2)
         
     conc_inputs_dir = os.path.join(val_runtime, "concrete-inputs")
+    if val_prefix == "cludafl-queue":
+        conc_inputs_dir = os.path.join(val_runtime, "..", "runtime", "cludafl-queue", "queue")
+    elif val_prefix == "cludafl-memory":
+        conc_inputs_dir = os.path.join(val_runtime, "..", "runtime", "cludafl-memory", "input")
+    print_log(f"Conc inputs dir: {conc_inputs_dir}")
     cinputs = os.listdir(conc_inputs_dir)
     tmp_inputs_dir = os.path.join(val_runtime, "inputs")
     os.makedirs(tmp_inputs_dir, exist_ok=True)
     
     for i, c in enumerate(cluster):
-        print(f"Processing cluster {i}")
+        print_log(f"Processing cluster {i}")
         file = c["file"]
         nodes = c["nodes"]
         group_out_dir = os.path.join(val_out_dir, f"group-{i}")
@@ -245,12 +256,12 @@ def run_val(subject: dict, subject_dir: str, symvass_prefix: str, debug: bool = 
             try:
                 subprocess.run(target_cmd, shell=True, env=env_local, cwd=val_runtime, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
             except subprocess.TimeoutExpired:
-                print(f"Timeout for {target_cmd}")
+                print_log(f"Timeout for {target_cmd}")
                 continue
             except Exception as e:
-                print(f"Error for {target_cmd}: {e}")
+                print_log(f"Error for {target_cmd}: {e}")
                 continue
-            print(f"Finished {cid}: {env_str} {target_cmd}")
+            print_log(f"Finished {cid}: {env_str} {target_cmd}")
             if os.path.exists(local_out_file):
                 with open(local_out_file, "a") as f:
                     f.write(f"[input] [id {cid}] [symgroup {i}] [file {cinput}]")
@@ -285,13 +296,13 @@ def get_bv_const(cur_env: pysmt.environment.Environment, value: str, size: int):
 def read_val_out_file(parser: sbsv.parser, index: Tuple[int, int], script: SmtLibScript, cur_env: pysmt.environment.Environment):
     # Check error
     if len(parser.get_result_by_index("heap-check$error$no-mapping", index)) > 0: #  or len(result["val"]["error"]["no-mapping"]) > 0
-        print("Memory mismatch")
+        print_log("Memory mismatch")
         return "MEM_MISMATCH"
     if len(parser.get_result_by_index("val$error$null-pointer", index)) > 0:
-        print("Null pointer")
+        print_log("Null pointer")
         return "NULL_PTR"
     if len(parser.get_result_by_index("heap-check$error$value-mismatch", index)) > 0:
-        print("Value mismatch")
+        print_log("Value mismatch")
         return "VAL_MISMATCH"
     # Read values and check satisfiability
     formula = script.get_last_formula()
@@ -301,7 +312,7 @@ def read_val_out_file(parser: sbsv.parser, index: Tuple[int, int], script: SmtLi
         value = heap["value"]
         size = heap["size"]
         num = heap["num"]
-        print(f"Heap: {addr} {name} {value} {size} {num}")
+        print_log(f"Heap: {addr} {name} {value} {size} {num}")
         # Build the bitvector formula
         # value: hex string little endian
         # size: number of bytes
@@ -310,7 +321,7 @@ def read_val_out_file(parser: sbsv.parser, index: Tuple[int, int], script: SmtLi
         val = get_bv_const(cur_env, value, size)
         var = get_var_from_script(script, name, cur_env)
         if var is None:
-            print(f"Variable {name} not found")
+            print_log(f"Variable {name} not found")
             continue
         bv = None
         for i in range(size):
@@ -328,11 +339,11 @@ def read_val_out_file(parser: sbsv.parser, index: Tuple[int, int], script: SmtLi
         value = arg["value"]
         size = arg["size"]
         name = arg["name"]
-        print(f"Arg: {index} {value} {size} {name}")
+        print_log(f"Arg: {index} {value} {size} {name}")
         val = get_bv_const(cur_env, value, size)
         var = get_var_from_script(script, name, cur_env)
         if var is None:
-            print(f"Variable {name} not found")
+            print_log(f"Variable {name} not found")
             continue
         bv = None
         for i in range(size):
@@ -345,16 +356,30 @@ def read_val_out_file(parser: sbsv.parser, index: Tuple[int, int], script: SmtLi
         eq = cur_env.formula_manager.Equals(bv, val)
         formula = cur_env.formula_manager.And(formula, eq)
     if is_sat(formula):
-        print("SAT")
+        print_log("SAT")
         return "SAT"
     else:
-        print("UNSAT")
+        print_log("UNSAT")
         return "UNSAT"
-        
+
+def parse_symvass_result(file_path: str) -> Dict[int, List[int]]:
+    result = dict()
+    parser = sbsv.parser()
+    parser.add_schema("[sym-in] [id: int] [base: int] [test: int] [cnt: int] [patches: str]")
+    parser.add_schema("[sym-out] [best] [cnt: int] [patches: str]")
+    parser.add_schema("[meta-data] [correct: int] [all-patches: int] [sym-input: int] [correct-input: int]")
+    with open(file_path, "r") as f:
+        parser.load(f)
+    for sym_in in parser.get_result()["sym-in"]:
+        test = sym_in["test"]
+        patches = sym_in["patches"]
+        result[test] = eval(patches)
+    result[-1] = list(range(parser.get_result()["meta-data"][0]["all-patches"]))
+    return result
         
 def parse_val_results(val_out_dir: str):
     if not os.path.exists(val_out_dir) or not os.path.exists(os.path.join(val_out_dir, "val.json")):
-        print(f"Val out dir or {val_out_dir}/val.json not found")
+        print_log(f"Val out dir or {val_out_dir}/val.json not found")
         return
     with open(os.path.join(val_out_dir, "val.json"), "r") as f:
         result = json.load(f)
@@ -366,8 +391,11 @@ def parse_val_results(val_out_dir: str):
     result["val_out_dir"] = val_out_dir
     result["val"] = list()
     rf = open(os.path.join(val_out_dir, "result.sbsv"), "w")
+    result["remaining_symbolic_inputs"] = list()
+    result["remaining_patches"] = list()
+    symvass_result = parse_symvass_result(os.path.join(uni_klee_out_dir, "table.sbsv"))
     for i, c in enumerate(cluster):
-        print(f"Processing cluster {i}")
+        print_log(f"Processing cluster {i}")
         nodes = c["nodes"]
         group_out_dir = os.path.join(val_out_dir, f"group-{i}")
         vals = os.listdir(group_out_dir)
@@ -388,12 +416,12 @@ def parse_val_results(val_out_dir: str):
                 parser = parse_mem_result_file(local_out_file)
                 indices = parser.get_group_index("heap-check")
                 if len(indices) == 0:
-                    print(f"No heap-check in {local_out_file}")
+                    print_log(f"No heap-check in {local_out_file}")
                     node_result["result"].append({"val_file": val, "result": "NOT_DONE"})
                     rf.write(f"[res] [c {i}] [n {node}] [res NOT_DONE] [val {val}]\n")
                     continue
                 if len(indices) > 1:
-                    print(f"Multiple heap-check ({len(indices)}) in {local_out_file}")
+                    print_log(f"Multiple heap-check ({len(indices)}) in {local_out_file}")
                 for index in indices:
                     if succ:
                         break
@@ -412,24 +440,56 @@ def parse_val_results(val_out_dir: str):
             node_result["success"] = succ
             if succ:
                 rf.write(f"[success] [c {i}] [n {node}]\n")
-        print(f"Finished cluster {i}")
+                result["remaining_symbolic_inputs"].append(node)
+        print_log(f"Finished cluster {i}")
+        remaining_patches = set(symvass_result[-1])
+        for symin in result["remaining_symbolic_inputs"]:
+            if symin in symvass_result:
+                remaining_patches = remaining_patches.intersection(set(symvass_result[symin]))
+                rf.write(f"[remaining] [input] [input {symin}] [patches {symvass_result[symin]}]\n")
+        result["remaining_patches"] = sorted(list(remaining_patches))
+        rf.write(f"[remaining] [patch] [patches {result['remaining_patches']}]\n")
     rf.close()
     with open(os.path.join(val_out_dir, "result.json"), "w") as f:
         json.dump(result, f, indent=2)
 
+
+def analyze(subject: dict, val_out_dir: str):
+    json_file = os.path.join(val_out_dir, "result.json")
+    if not os.path.exists(json_file):
+        print_log(f"Result file {json_file} not found")
+        print_out()
+        return
+    with open(json_file, "r") as f:
+        result = json.load(f)
+        uni_klee_out_dir = result["uni_klee_out_dir"]
+        uni_klee_result = parse_symvass_result(os.path.join(uni_klee_out_dir, "table.sbsv"))
+        remaining_symbolic_inputs = list()
+        for group in result["val"]:
+            for node_result in group["nodes_result"]:
+                node_id = node_result["node_id"]
+                success = node_result["success"]
+                if not success:
+                    continue
+                remaining_symbolic_inputs.append(node_id)
+        print_out(f"{subject['subject']}\t{subject['bug_id']}\t{len(uni_klee_result)-1}\t{len(remaining_symbolic_inputs)}")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Symbolic Input Feasibility Analysis")
-    parser.add_argument("cmd", help="Command to run", choices=["fuzz", "fuzz-seeds", "check", "fuzz-build", "val-build", "build", "collect-inputs", "val", "feas"])
+    parser.add_argument("cmd", help="Command to run", choices=["fuzz", "fuzz-seeds", "check", "fuzz-build", "val-build", "build", "collect-inputs", "val", "feas", "analyze"])
     parser.add_argument("subject", help="Subject to run", default="")
     parser.add_argument("-i", "--input", help="Input file", default="")
     parser.add_argument("-o", "--output", help="Output file", default="")
     parser.add_argument("-d", "--debug", help="Debug mode", action="store_true")
     parser.add_argument("-s", "--symvass-prefix", help="SymVass prefix", default="uni-m-out")
+    parser.add_argument("-v", "--val-prefix", help="Val prefix", default="")
     parser.add_argument("-p", "--prefix", help="Prefix of fuzzer out: default aflrun-multi-out", default="aflrun-multi-out")
     # parser.add_argument("-s", "--subject", help="Subject", default="")
     args = parser.parse_args(sys.argv[1:])
     subject = get_metadata(args.subject)
     subject_dir = os.path.join(ROOT_DIR, "patches", subject["benchmark"], subject["subject"], subject["bug_id"])
+    val_prefix = args.val_prefix if args.val_prefix != "" else args.symvass_prefix
     if args.cmd == "fuzz":
         run_fuzzer(subject, subject_dir, args.debug)
     elif args.cmd == "fuzz-seeds":
@@ -446,12 +506,17 @@ def main():
         out_no = find_num(os.path.join(subject_dir, "runtime"), "aflrun-out")
         collect_val_runtime(subject_dir, os.path.join(subject_dir, "runtime", f"aflrun-out-{out_no - 1}"))
     elif args.cmd == "val":
-        run_val(subject, subject_dir, args.symvass_prefix, args.debug)
+        run_val(subject, subject_dir, args.symvass_prefix, val_prefix, args.debug)
     elif args.cmd == "feas":
         val_dir = os.path.join(subject_dir, "val-runtime")
-        no = find_num(val_dir, args.symvass_prefix)
-        val_out_dir = os.path.join(val_dir, f"{args.symvass_prefix}-{no - 1}")
+        no = find_num(val_dir, val_prefix)
+        val_out_dir = os.path.join(val_dir, f"{val_prefix}-{no - 1}")
         parse_val_results(val_out_dir)
+    elif args.cmd == "analyze":
+        val_dir = os.path.join(subject_dir, "val-runtime")
+        no = find_num(val_dir, val_prefix)
+        val_out_dir = os.path.join(val_dir, f"{val_prefix}-{no - 1}")
+        analyze(subject, val_out_dir)
 
 if __name__ == "__main__":
     main()

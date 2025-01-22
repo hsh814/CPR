@@ -24,7 +24,10 @@ from matplotlib.backends.backend_pdf import PdfPages
 
 FILE_LOC = os.path.abspath(__file__) # if not os.path.islink(os.path.abspath(__file__)) else os.path.abspath(os.readlink(os.path.abspath(__file__)))
 
-ROOT_DIR = os.path.dirname(os.path.dirname(FILE_LOC)) 
+ROOT_DIR = os.path.dirname(os.path.dirname(FILE_LOC))
+
+def print_log(msg: str):
+  print(msg, file=sys.stderr)
 
 class GloablConfig:
   root_dir: str
@@ -189,10 +192,8 @@ class ConfigFiles:
     self.snapshot_dir = os.path.join(self.out_base_dir, self.snapshot_prefix)
     self.filter_dir = os.path.join(self.out_base_dir, filter_prefix)
     if "snapshot" in bug_info:
-      # print(f"Use snapshot {self.bid} {bug_info['snapshot']}")
       self.snapshot_file = os.path.join(self.snapshot_dir, bug_info["snapshot"])
     else:
-      # print(f"Use snapshot {self.bid} snapshot-last.json ...")
       self.snapshot_file = os.path.join(self.snapshot_dir, "snapshot-last.json")
   def find_num(self, dir: str, name: str) -> int:
     result = 0
@@ -216,16 +217,16 @@ class ConfigFiles:
     result = list()
     dirs = os.listdir(dir)
     index = 0
-    print(name)
-    print(dirs)
+    print_log(name)
+    print_log(dirs)
     dirs.sort(key=self.sorting_key)
-    print(dirs)
+    print_log(dirs)
     for d in dirs:
       if name not in d:
         continue
       index += 1
       result.append((d, index))
-    print(result)
+    print_log(result)
     return result
 
   def read_conf_file(self) -> dict:
@@ -295,7 +296,7 @@ class Config:
     bugid = parsed[0]
     self.bug_info = global_config.get_bug_info(bugid)
     if self.bug_info is None:
-      print(f"Cannot find patch for {self.query} - {bugid}")
+      print_log(f"Cannot find patch for {self.query} - {bugid}")
       sys.exit(1)
     # Set config files
     self.conf_files.set(self.bug_info)
@@ -308,7 +309,7 @@ class Config:
       self.snapshot_patch_ids = self.get_patch_ids(snapshot_patch_ids.split(","))
     else:
       self.snapshot_patch_ids = list()
-    # print(f"query: {self.query} => bugid {self.bug_info}, patchid {self.patch_ids}")
+    # print_log(f"query: {self.query} => bugid {self.bug_info}, patchid {self.patch_ids}")
     
   def init(self, snapshot_patch_ids: str, rerun: bool, additional: str, lock: str, timeout: str = ""):
     self.meta = self.conf_files.read_meta_data()
@@ -384,24 +385,24 @@ class Runner:
   def __init__(self, conf: Config):
     self.config = conf
   def execute(self, cmd: str, dir: str, log_prefix: str, env: dict = None):
-    print(f"Change directory to {dir}")
-    print(f"Executing: {cmd}")
+    print_log(f"Change directory to {dir}")
+    print_log(f"Executing: {cmd}")
     if env is None:
       env = os.environ
     proc = subprocess.run(cmd, shell=True, cwd=dir, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if self.config.debug or proc.returncode != 0:
       log_file = os.path.join(self.config.conf_files.get_log_dir(), f"{log_prefix}.log")
       if proc.returncode != 0:
-        print("!!!!! Error !!!!")
-        print("Save error log to " + log_file)
+        print_log("!!!!! Error !!!!")
+        print_log("Save error log to " + log_file)
       try:
-        print(proc.stderr.decode("utf-8", errors="ignore"))
+        print_log(proc.stderr.decode("utf-8", errors="ignore"))
         os.makedirs(self.config.conf_files.get_log_dir(), exist_ok=True)
         with open(log_file, "w") as f:
           f.write(proc.stderr.decode("utf-8", errors="ignore"))
           f.write("\n###############\n")
           f.write(proc.stdout.decode("utf-8", errors="ignore"))
-        print(f"Save error log to {self.config.conf_files.get_log_dir()}/{log_prefix}.log")
+        print_log(f"Save error log to {self.config.conf_files.get_log_dir()}/{log_prefix}.log")
       except:
         pass
     return proc.returncode
@@ -414,7 +415,7 @@ class Runner:
       return
     if not os.path.exists(self.config.conf_files.snapshot_file):
       if self.config.debug:
-        print(f"snapshot file {self.config.conf_files.snapshot_file} does not exist")
+        print_log(f"snapshot file {self.config.conf_files.snapshot_file} does not exist")
       self.execute(cmd, dir, "snapshot", env)
   def run(self):
     if self.config.cmd == "analyze":
@@ -429,7 +430,7 @@ class Runner:
           with open(global_config.get_lock_file(self.config.bug_info["bug_id"]), "r") as f:
             lines = f.readlines()
             if len(lines) > 1:
-              print(f"Kill process {lines[0]}")
+              print_log(f"Kill process {lines[0]}")
               os.kill(int(lines[0]), signal.SIGTERM)
           # 2. Remove lock file
           os.remove(global_config.get_lock_file(self.config.bug_info["bug_id"]))
@@ -437,14 +438,14 @@ class Runner:
       if self.config.cmd == "clean":
         out_dirs = self.config.conf_files.find_all_nums(self.config.conf_files.out_base_dir, self.config.conf_files.out_dir_prefix)
         for out_dir in out_dirs:
-          print(f"Remove {out_dir[0]}")
+          print_log(f"Remove {out_dir[0]}")
           os.system(f"rm -rf {os.path.join(self.config.conf_files.out_base_dir, out_dir[0])}")
       return
     lock_file = global_config.get_lock_file(self.config.bug_info["bug_id"])
     lock = acquire_lock(lock_file, self.config.lock, self.config.conf_files.out_dir)
     try:
       if lock < 0:
-        print(f"Cannot acquire lock {lock_file}")
+        print_log(f"Cannot acquire lock {lock_file}")
         return
       cmd = self.config.get_cmd_opts(True)
       self.execute_snapshot(cmd, self.config.workdir)
@@ -454,7 +455,7 @@ class Runner:
         analyzer = Analyzer(self.config)
         analyzer.analyze()
     except Exception as e:
-      print(f"Exception: {e}")
+      print_log(f"Exception: {e}")
     finally:
       release_lock(lock_file, lock)
 
@@ -521,7 +522,7 @@ class DataLogParser:
     # metadata_pattern = r"\[meta-data\] \[state (\d+)\] \[crashId: (\d+), patchId: (\d+), stateType: (\w+), isCrash: (\w+), actuallyCrashed: (\d+), exitLoc: ([^,]+), exit: ([^\]]+)\]"
     tokens = self.parser_level_1(line)
     if len(tokens) < 3:
-      print(f"Unknown meta-data: {line}")
+      print_log(f"Unknown meta-data: {line}")
       return
     state = self.parse_state_id(tokens[1])
     data = self.parse_dict(tokens[2])
@@ -547,7 +548,7 @@ class DataLogParser:
     # fork_pattern = r"\[fork\] \[state (\d+)\] -> \[state (\d+)\]"
     tokens = self.parser_level_1(line)
     if len(tokens) < 4:
-      print(f"Unknown fork: {line}")
+      print_log(f"Unknown fork: {line}")
       return
     source_state = self.parse_state_id(tokens[1])
     target_state = self.parse_state_id(tokens[3])
@@ -568,11 +569,11 @@ class DataLogParser:
     # fork_merge_pattern = r"\[fork-map\] \[merge\] \[state (\d+)\] -> \[state (\d+)\] \[patch (\d+)\]"
     tokens = self.parser_level_1(line)
     if len(tokens) < 3:
-      print(f"Unknown fork-map: {line}")
+      print_log(f"Unknown fork-map: {line}")
       return
     if tokens[1] == "fork":
       if len(tokens) < 8:
-        print(f"Unknown fork-map: {line}")
+        print_log(f"Unknown fork-map: {line}")
         return
       state = self.parse_state_id(tokens[2])
       base_state = self.parse_state_id(tokens[4], "base")
@@ -592,7 +593,7 @@ class DataLogParser:
       self.state_type_map[forked_state] = tokens[7]
     elif tokens[1] == "merge":
       if len(tokens) < 6:
-        print(f"Unknown fork-map: {line}")
+        print_log(f"Unknown fork-map: {line}")
         return
       source_state = self.parse_state_id(tokens[2])
       target_state = self.parse_state_id(tokens[4])
@@ -613,13 +614,13 @@ class DataLogParser:
     # [fork-loc] [br | sw | lazy]
     tokens = self.parser_level_1(line)
     if len(tokens) < 3:
-      print(f"Unknown fork-loc: {line}")
+      print_log(f"Unknown fork-loc: {line}")
       return
     opt = tokens[1]
     if opt == "br":
       # [fork-loc] [br] [state 2] [/root/projects/CPR/patches/extractfix/libtiff/CVE-2016-5314/src/libtiff/tif_pixarlog.c:799:5:28680] -> [state 2] [/root/projects/CPR/patches/extractfix/libtiff/CVE-2016-5314/src/libtiff/tif_pixarlog.c:799:43:28683] [state 23] [/root/projects/CPR/patches/extractfix/libtiff/CVE-2016-5314/src/libtiff/tif_pixarlog.c:800:2:28687]
       if len(tokens) < 9:
-        print(f"Unknown fork-loc: {line}")
+        print_log(f"Unknown fork-loc: {line}")
         return
       state_from = self.parse_state_id(tokens[2])
       loc_from = tokens[3]
@@ -629,7 +630,7 @@ class DataLogParser:
       loc_to_b = tokens[8]
       key = (state_to_a, state_to_b)
       if key not in self.fork_map_edges:
-        # print(f"fork-loc: key error: {line}")
+        # print_log(f"fork-loc: key error: {line}")
         return
       self.fork_map_edges[key]["loc"] = {
         "type": "br",
@@ -639,14 +640,14 @@ class DataLogParser:
       }
     elif opt == "lazy":
       if len(tokens) < 7:
-        print(f"Unknown fork-loc: {line}")
+        print_log(f"Unknown fork-loc: {line}")
         return
       state_from = self.parse_state_id(tokens[2])
       state_to = self.parse_state_id(tokens[4])
       loc = tokens[5]
       key = (state_from, state_to)
       if key not in self.fork_map_edges:
-        # print(f"fork-loc: key error: {line}")
+        # print_log(f"fork-loc: key error: {line}")
         return
       self.fork_map_edges[key]["loc"] = {
         "type": "lazy",
@@ -654,7 +655,7 @@ class DataLogParser:
       }
     elif opt == "sw":
       if len(tokens) < 9:
-        print(f"Unknown fork-loc: {line}")
+        print_log(f"Unknown fork-loc: {line}")
         return
       state_from = self.parse_state_id(tokens[2])
       loc_from = tokens[3]
@@ -664,7 +665,7 @@ class DataLogParser:
       loc_to_b = tokens[8]
       key = (state_from, state_to_b)
       if key not in self.fork_map_edges:
-        # print(f"fork-loc: key error: {line}")
+        # print_log(f"fork-loc: key error: {line}")
         return
       self.fork_map_edges[key]["loc"] = {
         "type": "sw",
@@ -677,7 +678,7 @@ class DataLogParser:
     # reg_pattern = r"\[regression\] \[state (\d+)\] \[([^\]]*)\]"
     tokens = self.parser_level_1(line)
     if len(tokens) < 3:
-      print(f"Unknown regression: {line}")
+      print_log(f"Unknown regression: {line}")
       return
     state = self.parse_state_id(tokens[1])
     reg = tokens[2]
@@ -686,7 +687,7 @@ class DataLogParser:
     # reg_pattern = r"\[lazy-trace\] \[state (\d+)\] \[([^\]]*)\]"
     tokens = self.parser_level_1(line)
     if len(tokens) < 3:
-      print(f"Unknown lazy-trace: {line}")
+      print_log(f"Unknown lazy-trace: {line}")
       return
     state = self.parse_state_id(tokens[1])
     reg = tokens[2]
@@ -695,7 +696,7 @@ class DataLogParser:
     # st_pattern = r"\[stack-trace\] \[state (\d+)\] \[([^\]]*)\]"
     tokens = self.parser_level_1(line)
     if len(tokens) < 3:
-      print(f"Unknown stack-trace: {line}")
+      print_log(f"Unknown stack-trace: {line}")
       return
     state = self.parse_state_id(tokens[1])
     st = tokens[2]
@@ -721,7 +722,7 @@ class DataLogParser:
         elif line.startswith("[stack-trace]"):
           self.add_stack_trace(line)
         # else:
-        #   print(f"Unknown line: {line}")
+        #   print_log(f"Unknown line: {line}")
   def cluster(self) -> Dict[int, list]:
     cluster_by_crash_id = dict()
     for state, data in self.meta_data.items():
@@ -940,7 +941,7 @@ class DataLogParser:
       if source in filtered_nodes and target in filtered_nodes:
         filtered_edges.append((source, target, edge_type))
     # clusters = self.cluster_forest(filtered_nodes, filtered_edges, result["crash_id_to_state"])
-    # print(f"clusters: {clusters}")
+    # print_log(f"clusters: {clusters}")
     # input_analysis: Dict[int, List[int]] = dict()
     # input_analysis[base] = {
     #   "state": base_state,
@@ -960,7 +961,7 @@ class DataLogParser:
       row = list()
       for patch in columns:
         row.append(patch not in patch_filter)
-      print(f"base: {base}, row: {row}, patch_filter: {patch_filter}")
+      print_log(f"base: {base}, row: {row}, patch_filter: {patch_filter}")
       rows.append({"base": base, "row": row})
     table["columns"] = columns
     table["rows"] = rows
@@ -983,8 +984,8 @@ class DataLogParser:
     # 1. Select input
     # 
     # TODO: make more intelligent selection
-    print(f"remaining_patches: {remaining_patches}")
-    print(f"remaining_inputs: {remaining_inputs}")
+    print_log(f"remaining_patches: {remaining_patches}")
+    print_log(f"remaining_inputs: {remaining_inputs}")
     selected_input: int = -1
     min_remaining_patches = len(remaining_patches) + 1
     for input in remaining_inputs:
@@ -1000,11 +1001,11 @@ class DataLogParser:
           continue
         if patch not in tmp:
           rp += 1
-      # print(f"input: {input}, rp: {rp}")
+      # print_log(f"input: {input}, rp: {rp}")
       if rp > 0 and rp < min_remaining_patches:
         min_remaining_patches = rp
         selected_input = input
-    print(f"selected_input: {selected_input}")
+    print_log(f"selected_input: {selected_input}")
     return selected_input, remaining_patches, remaining_inputs
   def get_patch_result_diff(self, removed_if_feasible: Dict[int, List[List[int]]], remaining_patches: List[int], input_a: int, input_b: int) -> int:
     def list_to_set(l: List[List[int]]) -> Set[int]:
@@ -1043,7 +1044,7 @@ class DataLogParser:
       return adjacency_list
     def dfs(base: int, node: int, remaining_nodes: Set[int], adjacency_list: Dict[int, List[int]], visited: Set[int], result: List[Tuple[int, int]]):
       visited.add(node)
-      # print(f"base: {base} node: {node} -> {adjacency_list.get(node, [])}")
+      # print_log(f"base: {base} node: {node} -> {adjacency_list.get(node, [])}")
       for neighbor in adjacency_list.get(node, []):
         if neighbor in remaining_nodes and neighbor not in visited:
           result.append((base, neighbor))
@@ -1055,18 +1056,18 @@ class DataLogParser:
     for crash_id, state in crash_id_to_state:
       if crash_id in input_filter:
         state_filter.add(state)
-    print(f"state_filter: {state_filter}")
+    print_log(f"state_filter: {state_filter}")
     adjacency_list = generate_adjacency_list(graph["edges"])
     for node in state_filter:
       if node not in adjacency_list:
         continue
       visited = set()
       dfs(node, node, state_filter, adjacency_list, visited, state_pairs)
-    print(f"state_pairs: {state_pairs}")
+    print_log(f"state_pairs: {state_pairs}")
     input_pairs = list()
     for source, target in state_pairs:
       input_pairs.append((state_map[source]["crashId"], state_map[target]["crashId"]))
-    print(f"input_pairs: {input_pairs}")
+    print_log(f"input_pairs: {input_pairs}")
     return input_pairs
   
   def get_input_pair_fork_loc(self, input_a: int, input_b: int, graph: Dict[str, list]) -> List[str]:
@@ -1075,7 +1076,7 @@ class DataLogParser:
     state_list = [input_b]
     while True:
       if len(set(state_list)) != len(state_list):
-        print(f"state_list: {state_list}")
+        print_log(f"state_list: {state_list}")
         raise Exception("Duplicate state")
       if cur == input_a:
         return state_list        
@@ -1109,20 +1110,20 @@ class DataLogParser:
     rows = table["rows"]
     # 1. Select input
     # TODO: make more intelligent selection
-    print(f"remaining_patches: {remaining_patches}")
-    print(f"remaining_inputs: {remaining_inputs}")
+    print_log(f"remaining_patches: {remaining_patches}")
+    print_log(f"remaining_inputs: {remaining_inputs}")
     input_pairs = self.get_all_adjacent_inputs(state_map, graph, remaining_inputs, crash_id_to_state)
     selected_input_a: int = -1
     selected_input_b: int = -1
     max_diff = -1
     for ia, ib in input_pairs:
       diff = self.get_patch_result_diff(removed_if_feasible, remaining_patches, ia, ib)
-      print(f"ia: {ia}, ib: {ib}, diff: {diff}")
+      print_log(f"ia: {ia}, ib: {ib}, diff: {diff}")
       if diff > max_diff:
         max_diff = diff
         selected_input_a = ia
         selected_input_b = ib
-    print(f"selected_input_a: {selected_input_a}, selected_input_b: {selected_input_b}")
+    print_log(f"selected_input_a: {selected_input_a}, selected_input_b: {selected_input_b}")
     if selected_input_a < 0 or selected_input_b < 0:
       return -1, -1, {}, remaining_patches, remaining_inputs
     # get diff
@@ -1200,7 +1201,7 @@ class DataLogParser:
           if not value:
             if patch in remaining_patches:
               remaining_patches.remove(patch)
-    print(f"remaining_patches: {remaining_patches}")
+    print_log(f"remaining_patches: {remaining_patches}")
     # 2. Filter out undistinguishable inputs
     input_filter = set(selected_inputs)
     remaining_inputs = list()
@@ -1214,10 +1215,10 @@ class DataLogParser:
       true_check = True
       for patch, value in zip(columns, row["row"]):
         if patch in remaining_patches:
-          print(f"patch: {patch}, row: {row['row']}, value: {value}")
+          print_log(f"patch: {patch}, row: {row['row']}, value: {value}")
           false_check = false_check or value
           true_check = true_check and value
-      print(f"base: {base}, row: {row['row']}, false_check: {false_check}, true_check: {true_check}")
+      print_log(f"base: {base}, row: {row['row']}, false_check: {false_check}, true_check: {true_check}")
       if false_check and not true_check: # can distinguish patches
         remaining_inputs.append(base)
     return (sorted(list(remaining_patches)), remaining_inputs)
@@ -1234,7 +1235,7 @@ class DataLogParser:
         if edge_type == "fork" and target == current:
           result.append(source)
           q.put(source)
-    print(f"get_parent_states: {result}")
+    print_log(f"get_parent_states: {result}")
     return result
   def get_trace(self, result: dict, selected_input: int) -> dict:
     removed_if_feasible = result["removed_if_feasible"]
@@ -1398,7 +1399,7 @@ class DataLogParser:
     self.draw_graph(nodes, edges, "fork-graph")
     nodes, edges = self.generate_input_graph()
     self.draw_graph(nodes, edges, "input-graph", "png")
-    print(f"Saved table to {result_table}")
+    print_log(f"Saved table to {result_table}")
     
         
 
@@ -1424,9 +1425,9 @@ class Analyzer:
     return result
   def print_list(self, l: List[Tuple[str, int]]):
     for item, index in l:
-      print(f"{index}) {item}")
+      print_log(f"{index}) {item}")
   def interactive_select(self, l: List[Tuple[str, int]], msg: str) -> Tuple[str, int]:
-    print("Select from here: ")
+    print_log("Select from here: ")
     self.print_list(l)
     default = l[-1][1]
     while True:
@@ -1447,7 +1448,7 @@ class Analyzer:
     output_directory = os.path.join(self.dir, "trace")  # Change this to your desired output directory
     os.makedirs(output_directory, exist_ok=True)
     # Generate and save PNG files for each chunk
-    print(f"Generate {len(diff)} diff.pdf in {output_directory}")
+    print_log(f"Generate {len(diff)} diff.pdf in {output_directory}")
     with PdfPages(os.path.join(output_directory, 'diff.pdf')) as pdf:
       for i in range(0, len(diff), chunk_size):
           ax.clear()
@@ -1467,7 +1468,7 @@ class Analyzer:
             pdf.savefig(fig, dpi=300, bbox_inches='tight')
           plt.close()
   def compare_snapshots(self, snapshot_files: List[Tuple[str, int]]):
-    print(f"Snapshot files:")
+    print_log(f"Snapshot files:")
     while True:
       snapshot_name_a, index = self.interactive_select(snapshot_files, "snapshot a")
       if snapshot_name_a == "":
@@ -1481,13 +1482,13 @@ class Analyzer:
                   for line in snapshot_a["trace"]:
                     tf.write(line)
                     tf.write("\n")
-        print("Exit")
+        print_log("Exit")
         return
       with open(os.path.join(self.dir, snapshot_name_a), "r") as f:
         snapshot_a = json.load(f)
       snapshot_name_b, index = self.interactive_select(snapshot_files, "snapshot b")
       if snapshot_name_b == "" or snapshot_name_a == snapshot_name_b:
-        print("Exit")
+        print_log("Exit")
         return
       with open(os.path.join(self.dir, snapshot_name_b), "r") as f:
         snapshot_b = json.load(f)
@@ -1495,16 +1496,16 @@ class Analyzer:
       self.compare_trace(snapshot_a["trace"], snapshot_b["trace"])
       cmd = input("Continue? (y/n): ").strip()
       if cmd == "n":
-        print("Exit")
+        print_log("Exit")
         return
   def analyze(self):
     self.dir = self.config.conf_files.out_dir
     if not os.path.exists(self.dir):
-      print(f"{self.dir} does not exist")
+      print_log(f"{self.dir} does not exist")
       out_dirs = self.config.conf_files.find_all_nums(self.config.conf_files.out_base_dir, self.config.conf_files.out_dir_prefix)
       out_dir = self.interactive_select(out_dirs, "dir")[0]
       if out_dir == "":
-        print("Exit")
+        print_log("Exit")
         return
       self.dir = os.path.join(self.config.conf_files.out_base_dir, out_dir)
     dp = DataLogParser(self.dir)
@@ -1671,21 +1672,21 @@ def acquire_lock(lock_file: str, lock_behavior: str, message: str = "") -> int:
       return lock_fd
     except FileExistsError:
       if lock_behavior == "w":
-        print("Lock file exists, waiting...")
+        print_log("Lock file exists, waiting...")
         # wait random time
         time.sleep(random.random())
         continue
       elif lock_behavior == "i":
         lock_behavior = input("Lock file exists, [w]ait or [f]orce kill?: ").lower()
       elif lock_behavior == "f":
-        print("Force to kill the previous process and acquire the lock")
+        print_log("Force to kill the previous process and acquire the lock")
         with open(lock_file, "r") as f:
           lines = f.readlines()
           pid = int(lines[0].strip())
           try:
             os.kill(pid, signal.SIGKILL)
           except OSError as e:
-            print(e)
+            print_log(e)
         os.remove(lock_file)
         continue
       if time.time() - start_time > timeout:
@@ -1710,18 +1711,18 @@ def log(args: List[str]):
         lines = f.readlines()
         # print last 10 lines
         for line in lines[-10:]:
-          print(line.strip())
+          print_log(line.strip())
     exit(0)
   os.makedirs("logs/.uni-klee", exist_ok=True)
   lock = acquire_lock(lock_file, "w", log_file)
   try:
     if lock < 0:
-      print(f"Cannot acquire lock for {log_file}")
+      print_log(f"Cannot acquire lock for {log_file}")
       return
     with open(log_file, "a") as f:
       f.write("uni-klee.py " + " ".join(args[1:]) + "\n")
   except:
-    print("Cannot write log")
+    print_log("Cannot write log")
   finally:
     release_lock(lock_file, lock)
 

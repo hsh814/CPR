@@ -128,7 +128,7 @@ class RunSingle():
   def get_fuzz_cmd(self, extra: str) -> str:
     if extra == "exp":
       return f"symfeas.py fuzz {self.meta['bug_id']}"
-    if extra in ["build", "val-build", "fuzz-build", "fuzz-seeds", "collect-inputs", "val", "feas"]:
+    if extra in ["build", "val-build", "fuzz-build", "fuzz-seeds", "collect-inputs", "val", "feas", "analyze"]:
       return f"symfeas.py {extra} {self.meta['bug_id']} -s {SYMVASS_PREFIX}"
     print(f"Unknown extra: {extra}")
     exit(1)
@@ -266,7 +266,38 @@ def final_analysis(dir: str):
     for result in results:
       f.write(f"{result['project']}\t{result['bug']}\t{result['correct']}\t{result['all']}\t{result['inputs']}\t{result['default']}\t{result['default_found']}\t{result['best_inputs']}\t{result['best']}\t{result['best_found']}\n")
 
-def run_cmd(opt: str, meta_data: List[dict], extra: str):
+def read_tmp():
+  result = dict()
+  with open("/root/projects/CPR/out/tmp.table", "r") as f:
+    lines = f.readlines()
+    for line in lines:
+      no, bug_id = line.strip().split()
+      result[no] = bug_id
+  meta_data = uni_klee.global_config.get_meta_data_list()
+  for res in result:
+    meta = uni_klee.global_config.get_bug_info(res)
+    if meta is None:
+      continue
+    # Run rsync
+    os.system(f"rsync -avz -e 'ssh -p 1601' root@10.20.26.23:/home/yuntong/vulnfix/data/{result[res]}/cludafl_out/out-cludafl-energy-reset/queue /root/projects/CPR/patches/extractfix/{meta['subject']}/{meta['bug_id']}/runtime/cludafl-queue")
+    os.system(f"rsync -avz -e 'ssh -p 1601' root@10.20.26.23:/home/yuntong/vulnfix/data/{result[res]}/cludafl_out/out-cludafl-energy-reset/memory/input /root/projects/CPR/patches/extractfix/{meta['subject']}/{meta['bug_id']}/runtime/cludafl-memory")
+  return result
+
+def run_clean(meta_data: List[dict]):
+  for meta in meta_data:
+    if not check_correct_exists(meta):
+      continue
+    runtime = os.path.join(ROOT_DIR, "patches", "extractfix", meta["subject"], meta["bug_id"], "runtime")
+    files = os.listdir(runtime)
+    for file in files:
+      full_name = os.path.join(runtime, file)
+      if os.path.isdir(full_name):
+        continue
+      if file.endswith(".aflrun"):
+        continue
+      os.remove(full_name)
+
+def run_cmd(opt: str, meta_data: List[dict], extra: str, additional: str):
   core = 32
   pool = mp.Pool(core)
   args_list = list()
@@ -279,6 +310,8 @@ def run_cmd(opt: str, meta_data: List[dict], extra: str):
     cmd = rs.get_cmd(opt, extra)
     if cmd is None:
       continue
+    if additional != "":
+      cmd = f"{cmd} {additional}"
     args_list.append((cmd, ROOT_DIR, f"{meta['bug_id']}.log", opt, f"{opt},{meta['subject']}/{meta['bug_id']}", meta))
   print(f"Total {opt}: {len(args_list)}")
   pool.map(execute_wrapper, args_list)
@@ -286,17 +319,34 @@ def run_cmd(opt: str, meta_data: List[dict], extra: str):
   pool.join()
   print(f"{opt} done")
 
+def run_cmd_seq(opt: str, meta_data: List[dict], extra: str, additional: str, output: str):
+  meta_data = sorted(meta_data, key=lambda x: f"{x['subject']}/{x['bug_id']}")
+  for meta in meta_data:
+    if not check_correct_exists(meta):
+      continue
+    rs = RunSingle(meta["id"])
+    cmd = rs.get_cmd(opt, extra)
+    if cmd is None:
+      continue
+    if additional != "":
+      cmd = f"{cmd} {additional}"
+    if output != "":
+      cmd = f"{cmd} >> {OUTPUT_DIR}/{output}"
+    execute(cmd, ROOT_DIR, f"{meta['bug_id']}.log", opt, f"{opt},{meta['subject']}/{meta['bug_id']}", meta)
+  print(f"{opt} done")
 
 def main(argv: List[str]):
   parser = argparse.ArgumentParser(description="Run symvass experiments")
-  parser.add_argument("cmd", type=str, help="Command to run", choices=["filter", "exp", "analyze", "final", "fuzz"], default="exp")
+  parser.add_argument("cmd", type=str, help="Command to run", choices=["filter", "exp", "analyze", "final", "fuzz", "clean"], default="exp")
   parser.add_argument("-e", "--extra", type=str, help="Subcommand", default="exp")
-  parser.add_argument("-o", "--output", type=str, help="Output directory", default="out", required=False)
+  parser.add_argument("-o", "--output", type=str, help="Output file", default="", required=False)
   parser.add_argument("-p", "--prefix", type=str, help="Output prefix", default="", required=False)
   parser.add_argument("-s", "--symvass-prefix", type=str, help="Symvass prefix", default="", required=False)
+  parser.add_argument("-a", "--additional", type=str, help="Additional arguments", default="", required=False)
+  parser.add_argument("--seq", action="store_true", help="Run sequentially", default=False)
   args = parser.parse_args(argv)
   global OUTPUT_DIR, PREFIX, SYMVASS_PREFIX
-  OUTPUT_DIR = os.path.join(ROOT_DIR, args.output)
+  OUTPUT_DIR = os.path.join(ROOT_DIR, "out")
   if args.prefix != "":
     PREFIX = args.prefix
   else:
@@ -311,11 +361,17 @@ def main(argv: List[str]):
   if args.cmd == "final":
     final_analysis(os.path.join(OUTPUT_DIR, PREFIX))
     return
+  if args.cmd == "clean":
+    run_clean(uni_klee.global_config.get_meta_data_list())
+    return
   with open(os.path.join(GLOBAL_LOG_DIR, "time.log"), "a") as f:
     f.write(f"\n#{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
   meta_data = uni_klee.global_config.get_meta_data_list()
   print(f"Total meta data: {len(meta_data)}")
-  run_cmd(args.cmd, meta_data, args.extra)
+  if args.seq:
+    run_cmd_seq(args.cmd, meta_data, args.extra, args.additional, args.output)
+  else:
+    run_cmd(args.cmd, meta_data, args.extra, args.additional)
 
 if __name__ == "__main__":
   main(sys.argv[1:])

@@ -19,6 +19,9 @@ import sympatch
 import psutil
 
 
+def print_log(msg: str):
+    print(msg, file=sys.stderr)
+
 def get_trace(dir: str, id: int):
     dp = uni_klee.DataLogParser(dir)
     dp.read_data_log("data.log")
@@ -108,7 +111,7 @@ class ConfigFiles(uni_klee.ConfigFiles):
             self.out_dir = os.path.join(self.out_base_dir, f"{out_dir_prefix}-{no}")
         self.snapshot_dir = os.path.join(self.out_base_dir, self.snapshot_prefix)
         self.filter_dir = os.path.join(self.out_base_dir, filter_prefix)
-        # print(f"Use snapshot {self.bid} snapshot-last.json ...")
+        # print_log(f"Use snapshot {self.bid} snapshot-last.json ...")
         self.snapshot_file = os.path.join(self.snapshot_dir, "snapshot-last.json")
 
 class Config(uni_klee.Config):
@@ -410,7 +413,7 @@ class PatchSorter:
                 result[patch_id] = not data["actuallyCrashed"]
         # original = self.patch_filter[0]
         # if not original["actuallyCrashed"]:
-        #     print("Original patch does not crash")
+        #     print_log("Original patch does not crash")
         return result
 
     def analyze_cluster(self) -> Dict[int, Dict[int, List[Tuple[int, bool]]]]:
@@ -422,7 +425,7 @@ class PatchSorter:
             if result:
                 patch_set.add(patch_id)
             self.cluster[0][patch_id] = [(-1, result)]
-            print(f"Patch {patch_id} crashed: {result}")
+            print_log(f"Patch {patch_id} crashed: {result}")
         temp_patches = set()
         for crash_id, data_list in self.dp.cluster().items():
             if crash_id == 0:
@@ -453,7 +456,7 @@ class PatchSorter:
         for crash_id, patch_map in self.cluster.items():
             patch_score = 0.0
             if patch not in patch_map:
-                print(f"Patch {patch} not found in crash {crash_id}")
+                print_log(f"Patch {patch} not found in crash {crash_id}")
                 continue
             for patch_result in patch_map[patch]:
                 if patch_result[1]:
@@ -529,7 +532,7 @@ class SymvassAnalyzer:
                                 f"| {patch}-{local_input_id} | {patch} | {state} | {'O' if patch_result[1] else 'X'} | {actually_crashed} |\n"
                             )
                         local_input_id += 1
-        print(f"Saved to {os.path.join(self.dir, 'patch-rank.md')}")
+        print_log(f"Saved to {os.path.join(self.dir, 'patch-rank.md')}")
         
     def cluster(self, analyzer: DataAnalyzer) -> Dict[int, Set[int]]:
         cluster: Dict[int, Set[int]] = dict()
@@ -554,7 +557,7 @@ class SymvassAnalyzer:
             preds = analyzer.graph.predecessors(node)
             stack += preds
             if len(list(preds)) > 1:
-                print(f"[warn] [state {node}] [preds {preds}]")
+                print_log(f"[warn] [state {node}] [preds {preds}]")
             for pred in preds:
                 if pred in analyzer.meta_data and analyzer.meta_data[pred]["stateType"] in state_type:
                     trace.append(pred)
@@ -607,10 +610,10 @@ class SymvassAnalyzer:
                         if cur_iter > 0 and iter >= cur_iter:
                             continue
                         if cur_iter > 0 and cur_iter != iter + 1:
-                            print(f"[warn] [error] [state {state}] [iter {cur_iter-1}] [actual {iter}]")
+                            print_log(f"[warn] [error] [state {state}] [iter {cur_iter-1}] [actual {iter}]")
                         cur_iter = iter
                         trace[state].append((res, iter, patches))
-            # print(f"[state {state}] {trace[state]}")
+            # print_log(f"[state {state}] {trace[state]}")
         return trace
     
     def buggy_trace(self, analyzer: DataAnalyzer):
@@ -653,10 +656,10 @@ class SymvassAnalyzer:
                         if cur_iter > 0 and iter >= cur_iter:
                             continue
                         if cur_iter > 0 and cur_iter != iter + 1:
-                            print(f"[warn] [error] [state {state}] [iter {cur_iter-1}] [actual {iter}]")
+                            print_log(f"[warn] [error] [state {state}] [iter {cur_iter-1}] [actual {iter}]")
                         cur_iter = iter
                         trace[state].append((res, iter))
-        print(trace)
+        print_log(trace)
         return trace
 
     def get_patch(self, state: int, st: List[Tuple[bool, int, List[Tuple[int, str]]]]) -> List[int]:
@@ -678,7 +681,7 @@ class SymvassAnalyzer:
         l = list()
         for i in range(len(trace)):
             l.append(trace[i+1])
-        print(f"[state {state}] [trace {l}] [patches {patches}]")
+        print_log(f"[state {state}] [trace {l}] [patches {patches}]")
         return patches
     
     def generate_table(self, cluster: Dict[int, list], result: List[Tuple[int, int, int, List[int]]]) -> str:
@@ -854,7 +857,7 @@ class SymvassAnalyzer:
                 env_local = env.copy()
                 local_out_file = os.path.join(group_out_dir, f"out-{input_id}.txt")
                 env_local["UNI_KLEE_MEM_RESULT"] = local_out_file
-                print(f"[val] [group {group_id}] [input {input_id}] [out {local_out_file}]")
+                print_log(f"[val] [group {group_id}] [input {input_id}] [out {local_out_file}]")
                 opts = config.get_cmd_for_original(c_file)
                 cmd = f"{validation_binary} {opts}"
                 # if cmd == "": input as stdin
@@ -913,8 +916,8 @@ class Runner(uni_klee.Runner):
         cmd = cmd.replace('-S$(printf \'\\t\\t\\t\')', '-S$(printf "\\t\\t\\t")')
         if "/tmp/out.tiff" in cmd and os.path.exists("/tmp/out.tiff"):
             os.remove("/tmp/out.tiff")
-        print(f"Change directory to {dir}")
-        print(f"Executing: {cmd}")
+        print_log(f"Change directory to {dir}")
+        print_log(f"Executing: {cmd}")
         if env is None:
             env = os.environ
         timeout = 43200
@@ -933,7 +936,7 @@ class Runner(uni_klee.Runner):
             stdout, stderr = proc.communicate(timeout=timeout)
         except subprocess.TimeoutExpired:
             timeout_reached = True
-            print(f"Timeout {timeout} seconds {cmd}")
+            print_log(f"Timeout {timeout} seconds {cmd}")
             self.kill_proc_tree(proc.pid)
             stdout, stderr = proc.communicate()
         if log_prefix != "quiet" and (self.config.debug or (proc.returncode != 0 and not timeout_reached)):
@@ -941,20 +944,20 @@ class Runner(uni_klee.Runner):
                 self.config.conf_files.get_log_dir(), f"{log_prefix}.log"
             )
             if proc.returncode != 0:
-                print("!!!!! Error !!!!")
-                print("Save error log to " + log_file)
+                print_log("!!!!! Error !!!!")
+                print_log("Save error log to " + log_file)
             try:
-                print(stderr.decode("utf-8", errors="ignore"))
+                print_log(stderr.decode("utf-8", errors="ignore"))
                 os.makedirs(self.config.conf_files.get_log_dir(), exist_ok=True)
                 with open(log_file, "w") as f:
                     f.write(stderr.decode("utf-8", errors="ignore"))
                     f.write("\n###############\n")
                     f.write(stdout.decode("utf-8", errors="ignore"))
-                print(
+                print_log(
                     f"Save error log to {self.config.conf_files.get_log_dir()}/{log_prefix}.log"
                 )
             except Exception as e:
-                print(f"Failed to save error: {str(e)}")
+                print_log(f"Failed to save error: {str(e)}")
         return proc.returncode
 
     def execute_snapshot(self, cmd: str, dir: str, env: dict = None):
@@ -966,17 +969,17 @@ class Runner(uni_klee.Runner):
             return
         if not os.path.exists(self.config.conf_files.snapshot_file):
             if self.config.debug:
-                print(
+                print_log(
                     f"snapshot file {self.config.conf_files.snapshot_file} does not exist"
                 )
             self.execute(cmd, dir, "snapshot", env)
     
     def print_list(self, l: List[Tuple[str, int]]):
         for item, index in l:
-            print(f"{index}) {item}")
+            print_log(f"{index}) {item}")
 
     def interactive_select(self, l: List[Tuple[str, int]], msg: str) -> Tuple[str, int]:
-        print("Select from here: ")
+        print_log("Select from here: ")
         self.print_list(l)
         default = l[-1][1]
         while True:
@@ -991,21 +994,21 @@ class Runner(uni_klee.Runner):
                     return (item, index)
 
     def get_dir(self):
-        print("Set_dir")
+        print_log("Set_dir")
         dir = self.config.conf_files.out_dir
         # self.filter_dir = self.config.conf_files.filter_dir
         if not os.path.exists(dir):
-            print(f"{dir} does not exist")
+            print_log(f"{dir} does not exist")
             out_dirs = self.config.conf_files.find_all_nums(
                 self.config.conf_files.out_base_dir,
                 self.config.conf_files.out_dir_prefix,
             )
             out_dir = self.interactive_select(out_dirs, "dir")[0]
             if out_dir == "":
-                print("Exit")
+                print_log("Exit")
                 return
             dir = os.path.join(self.config.conf_files.out_base_dir, out_dir)
-        print(f"Using {dir}")
+        print_log(f"Using {dir}")
         return dir
 
     def run(self):
@@ -1033,11 +1036,11 @@ class Runner(uni_klee.Runner):
                     with open(uni_klee.global_config.get_lock_file(self.config.bug_info["bug_id"]),"r") as f:
                         lines = f.readlines()
                         if len(lines) > 1:
-                            print(f"Kill process {lines[0]}")
+                            print_log(f"Kill process {lines[0]}")
                             try:
                                 os.kill(int(lines[0]), signal.SIGTERM)
                             except OSError as e:
-                                print(e.errno)
+                                print_log(e.errno)
                     # 2. Remove lock file
                     os.remove(
                         uni_klee.global_config.get_lock_file(
@@ -1051,7 +1054,7 @@ class Runner(uni_klee.Runner):
                     self.config.conf_files.out_dir_prefix,
                 )
                 for out_dir in out_dirs:
-                    print(f"Remove {out_dir[0]}")
+                    print_log(f"Remove {out_dir[0]}")
                     os.system(
                         f"rm -rf {os.path.join(self.config.conf_files.out_base_dir, out_dir[0])}"
                     )
@@ -1061,7 +1064,7 @@ class Runner(uni_klee.Runner):
         lock = uni_klee.acquire_lock(lock_file, self.config.lock, self.config.conf_files.out_dir)
         try:
             if lock < 0:
-                print(f"Cannot acquire lock {lock_file}")
+                print_log(f"Cannot acquire lock {lock_file}")
                 return
             cmd = self.config.get_cmd_opts(True)
             self.execute_snapshot(cmd, self.config.workdir)
@@ -1071,8 +1074,8 @@ class Runner(uni_klee.Runner):
                 analyzer = SymvassAnalyzer(self.get_dir(), self.config.bug_info)
                 analyzer.analyze_v2()
         except Exception as e:
-            print(f"Exception: {e}")
-            print(traceback.format_exc())
+            print_log(f"Exception: {e}")
+            print_log(traceback.format_exc())
         finally:
             uni_klee.release_lock(lock_file, lock)
 
