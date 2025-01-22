@@ -5403,7 +5403,7 @@
       "id": 771,
       "num": 0,
       "local_id": 1,
-      "code": "  result = (i < size);\n"
+      "code": "  result = ((i + 1) < size);\n"
     }
   ]
 }

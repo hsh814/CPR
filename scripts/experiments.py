@@ -125,7 +125,7 @@ class RunSingle():
       cmd += " --sym-level=low --max-fork=1024,1024,1024"
     return cmd
   
-  def get_fuzz_cmd(self, extra: str) -> str:
+  def get_feas_cmd(self, extra: str) -> str:
     if extra == "exp":
       return f"symfeas.py fuzz {self.meta['bug_id']}"
     if extra in ["build", "val-build", "fuzz-build", "fuzz-seeds", "collect-inputs", "val", "feas", "analyze"]:
@@ -148,8 +148,8 @@ class RunSingle():
       return self.get_exp_cmd(extra)
     if opt == "analyze":
       return self.get_analyze_cmd(extra)
-    if opt == "fuzz": # clean with rm -r patches/*/*/*/runtime/aflrun-out-*
-      return self.get_fuzz_cmd(extra)
+    if opt == "feas": # clean with rm -r patches/*/*/*/runtime/aflrun-out-*
+      return self.get_feas_cmd(extra)
     print(f"Unknown opt: {opt}")
     return None
 
@@ -337,7 +337,7 @@ def run_cmd_seq(opt: str, meta_data: List[dict], extra: str, additional: str, ou
 
 def main(argv: List[str]):
   parser = argparse.ArgumentParser(description="Run symvass experiments")
-  parser.add_argument("cmd", type=str, help="Command to run", choices=["filter", "exp", "analyze", "final", "fuzz", "clean"], default="exp")
+  parser.add_argument("cmd", type=str, help="Command to run", choices=["filter", "exp", "analyze", "final", "feas", "clean"], default="exp")
   parser.add_argument("-e", "--extra", type=str, help="Subcommand", default="exp")
   parser.add_argument("-o", "--output", type=str, help="Output file", default="", required=False)
   parser.add_argument("-p", "--prefix", type=str, help="Output prefix", default="", required=False)
