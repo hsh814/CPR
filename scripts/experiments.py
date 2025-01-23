@@ -360,6 +360,8 @@ def main(argv: List[str]):
   args = parser.parse_args(argv)
   global OUTPUT_DIR, PREFIX, SYMVASS_PREFIX
   OUTPUT_DIR = os.path.join(ROOT_DIR, "out")
+  if not os.path.exists(OUTPUT_DIR):
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
   if args.prefix != "":
     PREFIX = args.prefix
   else:
