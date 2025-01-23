@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from typing import Union, List, Dict, Tuple, Optional, Set
+from typing import Union, List, Dict, Tuple, Optional, Set, TextIO
 import multiprocessing as mp
 import subprocess
 
@@ -23,6 +23,9 @@ GLOBAL_LOG_DIR = os.path.join(ROOT_DIR, "logs")
 OUTPUT_DIR = "out"
 PREFIX = ""
 SYMVASS_PREFIX = "uni-m-out"
+
+def log_out(msg: str):
+  print(msg, file=sys.stderr)
 
 def kill_proc_tree(pid: int, including_parent: bool = True):
   parent = psutil.Process(pid)
@@ -218,53 +221,61 @@ def str_to_list(s: str) -> List[int]:
     res.append(int(x))
   return res
 
-def final_analysis(dir: str):
-  results = list()
-  for project in sorted(os.listdir(dir)):
-    project_path = os.path.join(dir, project)
-    if not os.path.isdir(project_path):
+def find_num(dir: str, prefix: str) -> int:
+  result = 0
+  dirs = os.listdir(dir)
+  while True:
+    if f"{prefix}-{result}" in dirs:
+      result += 1
+    else:
+      break
+  return result
+
+def symvass_final_result(meta: dict, result_f: TextIO):
+  subject = meta["subject"]
+  bug_id = meta["bug_id"]
+  subject_dir = os.path.join(ROOT_DIR, "patches", meta["benchmark"], subject, bug_id)
+  patched_dir = os.path.join(subject_dir, "patched")
+  out_dir_no = find_num(patched_dir, SYMVASS_PREFIX) - 1
+  out_file = os.path.join(patched_dir, f"{SYMVASS_PREFIX}-{out_dir_no}", "table.sbsv")
+  if not os.path.exists(out_file):
+    log_out(f"File not found: {out_file}")
+    result_f.write("\t\t\t\t\t\t\t\t\t\n")
+    return
+  parser = parse_result(out_file)
+  result = parser.get_result()
+  if result is None:
+    log_out(f"Failed to parse: {out_file}")
+    result_f.write("\t\t\t\t\t\t\t\t\t\n")
+    return
+  meta_data = result["meta-data"]
+  correct_patch = meta_data[0]["correct"]
+  sym_inputs = len(result["sym-in"])
+  default = result["sym-out"]["default"][0]["cnt"]
+  default_patches = str_to_list(result["sym-out"]["default"][0]["patches"])
+  default_found = correct_patch in default_patches
+  best_inputs = meta_data[0]["correct-input"]
+  best = result["sym-out"]["best"][0]["cnt"]
+  best_patches = str_to_list(result["sym-out"]["best"][0]["patches"])
+  best_found = correct_patch in best_patches
+  all_patches = meta_data[0]["all-patches"]
+  if len(result["sym-in"]) == 0:
+    default = meta_data[0]["all-patches"]
+  if meta_data[0]["correct-input"] == 0:
+    best = all_patches
+  result_f.write(f"{subject}\t{bug_id}\t{correct_patch}\t{all_patches}\t{sym_inputs}\t{default}\t{default_found}\t{best_inputs}\t{best}\t{best_found}\n")
+  
+def final_analysis(meta_data: List[dict], output: str):
+  if output == "":
+    output = f"{PREFIX}_{SYMVASS_PREFIX}_final.csv"
+  meta_data = sorted(meta_data, key=lambda x: f"{x['subject']}/{x['bug_id']}")
+  result_f = open(os.path.join(OUTPUT_DIR, output), "w")
+  result_f.write(f"project\tbug\tcorrect_patch\tall_patches\tinputs\tdefault_remaining_patches\tdefault_found\tbest_inputs\tbest_remaining_patches\tbest_found\n")
+  for meta in meta_data:
+    if not check_correct_exists(meta):
       continue
-    for bug in sorted(os.listdir(project_path)):
-      bug_path = os.path.join(project_path, bug)
-      if not os.path.isdir(bug_path):
-        continue
-      target_file = os.path.join(bug_path, "table.sbsv")
-      if not os.path.exists(target_file):
-        continue
-      parser = parse_result(target_file)
-      result = parser.get_result()
-      if result is None:
-        continue
-      meta_data = result["meta-data"]
-      correct_patch = meta_data[0]["correct"]
-      default = result["sym-out"]["default"][0]["cnt"]
-      default_patches = str_to_list(result["sym-out"]["default"][0]["patches"])
-      default_found = correct_patch in default_patches
-      best = result["sym-out"]["best"][0]["cnt"]
-      best_patches = str_to_list(result["sym-out"]["best"][0]["patches"])
-      best_found = correct_patch in best_patches
-      if len(result["sym-in"]) == 0:
-        default = meta_data[0]["all-patches"]
-      if meta_data[0]["correct-input"] == 0:
-        best = meta_data[0]["all-patches"]
-      results.append({
-        "project": project,
-        "bug": bug,
-        "correct": correct_patch,
-        "all": meta_data[0]["all-patches"],
-        "inputs": len(result["sym-in"]),
-        "default": default,
-        "default_found": default_found,
-        "best_inputs": meta_data[0]["correct-input"],
-        "best": best,
-        "best_found": best_found,
-      })
-  with open(os.path.join(dir, "final.json"), "w") as f:
-    json.dump(results, f, indent=2)
-  with open(os.path.join(dir, "final.csv"), "w") as f:
-    f.write(f"project\tbug\tcorrect_patch\tall_patches\tinputs\tdefault_remaining_patches\tdefault_found\tbest_inputs\tbest_remaining_patches\tbest_found\n")
-    for result in results:
-      f.write(f"{result['project']}\t{result['bug']}\t{result['correct']}\t{result['all']}\t{result['inputs']}\t{result['default']}\t{result['default_found']}\t{result['best_inputs']}\t{result['best']}\t{result['best_found']}\n")
+    symvass_final_result(meta, result_f)
+  result_f.close()
 
 def read_tmp():
   result = dict()
@@ -332,6 +343,8 @@ def run_cmd_seq(opt: str, meta_data: List[dict], extra: str, additional: str, ou
       cmd = f"{cmd} {additional}"
     if output != "":
       cmd = f"{cmd} >> {OUTPUT_DIR}/{output}"
+    else:
+      cmd = f"{cmd} >> {OUTPUT_DIR}/{PREFIX}.log"
     execute(cmd, ROOT_DIR, f"{meta['bug_id']}.log", opt, f"{opt},{meta['subject']}/{meta['bug_id']}", meta)
   print(f"{opt} done")
 
@@ -358,15 +371,15 @@ def main(argv: List[str]):
     SYMVASS_PREFIX = "filter"
   if args.symvass_prefix != "":
     SYMVASS_PREFIX = args.symvass_prefix
+  meta_data = uni_klee.global_config.get_meta_data_list()
   if args.cmd == "final":
-    final_analysis(os.path.join(OUTPUT_DIR, PREFIX))
+    final_analysis(meta_data, args.output)
     return
   if args.cmd == "clean":
     run_clean(uni_klee.global_config.get_meta_data_list())
     return
   with open(os.path.join(GLOBAL_LOG_DIR, "time.log"), "a") as f:
     f.write(f"\n#{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-  meta_data = uni_klee.global_config.get_meta_data_list()
   print(f"Total meta data: {len(meta_data)}")
   if args.seq:
     run_cmd_seq(args.cmd, meta_data, args.extra, args.additional, args.output)
