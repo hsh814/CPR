@@ -121,7 +121,7 @@ class RunSingle():
     if extra == "k2-high":
       cmd += " --sym-level=high --additional='--symbolize-bound=2' --max-fork=1024,1024,1024"
     if extra == "high":
-      cmd += " --sym-level=high --max-fork=1024,1024,128"
+      cmd += " --sym-level=high" #  --max-fork=1024,1024,128
     if extra == "k2":
       cmd += " --additional='--symbolize-bound=2' --max-fork=1024,1024,1024"
     if extra == "low":

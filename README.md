@@ -18,10 +18,17 @@ experiments.py feas --extra fuzz-build
 
 # 3. Run test (for single)
 symvass.py rerun 5321
-symvass.py rerun 5321 --sym-level=high --max-fork=1024,1024,128
+symvass.py rerun 5321 --sym-level=high --prefix high
+symvass.py analyze 5321
+symvass.py analyze --prefix high
 # 3. Run test (for all)
 experiments.py exp
 experiments.py exp --extra high
+experiments.py analyze --extra analyze
+experiments.py analyze --extra analyze -s high
+# Collect results (check ./out)
+experiments.py final --seq
+experiments.py final --seq -s high
 
 # 4. Run fuzzer (for single)
 symfeas.py fuzz 5321
