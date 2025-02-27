@@ -171,7 +171,7 @@ def check_use_high_level(meta: dict) -> bool:
     return False
   if not os.path.exists(os.path.join(conf.conf_files.out_dir, "table.sbsv")):
     # Run analysis
-    run_cmd("analyze", [meta])
+    run_cmd("analyze", [meta], "", "")
   if not os.path.exists(os.path.join(conf.conf_files.out_dir, "table.sbsv")):
     return True
   parser = parse_result(os.path.join(conf.conf_files.out_dir, "table.sbsv"))
@@ -249,43 +249,53 @@ def symvass_final_result(meta: dict, result_f: TextIO):
     log_out(f"Failed to parse: {out_file}")
     result_f.write("\t\t\t\t\t\t\t\t\t\n")
     return
+  
   meta_data = result["meta-data"]
+  all_patches = meta_data[0]["all-patches"]
+  
+  filter_result_file = os.path.join(subject_dir, "patched", "filter", "filtered.json")
+  filter_result = set(range(1, all_patches))
+  if not os.path.exists(filter_result_file):
+    log_out(f"File not found: {filter_result_file}")
+  with open(filter_result_file, "r") as f:
+    data = json.load(f)
+    filter_result = set(data["remaining"])
+  
   correct_patch = meta_data[0]["correct"]
   sym_inputs = len(result["sym-in"])
-  default = result["sym-out"]["default"][0]["cnt"]
   default_patches = str_to_list(result["sym-out"]["default"][0]["patches"])
+  if sym_inputs == 0:
+    default_patches = list(range(all_patches))
+  default = len(default_patches)
+  default_filtered = 0
+  for p in default_patches:
+    if p in filter_result:
+      default_filtered += 1
   default_found = correct_patch in default_patches
+  
   best_inputs = meta_data[0]["correct-input"]
-  best = result["sym-out"]["best"][0]["cnt"]
   best_patches = str_to_list(result["sym-out"]["best"][0]["patches"])
+  if best_inputs == 0:
+    best_patches = list(range(all_patches))
+  best = len(best_patches)
   best_found = correct_patch in best_patches
-  all_patches = meta_data[0]["all-patches"]
-  if len(result["sym-in"]) == 0:
-    default = meta_data[0]["all-patches"]
-  if meta_data[0]["correct-input"] == 0:
-    best = all_patches
-  result_f.write(f"{subject}\t{bug_id}\t{correct_patch}\t{all_patches}\t{incomplete}\t{sym_inputs}\t{default}\t{default_found}\t{best_inputs}\t{best}\t{best_found}\n")
+  best_filtered = 0
+  for p in best_patches:
+    if p in filter_result:
+      best_filtered += 1
+
+  result_f.write(f"{subject}\t{bug_id}\t{correct_patch}\t{all_patches}\t{incomplete}\t{sym_inputs}\t{default}\t{default_filtered}\t{default_found}\t{best_inputs}\t{best}\t{best_filtered}\t{best_found}\n")
   
 def final_analysis(meta_data: List[dict], output: str):
   if output == "":
     output = f"{PREFIX}_{SYMVASS_PREFIX}_final.csv"
   meta_data = sorted(meta_data, key=lambda x: f"{x['subject']}/{x['bug_id']}")
   result_f = open(os.path.join(OUTPUT_DIR, output), "w")
-  result_f.write(f"project\tbug\tcorrect_patch\tall_patches\tincomplete\tinputs\tdefault_remaining_patches\tdefault_found\tbest_inputs\tbest_remaining_patches\tbest_found\n")
-  print(f"project\tbug\tfilter_remaining\tfilter_found")
+  result_f.write(f"project\tbug\tcorrect_patch\tall_patches\tincomplete\tinputs\tdefault_remaining_patches\tdefault_filtered_patches\tdefault_found\tbest_inputs\tbest_remaining_patches\tbest_filtered_patches\tbest_found\n")
   for meta in meta_data:
     if not check_correct_exists(meta):
       continue
     symvass_final_result(meta, result_f)
-    subject = meta["subject"]
-    bug_id = meta["bug_id"]
-    subject_dir = os.path.join(ROOT_DIR, "patches", meta["benchmark"], subject, bug_id)
-    with open(os.path.join(subject_dir, "patched", "filter", "filtered.json"), "r") as f:
-      data = json.load(f)
-      filter_remaining = len(data["remaining"])
-      filter_found = meta["correct"]["no"] in data["remaining"]
-      print(f"{subject}\t{bug_id}\t{filter_remaining}\t{filter_found}")
-    
     # print(f"{meta['subject']}\t{meta['bug_id']}")
     # sub_dir = os.path.join(ROOT_DIR, "patches", meta["benchmark"], meta["subject"], meta['bug_id'], "patched")
     # no = find_num(sub_dir, SYMVASS_PREFIX) - 1
