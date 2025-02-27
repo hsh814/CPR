@@ -334,9 +334,9 @@ target = "jinit_write_bmp"
   code = "(1)"
   id = "buggy"
   [meta_data.correct]
-  code = "(x != 0)"
-  id = "correct"
-  no = 131
+  code = "(x == 0)"
+  id = "10-10"
+  no = 58
   incomplete = false
 
 [[meta_data]]

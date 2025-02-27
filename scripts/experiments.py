@@ -38,35 +38,35 @@ def kill_proc_tree(pid: int, including_parent: bool = True):
     parent.wait(5)
 
 def execute(cmd: str, dir: str, log_file: str, log_dir: str, prefix: str, meta: dict):
-  print(f"Executing: {cmd}")
+  log_out(f"Executing: {cmd}")
   start = time.time()
   timeout = 12 * 3600 + 600 # 12 hours + 10 minutes for analysis
   proc = subprocess.Popen(cmd, shell=True, cwd=dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
   try:
     stdout, stderr = proc.communicate(timeout=timeout)
   except subprocess.TimeoutExpired:
-    print(f"Timeout: {cmd}")
+    log_out(f"Timeout: {cmd}")
     kill_proc_tree(proc.pid)
     stdout, stderr = proc.communicate()
   finally:
     end = time.time()
-  print(f"Done {prefix}: {end - start}s")
+  log_out(f"Done {prefix}: {end - start}s")
   with open(os.path.join(GLOBAL_LOG_DIR, "time.log"), "a") as f:
     f.write(f"{prefix},{end - start}\n")
   # if log_dir == "exp":
   #   collect_result(meta)
   if proc.returncode != 0:
-    print(f"Failed to execute: {cmd}")
+    log_out(f"Failed to execute: {cmd}")
     try:
       if not os.path.exists(os.path.join(GLOBAL_LOG_DIR, log_dir)):
         os.makedirs(os.path.join(GLOBAL_LOG_DIR, log_dir), exist_ok=True)
-      with open(os.path.join(log_dir, log_file), "w") as f:
+      with open(os.path.join(GLOBAL_LOG_DIR, log_dir, log_file), "w") as f:
         f.write(stderr.decode("utf-8", errors="ignore"))
         f.write("\n###############\n")
         f.write(stdout.decode("utf-8", errors="ignore"))
     except Exception as e:
-      print(f"Failed to write log file: {log_file}")
-      print(e)
+      log_out(f"Failed to write log file: {log_file}")
+      log_out(e)
     return False
   return True
 
@@ -92,7 +92,7 @@ class RunSingle():
     return f"symvass.py analyze {self.meta['bug_id']} --use-last -p {SYMVASS_PREFIX}"
   def get_exp_cmd(self, extra: str = "") -> str:
     if "correct" not in self.meta:
-      print("No correct patch")
+      log_out("No correct patch")
       return None
     if "no" not in self.meta["correct"]:
       for patch in self.meta_program["patches"]:
@@ -100,7 +100,7 @@ class RunSingle():
           self.meta["correct"]["no"] = patch["id"]
           break
     if "no" not in self.meta["correct"]:
-      print("No correct patch")
+      log_out("No correct patch")
       return None
     correct = self.meta["correct"]["no"]
     patches = list()
@@ -115,9 +115,9 @@ class RunSingle():
           patches.append(correct + 1)
           patches.append(correct - 1)
         break
-    print(patches)
+    log_out(patches)
     query = self.meta["bug_id"] + ":0" # ",".join([str(x) for x in patches])
-    cmd = f"symvass.py rerun {query} --lock=f --outdir-prefix={SYMVASS_PREFIX} "
+    cmd = f"symvass.py rerun {query} --lock=f --outdir-prefix={SYMVASS_PREFIX} --snapshot-prefix=snapshot-{SYMVASS_PREFIX}"
     if extra == "k2-high":
       cmd += " --sym-level=high --additional='--symbolize-bound=2' --max-fork=1024,1024,1024"
     if extra == "high":
@@ -133,15 +133,15 @@ class RunSingle():
       return f"symfeas.py fuzz {self.meta['bug_id']}"
     if extra in ["build", "val-build", "fuzz-build", "fuzz-seeds", "collect-inputs", "val", "feas", "analyze"]:
       return f"symfeas.py {extra} {self.meta['bug_id']} -s {SYMVASS_PREFIX}"
-    print(f"Unknown extra: {extra}")
+    log_out(f"Unknown extra: {extra}")
     exit(1)
     
   def get_cmd(self, opt: str, extra: str) -> str:
     # if "correct" not in self.meta:
-    #   print("No correct patch")
+    #   log_out("No correct patch")
     #   return None
     if "no" not in self.meta["correct"]:
-      print("No correct patch")
+      log_out("No correct patch")
       return None
     if opt == "filter":
       return self.get_filter_cmd()
@@ -153,7 +153,7 @@ class RunSingle():
       return self.get_analyze_cmd(extra)
     if opt == "feas": # clean with rm -r patches/*/*/*/runtime/aflrun-out-*
       return self.get_feas_cmd(extra)
-    print(f"Unknown opt: {opt}")
+    log_out(f"Unknown opt: {opt}")
     return None
 
 def check_correct_exists(meta: dict) -> bool:
@@ -179,7 +179,7 @@ def check_use_high_level(meta: dict) -> bool:
   if result is None:
     return True
   if len(result["sym-in"]) > 16:
-    print(f"Skip high level: {meta['bug_id']}")
+    log_out(f"Skip high level: {meta['bug_id']}")
     return False
   return True
 
@@ -193,7 +193,7 @@ def collect_result(meta: dict):
     return False
   if not os.path.exists(os.path.join(conf.conf_files.out_dir, "table.sbsv")):
     return False
-  print(f"save to {save_dir}")
+  log_out(f"save to {save_dir}")
   save_file = os.path.join(save_dir, f"table.sbsv")
   if os.path.exists(save_file):
     os.unlink(save_file)
@@ -234,6 +234,7 @@ def find_num(dir: str, prefix: str) -> int:
 def symvass_final_result(meta: dict, result_f: TextIO):
   subject = meta["subject"]
   bug_id = meta["bug_id"]
+  incomplete = meta["correct"]["incomplete"]
   subject_dir = os.path.join(ROOT_DIR, "patches", meta["benchmark"], subject, bug_id)
   patched_dir = os.path.join(subject_dir, "patched")
   out_dir_no = find_num(patched_dir, SYMVASS_PREFIX) - 1
@@ -263,18 +264,35 @@ def symvass_final_result(meta: dict, result_f: TextIO):
     default = meta_data[0]["all-patches"]
   if meta_data[0]["correct-input"] == 0:
     best = all_patches
-  result_f.write(f"{subject}\t{bug_id}\t{correct_patch}\t{all_patches}\t{sym_inputs}\t{default}\t{default_found}\t{best_inputs}\t{best}\t{best_found}\n")
+  result_f.write(f"{subject}\t{bug_id}\t{correct_patch}\t{all_patches}\t{incomplete}\t{sym_inputs}\t{default}\t{default_found}\t{best_inputs}\t{best}\t{best_found}\n")
   
 def final_analysis(meta_data: List[dict], output: str):
   if output == "":
     output = f"{PREFIX}_{SYMVASS_PREFIX}_final.csv"
   meta_data = sorted(meta_data, key=lambda x: f"{x['subject']}/{x['bug_id']}")
   result_f = open(os.path.join(OUTPUT_DIR, output), "w")
-  result_f.write(f"project\tbug\tcorrect_patch\tall_patches\tinputs\tdefault_remaining_patches\tdefault_found\tbest_inputs\tbest_remaining_patches\tbest_found\n")
+  result_f.write(f"project\tbug\tcorrect_patch\tall_patches\tincomplete\tinputs\tdefault_remaining_patches\tdefault_found\tbest_inputs\tbest_remaining_patches\tbest_found\n")
+  print(f"project\tbug\tfilter_remaining\tfilter_found")
   for meta in meta_data:
     if not check_correct_exists(meta):
       continue
     symvass_final_result(meta, result_f)
+    subject = meta["subject"]
+    bug_id = meta["bug_id"]
+    subject_dir = os.path.join(ROOT_DIR, "patches", meta["benchmark"], subject, bug_id)
+    with open(os.path.join(subject_dir, "patched", "filter", "filtered.json"), "r") as f:
+      data = json.load(f)
+      filter_remaining = len(data["remaining"])
+      filter_found = meta["correct"]["no"] in data["remaining"]
+      print(f"{subject}\t{bug_id}\t{filter_remaining}\t{filter_found}")
+    
+    # print(f"{meta['subject']}\t{meta['bug_id']}")
+    # sub_dir = os.path.join(ROOT_DIR, "patches", meta["benchmark"], meta["subject"], meta['bug_id'], "patched")
+    # no = find_num(sub_dir, SYMVASS_PREFIX) - 1
+    # symbolic_global = os.path.join(sub_dir, f"{SYMVASS_PREFIX}-{no}", "base-mem.symbolic-globals")
+    # if os.path.exists(symbolic_global):
+    #   with open(symbolic_global, 'r') as f:
+    #     print(f.read())
   result_f.close()
 
 def read_tmp():
@@ -324,11 +342,11 @@ def run_cmd(opt: str, meta_data: List[dict], extra: str, additional: str):
     if additional != "":
       cmd = f"{cmd} {additional}"
     args_list.append((cmd, ROOT_DIR, f"{meta['bug_id']}.log", opt, f"{opt},{meta['subject']}/{meta['bug_id']}", meta))
-  print(f"Total {opt}: {len(args_list)}")
+  log_out(f"Total {opt}: {len(args_list)}")
   pool.map(execute_wrapper, args_list)
   pool.close()
   pool.join()
-  print(f"{opt} done")
+  log_out(f"{opt} done")
 
 def run_cmd_seq(opt: str, meta_data: List[dict], extra: str, additional: str, output: str):
   meta_data = sorted(meta_data, key=lambda x: f"{x['subject']}/{x['bug_id']}")
@@ -346,7 +364,7 @@ def run_cmd_seq(opt: str, meta_data: List[dict], extra: str, additional: str, ou
     else:
       cmd = f"{cmd} >> {OUTPUT_DIR}/{PREFIX}.log"
     execute(cmd, ROOT_DIR, f"{meta['bug_id']}.log", opt, f"{opt},{meta['subject']}/{meta['bug_id']}", meta)
-  print(f"{opt} done")
+  log_out(f"{opt} done")
 
 def main(argv: List[str]):
   parser = argparse.ArgumentParser(description="Run symvass experiments")
@@ -382,7 +400,7 @@ def main(argv: List[str]):
     return
   with open(os.path.join(GLOBAL_LOG_DIR, "time.log"), "a") as f:
     f.write(f"\n#{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-  print(f"Total meta data: {len(meta_data)}")
+  log_out(f"Total meta data: {len(meta_data)}")
   if args.seq:
     run_cmd_seq(args.cmd, meta_data, args.extra, args.additional, args.output)
   else:

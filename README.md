@@ -16,6 +16,14 @@ experiments.py feas --extra build
 experiments.py feas --extra val-build
 experiments.py feas --extra fuzz-build
 
+# 2.5 Run filter (for single)
+symvass.py filter 5321
+symvass.py analyze 5321 -p filter
+
+# 2.5 Run filter (for all)
+experiments.py filter
+experiments.py analyze --extra analyze -s filter
+
 # 3. Run test (for single)
 symvass.py rerun 5321
 symvass.py rerun 5321 --sym-level=high --prefix high

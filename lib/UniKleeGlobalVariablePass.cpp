@@ -87,7 +87,7 @@ struct GlobalVariablePass : public ModulePass {
         if (std::regex_search(Line, match, lineRegex) && match.size() > 3) {
           TargetVariables[match.str(3)] = {match.str(2),
                                            std::stoi(match.str(1))};
-          errs() << "Found target variable: " << match.str(2) << "="
+          errs() << "Target variable: " << match.str(2) << "="
                  << match.str(3) << ", size = " << match.str(1) << "\n";
         }
       }

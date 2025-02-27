@@ -23,27 +23,26 @@ def print_log(msg: str):
     print(msg, file=sys.stderr)
 
 def get_trace(dir: str, id: int):
-    dp = uni_klee.DataLogParser(dir)
-    dp.read_data_log("data.log")
-    result = dp.generate_table_v2(dp.cluster())
-    graph = result["graph"]
+    # dp = SymvassDataLogSbsvParser(dir)
+    # dp.read_data_log("data.log")
+    # result = dp.generate_table_v2(dp.cluster())
+    # graph = result["graph"]
     state_id = id
-    parent_states = dp.get_parent_states(graph, state_id)
+    parent_states = set() # dp.get_parent_states(graph, state_id)
     state_filter = set(parent_states)
     state_filter.add(state_id)
     done = set()
     prev = -1
     trace = list()
+    pattern = re.compile(r"\[state (\d+)\]")
     with open(os.path.join(dir, "trace.log"), "r") as f:
         lines = f.readlines()
         for line in lines:
-            if line.startswith("[state"):
-                tokens = dp.parser_level_1(line)
-                if len(tokens) < 3:
+            if line.startswith("[state") and "[B]" not in line:
+                matched = pattern.search(line)
+                if matched is None:
                     continue
-                state = dp.parse_state_id(tokens[0])
-                if tokens[1] == "B":
-                    continue
+                state = int(matched.group(1))
                 if state in state_filter:
                     if state in done:
                         continue
@@ -53,11 +52,10 @@ def get_trace(dir: str, id: int):
                         trace.append(f"[state {prev}] -> [state {state}]")
                         done.add(prev)
                         prev = state
-                    trace.append(line.strip())
-    with open(os.path.join(dir, f"state-{id}.log"), "w") as f:
+                    trace.append(line.strip().replace("/root/projects/CPR/patches/extractfix/libtiff/bugzilla-2633/src/", ""))
+    with open(os.path.join(dir, f"trace-{id}.log"), "w") as f:
         for line in trace:
             f.write(line + "\n")
-
 
 def convert_to_sbsv(dir: str):
     with open(f"{dir}/run.stats", "r") as f:
@@ -222,7 +220,7 @@ class SymvassDataLogSbsvParser():
         parser.add_schema("[fork-loc] [br] [state$from: int] [loc$from: str] -> [state$to_a: int] [loc$to_a: str] [state$to_b: int] [loc$to_b: str]")
         parser.add_schema("[fork-loc] [sw] [state$from: int] [loc$from: str] -> [state$to_a: int] [loc$to_a: str] [state$to_b: int] [loc$to_b: str]")
         parser.add_schema("[fork-loc] [lazy] [state$from: int] [state$to: int] [loc: str] [name?: str]")
-        parser.add_schema("[patch-base] [trace] [state: int] [res: bool] [iter: int]")
+        parser.add_schema("[patch-base] [trace] [state: int] [res: bool] [iter: int] [patches: str]")
         parser.add_schema("[patch-base] [fork] [state$true: int] [state$false: int] [iter: int]")
         parser.add_schema("[regression-trace] [state: int] [n: int] [res: bool] [loc: str]")
         parser.add_schema("[patch] [trace] [state: int] [iter: int] [res: bool] [patches: str]")
@@ -272,14 +270,22 @@ class DataAnalyzer():
         for meta in self.data["meta-data"]:
             state = meta["state"]
             state_type = meta["stateType"]
+            exit_type = meta["exit"]
             graph.add_node(state, fork_parent=False)
+            if exit_type == "early":
+                continue
             meta_data[state] = meta.data
             meta_data[state]["sel-patch"] = False
             meta_data[state]["input"] = False
             meta_data[state]["patches"] = list()
             meta_data[state]["reg"] = list()
+            if state_type == "2": # Add base states, even if not tested
+                if state not in self.symbolic_inputs:
+                    self.symbolic_inputs[state] = list()
         for lt in self.data["lazy-trace"]:
             state = lt["state"]
+            if state not in meta_data:
+                continue
             reg = lt["reg"]
             patches = lt["patches"]
             if patches is None:
@@ -318,8 +324,10 @@ class DataAnalyzer():
             base = merge["state$base"]
             crash_test = merge["state$crash_test"]
             patch = merge["patch"]
-            meta_data[base]["input"] = True
             graph.add_edge(base, crash_test, type="merge", patch=patch)
+            if base not in meta_data:
+                continue
+            meta_data[base]["input"] = True
             if base not in self.symbolic_inputs:
                 self.symbolic_inputs[base] = list()
             self.symbolic_inputs[base].append(crash_test)
@@ -684,7 +692,7 @@ class SymvassAnalyzer:
         print_log(f"[state {state}] [trace {l}] [patches {patches}]")
         return patches
     
-    def generate_table(self, cluster: Dict[int, list], result: List[Tuple[int, int, int, List[int]]]) -> str:
+    def generate_table(self, cluster: Dict[int, Set[int]], result: List[Tuple[int, int, int, List[int]]]) -> str:
         with open(os.path.join(self.dir, "table.sbsv"), "w") as f:
             all_patches = set()
             for res in result:
@@ -773,7 +781,13 @@ class SymvassAnalyzer:
                 # not crash -> not crash + preserve behavior
                 if is_crash:
                     if not crashed:
-                        result.append((crash_id, base_meta["state"], crash_meta["state"], crash))
+                        no_reg = True
+                        for i in range(len(base_reg) - 1):
+                            if base_reg[i] != crash_reg[i]:
+                                no_reg = False
+                                break # Regression error
+                        if no_reg:
+                            result.append((crash_id, base_meta["state"], crash_meta["state"], crash))
                 else:
                     if not crashed and base_reg == crash_reg:
                         result.append((crash_id, base_meta["state"], crash_meta["state"], crash))
@@ -866,6 +880,29 @@ class SymvassAnalyzer:
                     with open(local_out_file, "a") as f:
                         f.write(f"[input] [id {input_id}] [symgroup {group_id}] [file {cinput}]")
         config.timeout = timeout
+    
+    def analyze_filtered(self):
+        dp = SymvassDataLogSbsvParser(self.dir)
+        patch_trace = dp.parser.get_result()["patch-base"]["trace"]
+        remaining_patches = list()
+        if len(patch_trace) > 0:
+            last_trace = patch_trace[-1]
+            patches_str = last_trace["patches"]
+            patches = patches_str.strip("[]").strip(", ")
+            patch_map = dict()
+            for patch in patches.split(", "):
+                key, value = patch.split(":")
+                patch_map[int(key)] = value
+            if 0 in patch_map:
+                res = patch_map[0]
+                for patch in patch_map:
+                    if patch_map[patch] != res:
+                        remaining_patches.append(patch)
+        result = dict()
+        result["remaining"] = remaining_patches
+        with open(os.path.join(self.dir, "filtered.json"), "w") as f:
+            json.dump(result, f, indent=2)
+        print_log(f"Remaining patches: {remaining_patches}")
 
 def arg_parser(argv: List[str]) -> Config:
     # Remaining: c, e, h, i, j, n, q, t, u, v, w, x, y
@@ -878,7 +915,7 @@ def arg_parser(argv: List[str]) -> Config:
     parser.add_argument("-p", "--outdir-prefix", help="Output directory prefix(\"out\" for out dir)", default="uni-m-out")
     parser.add_argument("-b", "--snapshot-base-patch", help="Patches for snapshot", default="buggy")
     parser.add_argument("-s", "--snapshot-prefix", help="Snapshot directory prefix", default="snapshot")
-    parser.add_argument("-f", "--filter-prefix", help="Filter directory prefix", default="filter")
+    # parser.add_argument("-f", "--filter-prefix", help="Filter directory prefix", default="filter")
     parser.add_argument("-l", "--sym-level", help="Symbolization level", default="medium")
     parser.add_argument("-m", "--max-fork", help="Max fork", default="256,256,64")
     parser.add_argument("-t", "--timeout", help="Timeout", default="12h")
@@ -892,7 +929,7 @@ def arg_parser(argv: List[str]) -> Config:
         conf.conf_files.out_dir = args.query
         return conf
     conf.init(args.snapshot_base_patch, args.rerun, args.additional, args.lock, args.timeout)
-    conf.conf_files.set_out_dir(args.outdir, args.outdir_prefix, conf.bug_info, args.snapshot_prefix, args.filter_prefix, args.use_last)
+    conf.conf_files.set_out_dir(args.outdir, args.outdir_prefix, conf.bug_info, args.snapshot_prefix, "filter", args.use_last)
     return conf
 
 
@@ -949,7 +986,7 @@ class Runner(uni_klee.Runner):
             try:
                 print_log(stderr.decode("utf-8", errors="ignore"))
                 os.makedirs(self.config.conf_files.get_log_dir(), exist_ok=True)
-                with open(log_file, "w") as f:
+                with open(os.path.join(self.config.conf_files.get_log_dir(), log_file), "w") as f:
                     f.write(stderr.decode("utf-8", errors="ignore"))
                     f.write("\n###############\n")
                     f.write(stdout.decode("utf-8", errors="ignore"))
@@ -1014,6 +1051,10 @@ class Runner(uni_klee.Runner):
     def run(self):
 
         if self.config.cmd in ["analyze", "symgroup", "symval"]:
+            if self.config.conf_files.out_dir_prefix == "filter":
+                analyzer = SymvassAnalyzer(self.config.conf_files.filter_dir, self.config.bug_info)
+                analyzer.analyze_filtered()
+                return
             analyzer = SymvassAnalyzer(self.get_dir(), self.config.bug_info)
             if self.config.cmd == "analyze":
                 analyzer.analyze_v2()
@@ -1060,12 +1101,9 @@ class Runner(uni_klee.Runner):
                     )
             return
 
-        lock_file = uni_klee.global_config.get_lock_file(self.config.bug_info["bug_id"])
-        lock = uni_klee.acquire_lock(lock_file, self.config.lock, self.config.conf_files.out_dir)
+        # lock_file = uni_klee.global_config.get_lock_file(self.config.bug_info["bug_id"])
+        # lock = uni_klee.acquire_lock(lock_file, self.config.lock, self.config.conf_files.out_dir)
         try:
-            if lock < 0:
-                print_log(f"Cannot acquire lock {lock_file}")
-                return
             cmd = self.config.get_cmd_opts(True)
             self.execute_snapshot(cmd, self.config.workdir)
             if self.config.cmd not in ["snapshot", "filter"]:
@@ -1073,14 +1111,17 @@ class Runner(uni_klee.Runner):
                 self.execute(cmd, self.config.workdir, "uni-klee")
                 analyzer = SymvassAnalyzer(self.get_dir(), self.config.bug_info)
                 analyzer.analyze_v2()
+            elif self.config.cmd == "filter":
+                analyzer = SymvassAnalyzer(self.config.conf_files.filter_dir, self.config.bug_info)
+                analyzer.analyze_filtered()
         except Exception as e:
             print_log(f"Exception: {e}")
             print_log(traceback.format_exc())
-        finally:
-            uni_klee.release_lock(lock_file, lock)
+        # finally:
+            # uni_klee.release_lock(lock_file, lock)
 
 
-def main() -> int:
+def main():
     os.chdir(uni_klee.ROOT_DIR)
     cmd = sys.argv[1]
     if cmd != "trace":
