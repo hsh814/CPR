@@ -23,7 +23,7 @@ pushd val-src
   cp ../tif_ojpeg.val.c ${patched_dir}/${patched_file}
   ./autogen.sh
   LD=lld OJPEG_SUPPORT=true JPEG_SUPPORT=true CC=wllvm CXX=wllvm++ ./configure --enable-static --disable-shared --enable-old-jpeg --with-jpeg-include-dir="${PWD}/jpeg-8d/build/include" --with-jpeg-lib-dir="${PWD}/jpeg-8d/build/lib"
-  OJPEG_SUPPORT=true JPEG_SUPPORT=true CC=wllvm CXX=wllvm++ make CFLAGS="-static -O0 -g -fno-discard-value-names -L$LIB_DIR -luni_klee_memory_check" CXXFLAGS="-static -O0 -g -fno-discard-value-names -L$LIB_DIR -luni_klee_memory_check" -j16
+  OJPEG_SUPPORT=true JPEG_SUPPORT=true CC=wllvm CXX=wllvm++ make CFLAGS="-static -O0 -g -fno-discard-value-names -L$LIB_DIR -luni_klee_memory_check -fsanitize=address" CXXFLAGS="-static -O0 -g -fno-discard-value-names -L$LIB_DIR -luni_klee_memory_check -fsanitize=address" -j16
   # cp
   cp ${patched_dir}/${patched_file} ../val-runtime
   cp ${bin_dir}/${bin_file} ../val-runtime

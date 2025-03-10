@@ -125,7 +125,7 @@ class RunSingle():
     if extra == "k2":
       cmd += " --additional='--symbolize-bound=2' --max-fork=1024,1024,1024"
     if extra == "low":
-      cmd += " --sym-level=low --max-fork=1024,1024,1024"
+      cmd += " --sym-level=low" # --max-fork=1024,1024,1024
     return cmd
   
   def get_feas_cmd(self, extra: str) -> str:
