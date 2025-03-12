@@ -24,6 +24,11 @@ pushd val-src
 popd
 
 pushd val-runtime
-  extract-bc ${bin_file}
-  llvm-dis ${bin_file}.bc
+  extract-bc ${bin_file} -o ${bin_file}.ng.bc
+  llvm-dis ${bin_file}.ng.bc
+  export UNI_KLEE_SYMBOLIC_GLOBALS_FILE="${UNI_KLEE_SYMBOLIC_GLOBALS_FILE_OVERRIDE:-$PWD/../patched/2025-03-10-high-0/base-mem.symbolic-globals}"
+  opt -load $LIB_DIR/UniKleeGlobalVariablePass.so -global-var-pass < ${bin_file}.ng.bc > ${bin_file}.g.bc
+  llc -filetype=obj ${bin_file}.g.bc -o ${bin_file}.g.o
+  clang ${bin_file}.g.o -o ${bin_file}.g -ljpeg -llzma -lz -fsanitize=address -fsanitize=undefined
+  cp ${bin_file}.g ${bin_file}
 popd
