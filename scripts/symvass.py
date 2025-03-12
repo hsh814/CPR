@@ -783,6 +783,9 @@ class SymvassAnalyzer:
                     if not crashed:
                         no_reg = True
                         for i in range(len(base_reg) - 1):
+                            if len(crash_reg) <= i:
+                                no_reg = False
+                                break
                             if base_reg[i] != crash_reg[i]:
                                 no_reg = False
                                 break # Regression error
