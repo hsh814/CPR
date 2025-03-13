@@ -54,15 +54,15 @@ symfeas.py feas 5321
 symfeas.py feas 5321 -s high
 # 5. Symbolic input validation (for all)
 experiments.py analyze --extra symgroup
-experiments.py analyze --extra symgroup --additional='-p high'
+experiments.py analyze --extra symgroup -s high
 experiments.py feas --extra val
-experiments.py feas --extra val --additional='-s high'
+experiments.py feas --extra val -s high
 exepriments.py feas --extra feas
-exepriments.py feas --extra feas --additional='-s high'
+exepriments.py feas --extra feas -s high
 
 # 6. Analyze: Check ./out directory and get results
 experiments.py feas --extra analyze --additional='--output out.csv'
-experiments.py feas --extra analyze --additional='-s high --output out-high.csv'
+experiments.py feas --extra analyze -s high --additional='--output out-high.csv'
 ```
 
 ## Test

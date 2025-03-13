@@ -53,6 +53,7 @@ def parse_mem_result_file(file_path: str) -> sbsv.parser:
     parser.add_schema("[val] [error] [no-mapping] [u-addr: int] [name: str]")
     parser.add_schema("[val] [error] [null-pointer] [addr: int] [name: str]")
     parser.add_schema("[val] [heap] [u-addr: int] [name: str] [value: str] [size: int] [num: int]")
+    parser.add_schema("[global] [sym: str] [value: str]")
     parser.add_group("heap-check", "heap-check$begin", "heap-check$end")
     with open(file_path, "r") as f:
         parser.load(f)
@@ -162,8 +163,7 @@ def run_fuzzer(subject: dict, subject_dir: str, debug: bool = False):
 def collect_val_runtime(subject_dir: str, out_dir: str):
     print_log(f"Collecting val runtime from {out_dir}")
     # Collect results in val-runtime
-    val_dir = os.path.join(subject_dir, "val-runtime")
-    conc_inputs_dir = val_dir + "/concrete-inputs"
+    conc_inputs_dir = os.path.join(subject_dir, "concrete-inputs")
     if os.path.exists(conc_inputs_dir):
         os.system(f"rm -rf {conc_inputs_dir}")
     os.makedirs(conc_inputs_dir, exist_ok=True)
@@ -211,14 +211,14 @@ def run_val(subject: dict, subject_dir: str, symvass_prefix: str, val_prefix: st
         save_obj["cluster"] = cluster
         json.dump(save_obj, f, indent=2)
         
-    conc_inputs_dir = os.path.join(val_runtime, "concrete-inputs")
+    conc_inputs_dir = os.path.join(subject_dir, "concrete-inputs")
     if val_prefix == "cludafl-queue":
         conc_inputs_dir = os.path.join(val_runtime, "..", "runtime", "cludafl-queue", "queue")
     elif val_prefix == "cludafl-memory":
         conc_inputs_dir = os.path.join(val_runtime, "..", "runtime", "cludafl-memory", "input")
     print_log(f"Conc inputs dir: {conc_inputs_dir}")
     cinputs = os.listdir(conc_inputs_dir)
-    tmp_inputs_dir = os.path.join(val_runtime, "inputs")
+    tmp_inputs_dir = os.path.join(val_out_dir, "inputs")
     os.makedirs(tmp_inputs_dir, exist_ok=True)
     
     for i, c in enumerate(cluster):
@@ -293,7 +293,7 @@ def get_bv_const(cur_env: pysmt.environment.Environment, value: str, size: int):
     return bv
 
 
-def read_val_out_file(parser: sbsv.parser, index: Tuple[int, int], script: SmtLibScript, cur_env: pysmt.environment.Environment):
+def read_val_out_file(parser: sbsv.parser, globals_list: List[Dict[str, str]], iter: int, index: Tuple[int, int], script: SmtLibScript, cur_env: pysmt.environment.Environment):
     # Check error
     if len(parser.get_result_by_index("heap-check$error$no-mapping", index)) > 0: #  or len(result["val"]["error"]["no-mapping"]) > 0
         print_log("Memory mismatch")
@@ -304,6 +304,7 @@ def read_val_out_file(parser: sbsv.parser, index: Tuple[int, int], script: SmtLi
     if len(parser.get_result_by_index("heap-check$error$value-mismatch", index)) > 0:
         print_log("Value mismatch")
         return "VAL_MISMATCH"
+    
     # Read values and check satisfiability
     formula = script.get_last_formula()
     for heap in parser.get_result_by_index("val$heap", index):
@@ -334,6 +335,7 @@ def read_val_out_file(parser: sbsv.parser, index: Tuple[int, int], script: SmtLi
         # Add constraint
         eq = Equals(bv, val)
         formula = And(formula, eq)
+    
     for arg in parser.get_result_by_index("val$arg", index):
         index = arg["index"]
         value = arg["value"]
@@ -355,6 +357,17 @@ def read_val_out_file(parser: sbsv.parser, index: Tuple[int, int], script: SmtLi
                 bv = cur_env.formula_manager.BVConcat(byte_bv, bv)
         eq = cur_env.formula_manager.Equals(bv, val)
         formula = cur_env.formula_manager.And(formula, eq)
+    
+    if len(globals_list) > 0:
+        for name, value in globals_list[iter].items():
+            var = get_var_from_script(script, name, cur_env)
+            if var is None:
+                print_log(f"Variable {name} not found")
+                continue
+            bv = get_bv_const(cur_env, value, 8)
+            eq = cur_env.formula_manager.Equals(var, bv)
+            formula = cur_env.formula_manager.And(formula, eq)
+    
     if is_sat(formula):
         print_log("SAT")
         return "SAT"
@@ -420,13 +433,23 @@ def parse_val_results(val_out_dir: str):
                     node_result["result"].append({"val_file": val, "result": "NOT_DONE"})
                     rf.write(f"[res] [c {i}] [n {node}] [res NOT_DONE] [val {val}]\n")
                     continue
+                globals_list = list()
+                globals_map = dict()
+                for global_var in parser.get_result()["global"]:
+                    name = global_var["sym"]
+                    value = global_var["value"]
+                    if name in globals_map:
+                        globals_list.append(globals_map.copy())
+                        globals_map.clear()
+                    globals_map[name] = value
+                globals_list.append(globals_map)
                 if len(indices) > 1:
                     print_log(f"Multiple heap-check ({len(indices)}) in {local_out_file}")
-                for index in indices:
+                for iter, index in enumerate(indices):
                     if succ:
                         break
                     script, cur_env = load_smt_file(node_file) # push_env
-                    res = read_val_out_file(parser, index, script, cur_env)
+                    res = read_val_out_file(parser, globals_list, iter, index, script, cur_env)
                     pysmt.environment.pop_env()
                     if res is not None:
                         node_result["result"].append({"val_file": val, "result": res})
@@ -458,7 +481,6 @@ def analyze(subject: dict, val_out_dir: str):
     json_file = os.path.join(val_out_dir, "result.json")
     if not os.path.exists(json_file):
         print_log(f"Result file {json_file} not found")
-        print_out()
         return
     with open(json_file, "r") as f:
         result = json.load(f)
