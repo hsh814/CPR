@@ -815,11 +815,18 @@ class SymvassAnalyzer:
         # symbolic_trace = self.symbolic_trace(analyzer)
         # buggy_trace = self.buggy_trace(analyzer)
         mem_cluster: Dict[frozenset, List[int]] = dict()
+        base_map: Dict[int, List[int]] = dict()
         # Cluster collected symbolic inputs
         for sym_in in result["sym-in"]:
             state = sym_in["test"]
+            base_id = sym_in["base"]
+            if base_id not in base_map:
+                base_map[base_id] = list()
+            base_map[base_id].append(state)
+
+        for base_state in base_map:
             # filename: 1 -> test000001.mem (6 digits)
-            mem_file = os.path.join(self.dir, f"test{state:06d}.mem")
+            mem_file = os.path.join(self.dir, f"test{base_state:06d}.mem")
             parser = self.mem_file_parser(mem_file)
             data = parser.get_result()
             nodes = list()
@@ -832,13 +839,19 @@ class SymvassAnalyzer:
             key = frozenset(nodes)
             if key not in mem_cluster:
                 mem_cluster[key] = list()
-            mem_cluster[key].append(state)
+            mem_cluster[key].append(base_state)
+
         # Save cluster
+        data = dict()
+        data["base_map"] = list()
+        for base_id, states in base_map.items():
+            data["base_map"].append({"base": base_id, "states": states})
         ser_mem_cluster = list()
+        data["mem_cluster"] = ser_mem_cluster
         for key, value in mem_cluster.items():
             ser_mem_cluster.append({"file": os.path.join(self.dir, f"test{value[0]:06d}.mem"), "nodes": value})
         with open(os.path.join(self.dir, "symin-cluster.json"), "w") as f:
-            json.dump(ser_mem_cluster, f, indent=2)
+            json.dump(data, f, indent=2)
     
     def verify_feasibility(self, config: Config, inputs_dir: str, output_dir: str):
         if not os.path.exists(os.path.join(self.dir, "symin-cluster.json")):

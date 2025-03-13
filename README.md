@@ -9,58 +9,57 @@ sympatch.py meta patches
 
 # 2. Build (for single)
 symfeas.py build 5321 # Run ./init.sh
-symfeas.py val-build 5321 # ./val.sh
-symfeas.py fuzz-build 5321 # ./aflrun.sh
 # 2. Build (for all)
 experiments.py feas --extra build
-experiments.py feas --extra val-build
-experiments.py feas --extra fuzz-build
 
-# 2.5 Run filter (for single)
+# 3. Run filter (for single)
 symvass.py filter 5321
 symvass.py analyze 5321 -p filter
-
-# 2.5 Run filter (for all)
+# 3. Run filter (for all)
 experiments.py filter
 experiments.py analyze --extra analyze -s filter
 
-# 3. Run test (for single)
+# 4. Run test (for single)
 symvass.py rerun 5321
 symvass.py rerun 5321 --sym-level=high --prefix high
 symvass.py analyze 5321
 symvass.py analyze --prefix high
-# 3. Run test (for all)
+# 4. Run test (for all)
 experiments.py exp
 experiments.py exp --extra high
 experiments.py analyze --extra analyze
 experiments.py analyze --extra analyze -s high
 # Collect results (check ./out)
-experiments.py final --seq
-experiments.py final --seq -s high
+experiments.py final
+experiments.py final -s high
 
-# 4. Run fuzzer (for single)
+# 5. Run fuzzer (for single)
+symfeas.py fuzz-build 5321 # ./aflrun.sh
 symfeas.py fuzz 5321
 symfeas.py collect-inputs 5321
-# 4. Run fuzzer (for all)
+# 5. Run fuzzer (for all)
 experiments.py feas --extra fuzz
 experiments.py feas --extra collect-inputs
+experiments.py feas --extra fuzz-build
 
-# 5. Symbolic input validation (for single)
+# 6. Symbolic input validation (for single)
 symvass.py symgroup 5321
 symvass.py symgroup 5321 -p high
+symfeas.py val-build 5321 # ./val.sh
 symfeas.py val 5321
 symfeas.py val 5321 -s high
 symfeas.py feas 5321
 symfeas.py feas 5321 -s high
-# 5. Symbolic input validation (for all)
+# 6. Symbolic input validation (for all)
 experiments.py analyze --extra symgroup
 experiments.py analyze --extra symgroup -s high
+experiments.py feas --extra val-build
 experiments.py feas --extra val
 experiments.py feas --extra val -s high
 exepriments.py feas --extra feas
 exepriments.py feas --extra feas -s high
 
-# 6. Analyze: Check ./out directory and get results
+# 7. Analyze: Check ./out directory and get results
 experiments.py feas --extra analyze --additional='--output out.csv'
 experiments.py feas --extra analyze -s high --additional='--output out-high.csv'
 ```

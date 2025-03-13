@@ -200,15 +200,18 @@ def run_val(subject: dict, subject_dir: str, symvass_prefix: str, val_prefix: st
         print_log(f"symin-cluster.json not found in {out_dir}")
         return
     with open(symin_cluster_json, "r") as f:
-        cluster = json.load(f)
+        data = json.load(f)
     
     os.makedirs(val_out_dir, exist_ok=True)
+    cluster = data["mem_cluster"]
+    base_map = data["base_map"]
     
     with open(os.path.join(val_out_dir, "val.json"), "w") as f:
         save_obj = dict()
         save_obj["uni_klee_out_dir"] = out_dir
         save_obj["val_out_dir"] = val_out_dir
         save_obj["cluster"] = cluster
+        save_obj["base_map"] = base_map
         json.dump(save_obj, f, indent=2)
         
     conc_inputs_dir = os.path.join(subject_dir, "concrete-inputs")
@@ -364,8 +367,17 @@ def read_val_out_file(parser: sbsv.parser, globals_list: List[Dict[str, str]], i
             if var is None:
                 print_log(f"Variable {name} not found")
                 continue
-            bv = get_bv_const(cur_env, value, 8)
-            eq = cur_env.formula_manager.Equals(var, bv)
+            size = len(value) // 2
+            val = get_bv_const(cur_env, value, size)
+            bv = None
+            for i in range(size):
+                index_bv = cur_env.formula_manager.BV(i, 32)
+                byte_bv = cur_env.formula_manager.Select(var, index_bv)
+                if bv is None:
+                    bv = byte_bv
+                else:
+                    bv = cur_env.formula_manager.BVConcat(byte_bv, bv)
+            eq = cur_env.formula_manager.Equals(bv, val)
             formula = cur_env.formula_manager.And(formula, eq)
     
     if is_sat(formula):
@@ -399,12 +411,16 @@ def parse_val_results(val_out_dir: str):
     uni_klee_out_dir = result["uni_klee_out_dir"]
     val_out_dir = result["val_out_dir"]
     cluster = result["cluster"]
+    base_map_ser = result["base_map"]
+    base_map = dict()
+    for it in base_map_ser:
+        base_map[it["base"]] = it["states"]
     result = dict()
     result["uni_klee_out_dir"] = uni_klee_out_dir
     result["val_out_dir"] = val_out_dir
     result["val"] = list()
     rf = open(os.path.join(val_out_dir, "result.sbsv"), "w")
-    result["remaining_symbolic_inputs"] = list()
+    remaining_base_states = list()
     result["remaining_patches"] = list()
     symvass_result = parse_symvass_result(os.path.join(uni_klee_out_dir, "table.sbsv"))
     for i, c in enumerate(cluster):
@@ -418,6 +434,8 @@ def parse_val_results(val_out_dir: str):
         group_result["nodes_result"] = list()
         result["val"].append(group_result)
         for node in nodes:
+            if node != 1587:
+                continue
             node_file = os.path.join(uni_klee_out_dir, f"test{node:06d}.smt2")
             node_result = dict()
             node_result["node_id"] = node
@@ -463,13 +481,16 @@ def parse_val_results(val_out_dir: str):
             node_result["success"] = succ
             if succ:
                 rf.write(f"[success] [c {i}] [n {node}]\n")
-                result["remaining_symbolic_inputs"].append(node)
+                remaining_base_states.append(node)
         print_log(f"Finished cluster {i}")
         remaining_patches = set(symvass_result[-1])
-        for symin in result["remaining_symbolic_inputs"]:
-            if symin in symvass_result:
-                remaining_patches = remaining_patches.intersection(set(symvass_result[symin]))
-                rf.write(f"[remaining] [input] [input {symin}] [patches {symvass_result[symin]}]\n")
+        remaining_sym_inputs = list()
+        for base_state in remaining_base_states:
+            if base_state in base_map:
+                for symin in base_map[base_state]:
+                    if symin in symvass_result:
+                        remaining_patches = remaining_patches.intersection(set(symvass_result[symin]))
+                        rf.write(f"[remaining] [input] [input {symin}] [patches {symvass_result[symin]}]\n")
         result["remaining_patches"] = sorted(list(remaining_patches))
         rf.write(f"[remaining] [patch] [patches {result['remaining_patches']}]\n")
     rf.close()
@@ -478,23 +499,37 @@ def parse_val_results(val_out_dir: str):
 
 
 def analyze(subject: dict, val_out_dir: str):
-    json_file = os.path.join(val_out_dir, "result.json")
-    if not os.path.exists(json_file):
-        print_log(f"Result file {json_file} not found")
+    subject_dir = os.path.join(ROOT_DIR, "patches", subject["benchmark"], subject["subject"], subject["bug_id"])
+    filter_json = os.path.join(subject_dir, "patched", "filter", "filtered.json")
+    if not os.path.exists(filter_json):
+        print_log(f"Filter file {filter_json} not found")
         return
-    with open(json_file, "r") as f:
-        result = json.load(f)
-        uni_klee_out_dir = result["uni_klee_out_dir"]
-        uni_klee_result = parse_symvass_result(os.path.join(uni_klee_out_dir, "table.sbsv"))
-        remaining_symbolic_inputs = list()
-        for group in result["val"]:
-            for node_result in group["nodes_result"]:
-                node_id = node_result["node_id"]
-                success = node_result["success"]
-                if not success:
-                    continue
-                remaining_symbolic_inputs.append(node_id)
-        print_out(f"{subject['subject']}\t{subject['bug_id']}\t{len(uni_klee_result)-1}\t{len(remaining_symbolic_inputs)}")
+    with open(filter_json, "r") as f:
+        filter_data = json.load(f)
+    filter_result = set(filter_data)
+    result_file = os.path.join(val_out_dir, "result.sbsv")
+    if not os.path.exists(result_file):
+        print_log(f"Result file {result_file} not found")
+        return
+    parser = sbsv.parser()
+    parser.add_schema("[res] [c: int] [n: int] [res: str] [val: str]")
+    parser.add_schema("[success] [c: int] [n: int]")
+    parser.add_schema("[remaining] [input] [input: int] [patches: str]")
+    parser.add_schema("[remaining] [patch] [patches: str]")
+    with open(result_file, "r") as f:
+        result = parser.load(f)
+    remaining_input_num = len(result["remaining"]["input"])
+    remaining_patches = result["remaining"]["patch"]
+    
+    remaining_patches_filtered = list()
+    for patch in remaining_patches:
+        if patch in filter_result:
+            remaining_patches_filtered.append(patch)
+
+    correct_patch = subject["correct"]["no"]
+    found = correct_patch in remaining_patches_filtered
+    # val_inputs val_remaining_patches val_filtered val_found
+    print_out(f"{subject['subject']}\t{subject['bug_id']}\t{remaining_input_num}\t{len(remaining_patches)}\t{len(remaining_patches_filtered)}\t{found}")
 
 
 def main():
