@@ -1,13 +1,13 @@
 CC=gcc
 CFLAGS=-I /root/projects/uni-klee/include # $(KLEE_INCLUDE_PATH)
 
-DEP = cpr_runtime.h
-SRC = cpr_runtime.c
+DEP = uni_klee_runtime.h
+SRC = uni_klee_runtime.c
 PROXY_C = cpr_proxy.c
 PROXY_OBJ = cpr_proxy.o
 OBJ_KLEE = $(SRC:%.c=%.o)
 
-all: cpr_runtime.o libcpr_runtime.a libcpr_runtime.so libcpr_runtime.bca libcpr_proxy.so libcpr_proxy.a libcpr_proxy.bca
+all: cpr_runtime.o libcpr_runtime.a libcpr_runtime.so libcpr_runtime.bca libcpr_proxy.so libcpr_proxy.a libcpr_proxy.bca libuni_klee_memory_check.a UniKleeGlobalVariablePass.so
 
 %.o: %.c $(DEP)
 	wllvm -g -fPIC -O0 -c -o $@ $< $(CFLAGS)
@@ -30,8 +30,16 @@ libcpr_runtime.bca: libcpr_runtime.a
 libcpr_proxy.bca: libcpr_proxy.a
 	extract-bc libcpr_proxy.a
 
+libuni_klee_memory_check.a: uni_klee_memory_check.c uni_klee_memory_check.h
+	wllvm -c -O0 -g -o uni_klee_memory_check.o uni_klee_memory_check.c
+	llvm-ar rcs $@ uni_klee_memory_check.o
+
+UniKleeGlobalVariablePass.so: UniKleeGlobalVariablePass.cpp
+	clang++ -fPIC -shared -o UniKleeGlobalVariablePass.so UniKleeGlobalVariablePass.cpp `llvm-config --cxxflags --ldflags --system-libs --libs core`
+
 clean:
 	rm -f *.o
 	rm -f *.a
-	rm -f *.bca
+	rm -f libcpr_proxy.bca
+	rm -f libcpr_runtime.bca
 	rm -f *.so

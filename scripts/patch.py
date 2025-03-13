@@ -102,7 +102,7 @@ def to_meta_program(patch_list: list, meta: dict) -> dict:
       patches.append(obj)
   if "correct" in meta:
     formula = meta["correct"]["code"]
-    obj = { "name": "correct", "id": id + 1, "num": 0, "local_id": 1, "code": f"    result = {formula};\n" }
+    obj = { "name": "correct", "id": id, "num": 0, "local_id": 1, "code": f"    result = {formula};\n" }
     patches.append(obj)
   return meta_program
 
@@ -163,6 +163,8 @@ def lazy_compile(dir: str, cmd: str, file_a: str, file_b: str):
   os.chdir(cwd)
 
 def compile(dir: str):
+  if not os.path.exists(os.path.join(dir, "uni_klee_runtime.c")):
+    return
   KLEE_INCLUDE_PATH = "/root/projects/uni-klee/include"
   cmd = f"wllvm -g -fPIC -O0 -c -o uni_klee_runtime.o uni_klee_runtime.c -I{KLEE_INCLUDE_PATH}"
   lazy_compile(dir, cmd, "uni_klee_runtime.c", "uni_klee_runtime.o")
@@ -236,13 +238,6 @@ def main(args: List[str]):
     #   continue
     benchmark = meta["benchmark"]
     subject = meta["subject"]
-    concrete_dir = os.path.join(patch_dir, "concrete", benchmark, subject, bug_id)
-    if opt == "compile":
-      if os.path.exists(concrete_dir):
-        for dir in os.listdir(concrete_dir):
-          if os.path.isdir(os.path.join(concrete_dir, dir)):
-            pool.apply_async(compile, args=(os.path.join(concrete_dir, dir),))
-      continue
     outdir = os.path.join(patch_dir, benchmark, subject, bug_id)
     if "vars" not in meta:
       continue
@@ -330,9 +325,6 @@ def main(args: List[str]):
       print(f"Writing to {outdir}/concrete-patches.json")
       json.dump(final_patch_list, f, indent=2)    
     # save_to_file(concrete_dir, final_patch_list)
-  if opt == "compile":
-    pool.close()
-    pool.join()
 
 if __name__ == "__main__":
   main(sys.argv)

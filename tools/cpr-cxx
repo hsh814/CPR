@@ -7,4 +7,5 @@ CPR_RUNTIME_LIB="$SCRIPT_DIR/../lib/"
 KLEE_DIR=${KLEE_DIR:-"/root/projects/uni-klee"}
 KLEE_LIB="$KLEE_DIR/build/lib/"
 
-wllvm++ -g -O0 -include "$KLEE_DIR/include/klee/klee.h"  -include "$CPR_RUNTIME_H" "$@" -L"$CPR_RUNTIME_LIB" -L"$KLEE_LIB" -lcpr_runtime -lcpr_proxy -lkleeRuntest
+gclang++ -g -O0 -include "$KLEE_DIR/include/klee/klee.h"  -include "$CPR_RUNTIME_H" "$@" -L"$CPR_RUNTIME_LIB" -L"$KLEE_LIB" -lcpr_runtime -lkleeRuntest
+# wllvm "$@"

@@ -826,7 +826,7 @@ CPR_OUTPUT("obs", "i32", sp->bytes_per_line);
 		TIFFErrorExt(tif->tif_clientdata,module,"Fractional scanline not read");
 		return(0);
 	}
-	assert(cc>0);
+	assert(sp->bytes_per_line>0);
 	m=buf;
 	n=cc;
 	do
