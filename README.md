@@ -60,8 +60,8 @@ exepriments.py feas --extra feas
 exepriments.py feas --extra feas -s high
 
 # 7. Analyze: Check ./out directory and get results
-experiments.py feas --extra analyze --additional='--output out.csv'
-experiments.py feas --extra analyze -s high --additional='--output out-high.csv'
+experiments.py feas --extra analyze --seq --additional='--output out.csv'
+experiments.py feas --extra analyze -s high --seq --additional='--output out-high.csv'
 ```
 
 ## Test

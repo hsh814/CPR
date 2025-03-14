@@ -434,8 +434,6 @@ def parse_val_results(val_out_dir: str):
         group_result["nodes_result"] = list()
         result["val"].append(group_result)
         for node in nodes:
-            if node != 1587:
-                continue
             node_file = os.path.join(uni_klee_out_dir, f"test{node:06d}.smt2")
             node_result = dict()
             node_result["node_id"] = node
@@ -498,7 +496,7 @@ def parse_val_results(val_out_dir: str):
         json.dump(result, f, indent=2)
 
 
-def analyze(subject: dict, val_out_dir: str):
+def analyze(subject: dict, val_out_dir: str, output: str):
     subject_dir = os.path.join(ROOT_DIR, "patches", subject["benchmark"], subject["subject"], subject["bug_id"])
     filter_json = os.path.join(subject_dir, "patched", "filter", "filtered.json")
     if not os.path.exists(filter_json):
@@ -529,7 +527,12 @@ def analyze(subject: dict, val_out_dir: str):
     correct_patch = subject["correct"]["no"]
     found = correct_patch in remaining_patches_filtered
     # val_inputs val_remaining_patches val_filtered val_found
-    print_out(f"{subject['subject']}\t{subject['bug_id']}\t{remaining_input_num}\t{len(remaining_patches)}\t{len(remaining_patches_filtered)}\t{found}")
+    res = f"{subject['subject']}\t{subject['bug_id']}\t{remaining_input_num}\t{len(remaining_patches)}\t{len(remaining_patches_filtered)}\t{found}"
+    if output != "":
+        with open(os.path.join(f"{ROOT_DIR}/out", output), "a") as f:
+            f.write(res + "\n")
+    else:
+        print_out(res)
 
 
 def main():
@@ -573,7 +576,7 @@ def main():
         val_dir = os.path.join(subject_dir, "val-runtime")
         no = find_num(val_dir, val_prefix)
         val_out_dir = os.path.join(val_dir, f"{val_prefix}-{no - 1}")
-        analyze(subject, val_out_dir)
+        analyze(subject, val_out_dir, args.output)
 
 if __name__ == "__main__":
     main()
