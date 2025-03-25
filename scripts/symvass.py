@@ -144,6 +144,13 @@ class Config(uni_klee.Config):
             f"--symbolize-level={self.sym_level}",
             f"--max-forks-per-phases={self.max_fork}",
         ]
+        if self.cmd == "uc":
+            cmd.append("--no-exit-on-error")
+            cmd.append(f"--output-dir={out_dir}")
+            cmd.append(f"--patch-id={patch_str}")
+            cmd.append(f"--max-forks-per-phases={self.max_fork}")
+            cmd.append("--no-snapshot")
+            return
         cmd.extend(default_opts)
         cmd.extend(opts)
         cmd.append(f"--output-dir={out_dir}")
@@ -815,18 +822,12 @@ class SymvassAnalyzer:
         # symbolic_trace = self.symbolic_trace(analyzer)
         # buggy_trace = self.buggy_trace(analyzer)
         mem_cluster: Dict[frozenset, List[int]] = dict()
-        base_map: Dict[int, List[int]] = dict()
         # Cluster collected symbolic inputs
         for sym_in in result["sym-in"]:
             state = sym_in["test"]
             base_id = sym_in["base"]
-            if base_id not in base_map:
-                base_map[base_id] = list()
-            base_map[base_id].append(state)
-
-        for base_state in base_map:
             # filename: 1 -> test000001.mem (6 digits)
-            mem_file = os.path.join(self.dir, f"test{base_state:06d}.mem")
+            mem_file = os.path.join(self.dir, f"test{state:06d}.mem")
             parser = self.mem_file_parser(mem_file)
             data = parser.get_result()
             nodes = list()
@@ -839,13 +840,10 @@ class SymvassAnalyzer:
             key = frozenset(nodes)
             if key not in mem_cluster:
                 mem_cluster[key] = list()
-            mem_cluster[key].append(base_state)
+            mem_cluster[key].append(state)
 
         # Save cluster
         data = dict()
-        data["base_map"] = list()
-        for base_id, states in base_map.items():
-            data["base_map"].append({"base": base_id, "states": states})
         ser_mem_cluster = list()
         data["mem_cluster"] = ser_mem_cluster
         for key, value in mem_cluster.items():
@@ -923,14 +921,14 @@ class SymvassAnalyzer:
 def arg_parser(argv: List[str]) -> Config:
     # Remaining: c, e, h, i, j, n, q, t, u, v, w, x, y
     parser = argparse.ArgumentParser(description="Test script for uni-klee")
-    parser.add_argument("cmd", help="Command to execute", choices=["run", "rerun", "snapshot", "clean", "kill", "filter", "analyze", "symgroup", "symval"])
+    parser.add_argument("cmd", help="Command to execute", choices=["run", "rerun", "snapshot", "clean", "kill", "filter", "uc", "analyze", "symgroup", "symval"])
     parser.add_argument("query", help="Query for bugid and patch ids: <bugid>[:<patchid>] # ex) 5321:1,2,3,r5-10")
     parser.add_argument("-a", "--additional", help="Additional arguments", default="")
     parser.add_argument("-d", "--debug", help="Debug mode", action="store_true")
     parser.add_argument("-o", "--outdir", help="Output directory", default="")
     parser.add_argument("-p", "--outdir-prefix", help="Output directory prefix(\"out\" for out dir)", default="uni-m-out")
     parser.add_argument("-b", "--snapshot-base-patch", help="Patches for snapshot", default="buggy")
-    parser.add_argument("-s", "--snapshot-prefix", help="Snapshot directory prefix", default="snapshot")
+    parser.add_argument("-s", "--snapshot-prefix", help="Snapshot directory prefix", default="")
     # parser.add_argument("-f", "--filter-prefix", help="Filter directory prefix", default="filter")
     parser.add_argument("-l", "--sym-level", help="Symbolization level", default="medium")
     parser.add_argument("-m", "--max-fork", help="Max fork", default="256,256,64")
@@ -940,6 +938,8 @@ def arg_parser(argv: List[str]) -> Config:
     parser.add_argument("-z", "--analyze", help="Analyze symvass data", action="store_true")
     parser.add_argument("-g", "--use-last", help="Use last output directory", action="store_true")
     args = parser.parse_args(argv[1:])
+    if args.snapshot_prefix == "":
+        args.snapshot_prefix = f"snapshot-{args.outdir_prefix}"
     conf = Config(args.cmd, args.query, args.debug, args.sym_level, args.max_fork)
     if args.analyze:
         conf.conf_files.out_dir = args.query
@@ -982,7 +982,7 @@ class Runner(uni_klee.Runner):
             else:
                 timeout = int(self.config.timeout.strip("s"))
         timeout += 60
-        stdout = subprocess.PIPE if self.config.debug else subprocess.DEVNULL
+        stdout = subprocess.PIPE # if self.config.debug else subprocess.DEVNULL
         proc = subprocess.Popen(cmd, shell=True, cwd=dir, env=env, stdout=stdout, stderr=subprocess.PIPE)
         timeout_reached = False
         try:
@@ -1005,7 +1005,8 @@ class Runner(uni_klee.Runner):
                 with open(os.path.join(self.config.conf_files.get_log_dir(), log_file), "w") as f:
                     f.write(stderr.decode("utf-8", errors="ignore"))
                     f.write("\n###############\n")
-                    f.write(stdout.decode("utf-8", errors="ignore"))
+                    if stdout:
+                        f.write(stdout.decode("utf-8", errors="ignore"))
                 print_log(
                     f"Save error log to {self.config.conf_files.get_log_dir()}/{log_prefix}.log"
                 )
@@ -1019,6 +1020,8 @@ class Runner(uni_klee.Runner):
         if self.config.cmd == "filter":
             self.execute("rm -rf " + self.config.conf_files.filter_dir, dir, "rm")
             self.execute(cmd, dir, "filter", env)
+            return
+        if self.config.cmd == "uc":
             return
         if not os.path.exists(self.config.conf_files.snapshot_file):
             if self.config.debug:

@@ -204,14 +204,12 @@ def run_val(subject: dict, subject_dir: str, symvass_prefix: str, val_prefix: st
     
     os.makedirs(val_out_dir, exist_ok=True)
     cluster = data["mem_cluster"]
-    base_map = data["base_map"]
     
     with open(os.path.join(val_out_dir, "val.json"), "w") as f:
         save_obj = dict()
         save_obj["uni_klee_out_dir"] = out_dir
         save_obj["val_out_dir"] = val_out_dir
         save_obj["cluster"] = cluster
-        save_obj["base_map"] = base_map
         json.dump(save_obj, f, indent=2)
         
     conc_inputs_dir = os.path.join(subject_dir, "concrete-inputs")
@@ -411,10 +409,6 @@ def parse_val_results(val_out_dir: str):
     uni_klee_out_dir = result["uni_klee_out_dir"]
     val_out_dir = result["val_out_dir"]
     cluster = result["cluster"]
-    base_map_ser = result["base_map"]
-    base_map = dict()
-    for it in base_map_ser:
-        base_map[it["base"]] = it["states"]
     result = dict()
     result["uni_klee_out_dir"] = uni_klee_out_dir
     result["val_out_dir"] = val_out_dir
@@ -483,12 +477,10 @@ def parse_val_results(val_out_dir: str):
         print_log(f"Finished cluster {i}")
         remaining_patches = set(symvass_result[-1])
         remaining_sym_inputs = list()
-        for base_state in remaining_base_states:
-            if base_state in base_map:
-                for symin in base_map[base_state]:
-                    if symin in symvass_result:
-                        remaining_patches = remaining_patches.intersection(set(symvass_result[symin]))
-                        rf.write(f"[remaining] [input] [input {symin}] [patches {symvass_result[symin]}]\n")
+        for symin in remaining_base_states:
+            if symin in symvass_result:
+                remaining_patches = remaining_patches.intersection(set(symvass_result[symin]))
+                rf.write(f"[remaining] [input] [input {symin}] [patches {symvass_result[symin]}]\n")
         result["remaining_patches"] = sorted(list(remaining_patches))
         rf.write(f"[remaining] [patch] [patches {result['remaining_patches']}]\n")
     rf.close()
@@ -504,7 +496,7 @@ def analyze(subject: dict, val_out_dir: str, output: str):
         return
     with open(filter_json, "r") as f:
         filter_data = json.load(f)
-    filter_result = set(filter_data)
+    filter_result = set(filter_data["remaining"])
     result_file = os.path.join(val_out_dir, "result.sbsv")
     if not os.path.exists(result_file):
         print_log(f"Result file {result_file} not found")
@@ -517,8 +509,7 @@ def analyze(subject: dict, val_out_dir: str, output: str):
     with open(result_file, "r") as f:
         result = parser.load(f)
     remaining_input_num = len(result["remaining"]["input"])
-    remaining_patches = result["remaining"]["patch"]
-    
+    remaining_patches = eval(result["remaining"]["patch"][0]["patches"])
     remaining_patches_filtered = list()
     for patch in remaining_patches:
         if patch in filter_result:

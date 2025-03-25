@@ -59,9 +59,9 @@ experiments.py feas --extra val -s high
 exepriments.py feas --extra feas
 exepriments.py feas --extra feas -s high
 
-# 7. Analyze: Check ./out directory and get results
-experiments.py feas --extra analyze --seq --additional='--output out.csv'
-experiments.py feas --extra analyze -s high --seq --additional='--output out-high.csv'
+# 7. Analyze input validation: Check ./out directory and get results
+experiments.py feas --extra analyze --seq --output out.csv
+experiments.py feas --extra analyze -s high --seq --output out-high.csv
 ```
 
 ## Test

@@ -128,6 +128,21 @@ class RunSingle():
       cmd += " --sym-level=low" # --max-fork=1024,1024,1024
     return cmd
   
+  def get_uc_cmd(self, extra: str) -> str:
+    if "correct" not in self.meta:
+      log_out("No correct patch")
+      return None
+    if "no" not in self.meta["correct"]:
+      for patch in self.meta_program["patches"]:
+        if patch["name"] == "correct":
+          self.meta["correct"]["no"] = patch["id"]
+          break
+    if "no" not in self.meta["correct"]:
+      log_out("No correct patch")
+      return None
+    cmd = f"symvass.py uc {self.meta['bug_id']}:0 --lock=f --outdir-prefix={SYMVASS_PREFIX} --snapshot-prefix=snapshot-{SYMVASS_PREFIX} " # --max-fork=1024,1024,1024
+    return cmd
+
   def get_feas_cmd(self, extra: str) -> str:
     if extra == "exp":
       return f"symfeas.py fuzz {self.meta['bug_id']}"
@@ -149,6 +164,8 @@ class RunSingle():
       return self.get_clean_cmd()
     if opt == "exp":
       return self.get_exp_cmd(extra)
+    if opt == "uc":
+      return self.get_uc_cmd(extra)
     if opt == "analyze":
       return self.get_analyze_cmd(extra)
     if opt == "feas": # clean with rm -r patches/*/*/*/runtime/aflrun-out-*
@@ -378,7 +395,7 @@ def run_cmd_seq(opt: str, meta_data: List[dict], extra: str, additional: str, ou
 
 def main(argv: List[str]):
   parser = argparse.ArgumentParser(description="Run symvass experiments")
-  parser.add_argument("cmd", type=str, help="Command to run", choices=["filter", "exp", "analyze", "final", "feas", "clean"], default="exp")
+  parser.add_argument("cmd", type=str, help="Command to run", choices=["filter", "exp", "uc", "analyze", "final", "feas", "clean"], default="exp")
   parser.add_argument("-e", "--extra", type=str, help="Subcommand", default="exp")
   parser.add_argument("-o", "--output", type=str, help="Output file", default="", required=False)
   parser.add_argument("-p", "--prefix", type=str, help="Output prefix", default="", required=False)
@@ -399,6 +416,8 @@ def main(argv: List[str]):
       SYMVASS_PREFIX = args.extra
   if args.cmd == "filter":
     SYMVASS_PREFIX = "filter"
+  if args.cmd == "uc":
+    SYMVASS_PREFIX = "uc"
   if args.symvass_prefix != "":
     SYMVASS_PREFIX = args.symvass_prefix
   meta_data = uni_klee.global_config.get_meta_data_list()
