@@ -53,7 +53,7 @@ symfeas.py feas 5321 -s high
 # 6. Symbolic input validation (for all)
 experiments.py analyze --extra symgroup
 experiments.py analyze --extra symgroup -s high
-experiments.py feas --extra val-build
+experiments.py feas --extra val-build -s high
 experiments.py feas --extra val
 experiments.py feas --extra val -s high
 exepriments.py feas --extra feas
