@@ -817,7 +817,7 @@ OJPEGDecodeRaw(TIFF* tif, uint8* buf, tmsize_t cc)
 	uint32 q;
 	uint8* r;
 	uint8 sx,sy;
-	uni_klee_make_symbolic(&sp->bytes_per_line, sizeof(sp->bytes_per_line), "sp->bytes_per_line");
+	// uni_klee_make_symbolic(&sp->bytes_per_line, sizeof(sp->bytes_per_line), "sp->bytes_per_line");
 if(__cpr_choice("L816", "bool", (long long[]){sp->bytes_per_line, cc}, (char*[]){"x", "y"}, 2, (int*[]){}, (char*[]){}, 0)) return -1;
 
 CPR_OUTPUT("obs", "i32", sp->bytes_per_line);
@@ -826,7 +826,7 @@ CPR_OUTPUT("obs", "i32", sp->bytes_per_line);
 		TIFFErrorExt(tif->tif_clientdata,module,"Fractional scanline not read");
 		return(0);
 	}
-	assert(sp->bytes_per_line>0);
+	assert(cc>0);
 	m=buf;
 	n=cc;
 	do
