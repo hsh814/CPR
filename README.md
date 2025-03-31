@@ -45,7 +45,7 @@ experiments.py feas --extra fuzz-build
 # 6. Symbolic input validation (for single)
 symvass.py symgroup 5321
 symvass.py symgroup 5321 -p high
-symfeas.py val-build 5321 # ./val.sh
+symfeas.py val-build 5321 -s high # ./val.sh, Some subjects requires uni-klee-out-dir/base-mem.symbolic-globals - Run symvass first to generate output directory and files
 symfeas.py val 5321
 symfeas.py val 5321 -s high
 symfeas.py feas 5321

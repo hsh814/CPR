@@ -550,7 +550,18 @@ def main():
     elif args.cmd == "fuzz-build":
         subprocess.run(f"./aflrun.sh", cwd=subject_dir, shell=True)
     elif args.cmd == "val-build":
-        subprocess.run(f"./val.sh", cwd=subject_dir, shell=True)
+        symvass_prefix = args.symvass_prefix
+        if symvass_prefix == "":
+            print_log(f"SymVass prefix not found (use -s or --symvass-prefix)")
+            return
+        no = find_num(os.path.join(subject_dir, "patched"), symvass_prefix)
+        if no == 0:
+            print_log(f"SymVass output not found for {symvass_prefix}: did you run symvass?")
+            return
+        out_dir = os.path.join(subject_dir, "patched", f"{symvass_prefix}-{no - 1}")
+        env = os.environ.copy()
+        env["UNI_KLEE_SYMBOLIC_GLOBALS_FILE_OVERRIDE"] = os.path.join(out_dir, "base-mem.symbolic-globals")
+        subprocess.run(f"./val.sh", cwd=subject_dir, shell=True, env=env)
     elif args.cmd == "build":
         subprocess.run(f"./init.sh", cwd=subject_dir, shell=True)
     elif args.cmd == "collect-inputs":
