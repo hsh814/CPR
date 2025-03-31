@@ -229,6 +229,26 @@ def parse_result(file: str) -> sbsv.parser:
     parser.load(f)
   return parser
 
+def parse_result_v3(file: str) -> sbsv.parser:
+  parser = sbsv.parser()
+  parser.add_schema("[sym-in] [id: int] [base: int] [test: int] [cnt: int] [patches: str]")
+  parser.add_schema("[remove] [crash] [id: int] [base: int] [test: int] [exit-loc: str] [exit-res: str] [cnt: int] [patches: str]")
+  parser.add_schema("[remain] [crash] [id: int] [base: int] [test: int] [exit-loc: str] [exit-res: str] [cnt: int] [patches: str]")
+  parser.add_schema("[strict] [id: int] [base: int] [test: int] [cnt: int] [patches: str]")
+  parser.add_schema("[strict-remove] [crash] [id: int] [base: int] [test: int] [exit-loc: str] [exit-res: str] [cnt: int] [patches: str]")
+  parser.add_schema("[strict-remain] [crash] [id: int] [base: int] [test: int] [exit-loc: str] [exit-res: str] [cnt: int] [patches: str]")
+  parser.add_schema("[sym-out] [default] [inputs: int] [cnt: int] [patches: str]")
+  parser.add_schema("[sym-out] [remove-crash] [inputs: int] [cnt: int] [patches: str]")
+  parser.add_schema("[sym-out] [strict] [inputs: int] [cnt: int] [patches: str]")
+  parser.add_schema("[sym-out] [strict-remove-crash] [inputs: int] [cnt: int] [patches: str]")
+  parser.add_schema("[meta-data] [default] [correct: int] [all-patches: int] [sym-input: int] [is-correct: bool] [patches: str]")
+  parser.add_schema("[meta-data] [remove-crash] [correct: int] [all-patches: int] [sym-input: int] [is-correct: bool] [patches: str]")
+  parser.add_schema("[meta-data] [strict] [correct: int] [all-patches: int] [sym-input: int] [is-correct: bool] [patches: str]")
+  parser.add_schema("[meta-data] [strict-remove-crash] [correct: int] [all-patches: int] [sym-input: int] [is-correct: bool] [patches: str]")
+  with open(file, "r") as f:
+    parser.load(f)
+  return parser
+
 def str_to_list(s: str) -> List[int]:
   ss = s.strip('[]')
   res = list()
@@ -281,6 +301,38 @@ def symvass_final_result(meta: dict, result_f: TextIO):
   correct_patch = meta_data[0]["correct"]
   sym_inputs = len(result["sym-in"])
   default_patches = str_to_list(result["sym-out"]["default"][0]["patches"])
+  
+  symin_map = dict()
+  default_patches_new = set(range(all_patches))
+  sym_in_new_num = 0
+  for sym_in in result["sym-in"]:
+    state = sym_in["test"]
+    base = sym_in["base"]
+    symin_map[state] = sym_in
+  for state in symin_map:
+    symin = symin_map[state]
+    base = symin["base"]
+    patches = str_to_list(symin["patches"])
+    # auto remove
+    removed = True
+    for p in patches:
+      if p in filter_result:
+        removed = False
+        break
+    if removed:
+      continue
+    else:
+      removed_patches = set()
+      for p in default_patches_new:
+        if p not in patches:
+          removed_patches.add(p)
+      default_patches_new = default_patches_new - removed_patches
+      sym_in_new_num += 1
+    if base in symin_map:
+      base_patches = str_to_list(symin_map[base]["patches"])
+      if base_patches != patches:
+        log_out(f"ERROR in {subject}/{bug_id}!!!!: {state} {base}")
+  
   if sym_inputs == 0:
     default_patches = list(range(all_patches))
   default = len(default_patches)
@@ -289,6 +341,16 @@ def symvass_final_result(meta: dict, result_f: TextIO):
     if p in filter_result:
       default_filtered += 1
   default_found = correct_patch in default_patches
+
+  if sym_in_new_num == 0:
+    default_patches_new = list(range(all_patches))
+  
+  default_patches_new_filtered_num = 0
+  for p in default_patches_new:
+    if p in filter_result:
+      default_patches_new_filtered_num += 1
+  
+  default_patches_new_found = correct_patch in default_patches_new
   
   best_inputs = meta_data[0]["correct-input"]
   best_patches = str_to_list(result["sym-out"]["best"][0]["patches"])
@@ -301,18 +363,57 @@ def symvass_final_result(meta: dict, result_f: TextIO):
     if p in filter_result:
       best_filtered += 1
 
-  result_f.write(f"{subject}\t{bug_id}\t{correct_patch}\t{all_patches}\t{incomplete}\t{sym_inputs}\t{default}\t{default_filtered}\t{default_found}\t{best_inputs}\t{best}\t{best_filtered}\t{best_found}\n")
+  result_f.write(f"{subject}\t{bug_id}\t{correct_patch}\t{all_patches}\t{incomplete}\t{sym_inputs}\t{default}\t{default_filtered}\t{default_found}\t{best_inputs}\t{best}\t{best_filtered}\t{best_found}\t{sym_in_new_num}\t{len(default_patches_new)}\t{default_patches_new_filtered_num}\t{default_patches_new_found}\n")
+
+
+def symvass_res_to_str(res: dict) -> str:
+  patches = str_to_list(res["patches"])
+  return f"{res['sym-input']}\t{len(patches)}\t{res['is-correct']}"
+
+def symvass_final_result_v3(meta: dict, result_f: TextIO):
+  subject = meta["subject"]
+  bug_id = meta["bug_id"]
+  incomplete = meta["correct"]["incomplete"]
+  subject_dir = os.path.join(ROOT_DIR, "patches", meta["benchmark"], subject, bug_id)
+  patched_dir = os.path.join(subject_dir, "patched")
+  out_dir_no = find_num(patched_dir, SYMVASS_PREFIX) - 1
+  out_file = os.path.join(patched_dir, f"{SYMVASS_PREFIX}-{out_dir_no}", "table_v3.sbsv")
+  if not os.path.exists(out_file):
+    log_out(f"File not found: {out_file}")
+    result_f.write("\t\t\t\t\t\t\t\t\t\n")
+    return
+  parser = parse_result_v3(out_file)
+  result = parser.get_result()
+  if result is None:
+    log_out(f"Failed to parse: {out_file}")
+    result_f.write("\t\t\t\t\t\t\t\t\t\n")
+    return
   
+  meta_data_default = result["meta-data"]["default"]
+  meta_data_default_remove_crash = result["meta-data"]["remove-crash"]
+  meta_data_strict = result["meta-data"]["strict"]
+  meta_data_strict_remove_crash = result["meta-data"]["strict-remove-crash"]
+  all_patches = meta_data_default[0]["all-patches"]
+  correct_patch = meta_data_default[0]["correct"]
+  default_str = symvass_res_to_str(meta_data_default[0])
+  default_remove_crash_str = symvass_res_to_str(meta_data_default_remove_crash[0])
+  strict_str = symvass_res_to_str(meta_data_strict[0])
+  strict_remove_crash_str = symvass_res_to_str(meta_data_strict_remove_crash[0])
+
+  result_f.write(f"{subject}\t{bug_id}\t{correct_patch}\t{all_patches}\t{incomplete}\t{default_str}\t{strict_str}\t{default_remove_crash_str}\t{strict_remove_crash_str}\n")
+  
+
 def final_analysis(meta_data: List[dict], output: str):
   if output == "":
     output = f"{PREFIX}_{SYMVASS_PREFIX}_final.csv"
   meta_data = sorted(meta_data, key=lambda x: f"{x['subject']}/{x['bug_id']}")
   result_f = open(os.path.join(OUTPUT_DIR, output), "w")
-  result_f.write(f"project\tbug\tcorrect_patch\tall_patches\tincomplete\tinputs\tdefault_remaining_patches\tdefault_filtered_patches\tdefault_found\tbest_inputs\tbest_remaining_patches\tbest_filtered_patches\tbest_found\n")
+  # result_f.write(f"project\tbug\tcorrect_patch\tall_patches\tincomplete\tinputs\tdefault_remaining_patches\tdefault_filtered_patches\tdefault_found\tbest_inputs\tbest_remaining_patches\tbest_filtered_patches\tbest_found\tdefault_inputs_new\tdefault_patches_new\tdefault_patches_new_filtered\tdefault_patches_new_found\n")
+  result_f.write(f"project\tbug\tcorrect_patch\tall_patches\tincomplete\tdefault_inputs\tdefault_remaining_patches\tdefault_correct\tstrict_inputs\tstrict_remaining_patches\tstrict_correct\tdefault_inputs_heuristic\tdefault_patches_heuristic\tdefault_found_heuristic\tstrict_inputs_heuristic\tstrict_patches_heuristic\tstrict_found_heuristic\n")
   for meta in meta_data:
     if not check_correct_exists(meta):
       continue
-    symvass_final_result(meta, result_f)
+    symvass_final_result_v3(meta, result_f)
     # print(f"{meta['subject']}\t{meta['bug_id']}")
     # sub_dir = os.path.join(ROOT_DIR, "patches", meta["benchmark"], meta["subject"], meta['bug_id'], "patched")
     # no = find_num(sub_dir, SYMVASS_PREFIX) - 1
@@ -321,6 +422,7 @@ def final_analysis(meta_data: List[dict], output: str):
     #   with open(symbolic_global, 'r') as f:
     #     print(f.read())
   result_f.close()
+  log_out(f"Final result saved to {os.path.join(OUTPUT_DIR, output)}")
 
 def read_tmp():
   result = dict()
