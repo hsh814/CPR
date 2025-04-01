@@ -528,7 +528,6 @@ def analyze(subject: dict, val_out_dir: str, output: str):
     else:
         print_out(res)
 
-# --- Updated TokenType ---
 class TokenType(enum.Enum):
     IDENTIFIER = 'IDENTIFIER'
     NUMBER = 'NUMBER'
@@ -546,19 +545,21 @@ class TokenType(enum.Enum):
     PLUS = 'PLUS'      # +
     MINUS = 'MINUS'    # -
     MUL = 'MUL'        # *
-    DIV = 'DIV'        # /
+    DIV = 'DIV'        # / # Be careful with INT vs REAL division
     EOF = 'EOF'        # End of File/Input
 
+# --- Token class (remains the same) ---
 class Token:
     def __init__(self, type, value=None, lineno=1, col=1):
         self.type = type
         self.value = value
         self.lineno = lineno
         self.col = col
-
     def __str__(self):
         return f"Token({self.type.name}, {repr(self.value)}, L{self.lineno} C{self.col})"
 
+# --- Lexer class (assuming it correctly tokenizes +, -, *, / and handles negative numbers) ---
+# (Lexer code from the previous response should be sufficient)
 class Lexer:
     def __init__(self, text):
         self.text = text
@@ -571,7 +572,6 @@ class Lexer:
         if self.current_char == '\n':
             self.lineno += 1
             self.col = 0
-
         self.pos += 1
         if self.pos < len(self.text):
             self.current_char = self.text[self.pos]
@@ -593,17 +593,35 @@ class Lexer:
     def number(self):
         result = ''
         start_col = self.col
+        is_negative = False
+        # Handle potential negative sign ONLY at the start of the number sequence
         if self.current_char == '-':
-            result += self.current_char
-            self.advance()
+             # Ensure it's followed by a digit to be a negative number, not just minus operator
+             peek_char = self.peek()
+             if peek_char is not None and peek_char.isdigit():
+                 is_negative = True
+                 result += self.current_char
+                 self.advance()
+             else:
+                 # If '-' is not followed by digit, it's likely a MINUS operator, handle in get_next_token
+                 self._error(f"Invalid character sequence starting with '-'")
+
 
         if self.current_char is None or not self.current_char.isdigit():
-             self._error(f"Expected digit after '-' at L{self.lineno} C{start_col}")
+             # This error should ideally be caught before calling number() unless it's the negative sign case
+             self._error(f"Expected digit at L{self.lineno} C{self.col}")
 
         while self.current_char is not None and self.current_char.isdigit():
             result += self.current_char
             self.advance()
+
+        # Check for decimal point if supporting Floats/Reals
+        # if self.current_char == '.':
+        #    ... handle floating point ...
+        #    return Token(TokenType.REAL_NUMBER, float(result), ...)
+
         return Token(TokenType.NUMBER, int(result), self.lineno, start_col)
+
 
     def identifier(self):
         result = ''
@@ -611,10 +629,14 @@ class Lexer:
         while self.current_char is not None and (self.current_char.isalnum() or self.current_char == '_'):
             result += self.current_char
             self.advance()
+        # Check for keywords (like TRUE, FALSE if needed)
+        # type = KEYWORDS.get(result, TokenType.IDENTIFIER)
+        # return Token(type, result, ...)
         return Token(TokenType.IDENTIFIER, result, self.lineno, start_col)
 
     def _error(self, message="Invalid character"):
-        raise ValueError(f"{message}: '{self.current_char}' at L{self.lineno} C{self.col}")
+        char = self.current_char if self.current_char is not None else 'EOF'
+        raise ValueError(f"{message}: '{char}' at L{self.lineno} C{self.col}")
 
     def get_next_token(self):
         while self.current_char is not None:
@@ -624,82 +646,60 @@ class Lexer:
                 self.skip_whitespace()
                 continue
 
-            # Handle potential negative numbers vs. MINUS operator
-            # Check if '-' is followed by a digit - if so, it's part of a number
-            if self.current_char == '-' and self.peek() is not None and self.peek().isdigit():
-                 # Let the number() method handle it
-                 return self.number()
-            # If '-' is not followed by a digit, treat it as a MINUS operator
-            elif self.current_char == '-':
-                 self.advance()
-                 return Token(TokenType.MINUS, '-', self.lineno, start_col)
-
-            if self.current_char.isdigit():
-                # Must be a positive number
-                return self.number()
-
-            if self.current_char.isalpha() or self.current_char == '_':
-                return self.identifier()
-
-            # Two-character operators
+            # Handle multi-character operators first
             if self.current_char == '<':
                 if self.peek() == '=':
                     self.advance()
                     self.advance()
                     return Token(TokenType.LE, '<=', self.lineno, start_col)
-                else:
-                    self.advance()
-                    return Token(TokenType.LT, '<', self.lineno, start_col)
-
+                self.advance()
+                return Token(TokenType.LT, '<', self.lineno, start_col)
             if self.current_char == '>':
                 if self.peek() == '=':
                     self.advance()
                     self.advance()
                     return Token(TokenType.GE, '>=', self.lineno, start_col)
-                else:
-                    self.advance()
-                    return Token(TokenType.GT, '>', self.lineno, start_col)
-
+                self.advance()
+                return Token(TokenType.GT, '>', self.lineno, start_col)
             if self.current_char == '=':
                 if self.peek() == '=':
                     self.advance()
                     self.advance()
                     return Token(TokenType.EQ, '==', self.lineno, start_col)
-                else:
-                    self._error("Expected '=' after '=' for '=='")
-
+                self._error("Expected '=' after '=' for '=='")
             if self.current_char == '!':
                 if self.peek() == '=':
                     self.advance()
                     self.advance()
                     return Token(TokenType.NE, '!=', self.lineno, start_col)
-                # else: # Optional NOT '!'
-                #    self.advance()
-                #    return Token(TokenType.NOT, '!', self.lineno, start_col)
-                else:
-                     self._error("Expected '=' after '!' for '!='")
-
+                # Handle '!' (NOT) if needed
+                self._error("Expected '=' after '!' for '!=' (standalone '!' not supported)")
             if self.current_char == '&':
                 if self.peek() == '&':
                     self.advance()
                     self.advance()
                     return Token(TokenType.AND, '&&', self.lineno, start_col)
-                else:
-                    self._error("Expected '&' after '&' for '&&'")
-
+                self._error("Expected '&' after '&' for '&&'")
             if self.current_char == '|':
                 if self.peek() == '|':
                     self.advance()
                     self.advance()
                     return Token(TokenType.OR, '||', self.lineno, start_col)
-                else:
-                    self._error("Expected '|' after '|' for '||'")
+                self._error("Expected '|' after '|' for '||'")
 
-            # Single-character tokens
+            # Single character tokens & Numbers/Identifiers
             if self.current_char == '+':
                 self.advance()
                 return Token(TokenType.PLUS, '+', self.lineno, start_col)
-            # MINUS already handled above
+            if self.current_char == '-':
+                 # Check if it starts a negative number
+                 peek_char = self.peek()
+                 if peek_char is not None and peek_char.isdigit():
+                     return self.number() # number() handles the '-' sign
+                 else:
+                     # Otherwise, it's the MINUS operator
+                     self.advance()
+                     return Token(TokenType.MINUS, '-', self.lineno, start_col)
             if self.current_char == '*':
                 self.advance()
                 return Token(TokenType.MUL, '*', self.lineno, start_col)
@@ -713,23 +713,28 @@ class Lexer:
                 self.advance()
                 return Token(TokenType.RPAREN, ')', self.lineno, start_col)
 
-            # If none of the above matched
+            if self.current_char.isdigit():
+                return self.number()
+
+            if self.current_char.isalpha() or self.current_char == '_':
+                return self.identifier()
+
+            # If character is unrecognized
             self._error()
 
-        # End of input
+        # End of file
         return Token(TokenType.EOF, None, self.lineno, self.col)
 
+# --- Revised Parser Class ---
 class Parser:
-    # (__init__, _get_or_create_variable, _error, eat, get_parsed_variables remain mostly the same)
     def __init__(self, lexer, variable_type=INT):
         self.lexer = lexer
         self.current_token = self.lexer.get_next_token()
-        self.variable_type = variable_type
-        self.variables = {} # Stores SMT variable objects
+        self.variable_type = variable_type # INT or REAL
+        self.variables = {} # Stores SMT variable objects keyed by name
 
     def _get_or_create_variable(self, name):
         if name not in self.variables:
-            # Assuming all variables are INT for now, adjust if needed
             self.variables[name] = smt.Symbol(name, self.variable_type)
         return self.variables[name]
 
@@ -737,11 +742,9 @@ class Parser:
         msg = f"Syntax error: Unexpected token {self.current_token}"
         if expected_type:
             msg += f" (expected {expected_type})"
-        # Ensure lineno and col are accessed safely, even for EOF token
         lineno = self.current_token.lineno if self.current_token else '?'
         col = self.current_token.col if self.current_token else '?'
         raise SyntaxError(msg + f" at L{lineno} C{col}")
-
 
     def eat(self, token_type):
         if self.current_token.type == token_type:
@@ -750,52 +753,69 @@ class Parser:
         else:
             self._error(expected_type=token_type.name)
 
-    # --- Grammar Rules ---
-    # expression   ::= logic_term ( (AND | OR) logic_term )*
-    # logic_term   ::= comparison | LPAREN expression RPAREN | (NOT logic_term)
-    # comparison   ::= arith_expr ( (LE | GE | LT | GT | EQ | NE) arith_expr )?  <- Made optional to allow single arith_expr? No, comparison requires operator.
-    # comparison   ::= arith_expr (LE | GE | LT | GT | EQ | NE) arith_expr
-    # arith_expr   ::= term ( (PLUS | MINUS) term )*
-    # term         ::= factor ( (MUL | DIV) factor )*
-    # factor       ::= NUMBER | IDENTIFIER | LPAREN expression RPAREN  <- Incorrect, should be LPAREN arith_expr RPAREN for arithmetic
-    # factor       ::= NUMBER | IDENTIFIER | PLUS factor | MINUS factor | LPAREN expression RPAREN <- Still not quite right for arith precedence
-    # Let's redo factor/term/arith_expr more conventionally:
-    # factor       ::= NUMBER | IDENTIFIER | LPAREN arith_expr RPAREN | PLUS factor | MINUS factor
-    # term         ::= factor ( (MUL | DIV) factor )*
-    # arith_expr   ::= term ( (PLUS | MINUS) term )*
+    # --- Grammar Rules (Standard Precedence) ---
+    # expression    ::= logic_or
+    # logic_or      ::= logic_and ( OR logic_and )*
+    # logic_and     ::= comparison ( AND comparison )*    # Assuming AND higher precedence than OR
+    # comparison    ::= arith_expr ( COMPARISON_OP arith_expr )? # Optional comparison allows boolean results from primary
+    # arith_expr    ::= term ( (PLUS | MINUS) term )*
+    # term          ::= factor ( (MUL | DIV) factor )*
+    # factor        ::= PLUS factor | MINUS factor | primary # Unary operators
+    # primary       ::= NUMBER | IDENTIFIER | LPAREN expression RPAREN # Parentheses restart parsing
 
-    # --- Parsing Methods ---
-
-    # factor ::= NUMBER | IDENTIFIER | PLUS factor | MINUS factor | LPAREN arith_expr RPAREN
-    def parse_factor(self):
+    def parse_primary(self):
+        """ Parses the highest precedence items: literals, identifiers, parenthesized expressions. """
         token = self.current_token
         if token.type == TokenType.NUMBER:
             self.eat(TokenType.NUMBER)
-            return smt.Int(token.value)
+            # Use Int() or Real() based on variable_type or token type if lexer distinguishes
+            if self.variable_type == INT:
+                return smt.Int(token.value)
+            else: # Assume REAL if not INT
+                return smt.Real(token.value) # Ensure number lexer can produce floats/reals if needed
         elif token.type == TokenType.IDENTIFIER:
             self.eat(TokenType.IDENTIFIER)
+            # Could be a boolean variable later, but for now assume numeric based on variable_type
             return self._get_or_create_variable(token.value)
         elif token.type == TokenType.LPAREN:
             self.eat(TokenType.LPAREN)
-            # *** Important: Parentheses inside arithmetic should contain arithmetic ***
-            node = self.parse_arith_expr() # Changed from parse_expression
+            # Crucially, parentheses restart parsing at the top expression level
+            node = self.parse_expression()
             self.eat(TokenType.RPAREN)
             return node
-        elif token.type == TokenType.PLUS: # Unary plus
+        else:
+            self._error(expected_type="NUMBER, IDENTIFIER, or '('")
+
+    def parse_factor(self):
+        """ Parses unary plus/minus and then calls primary. """
+        token = self.current_token
+        if token.type == TokenType.PLUS: # Unary plus
             self.eat(TokenType.PLUS)
-            node = self.parse_factor()
-            return node # SMT usually doesn't need explicit unary plus
+            # Unary plus usually has no effect in SMT
+            return self.parse_factor()
         elif token.type == TokenType.MINUS: # Unary minus
             self.eat(TokenType.MINUS)
             node = self.parse_factor()
-            # SMT representation of unary minus: 0 - node or Times(-1, node)
-            # Using Times(-1, node) is generally safer for type consistency if dealing with reals
-            return smt.Times(smt.Int(-1), node) # Or smt.Minus(smt.Int(0), node)
+            # Simplify if possible, e.g., -(5) -> -5
+            if node.is_constant():
+                 if self.variable_type == INT and node.is_int_constant():
+                      return smt.Int(-node.constant_value())
+                 elif self.variable_type == REAL and node.is_real_constant():
+                      return smt.Real(-node.constant_value())
+            # General case: 0 - node or Times(-1, node)
+            # Times(-1, node) often preferred
+            if self.variable_type == INT:
+                return smt.Times(smt.Int(-1), node)
+                # return smt.Minus(smt.Int(0), node) # Alternative for INT
+            else: # REAL
+                 return smt.Times(smt.Real(-1), node)
+                 # return smt.Minus(smt.Real(0), node) # Alternative for REAL
         else:
-            self._error(expected_type="NUMBER, IDENTIFIER, '+', '-', or '('")
+            # No unary operator, parse the primary directly
+            return self.parse_primary()
 
-    # term ::= factor ( (MUL | DIV) factor )*
-    def parse_term_arith(self):
+    def parse_term(self):
+        """ Parses multiplication and division. """
         node = self.parse_factor()
         while self.current_token.type in (TokenType.MUL, TokenType.DIV):
             token = self.current_token
@@ -805,32 +825,45 @@ class Parser:
             elif token.type == TokenType.DIV:
                 self.eat(TokenType.DIV)
                 right_factor = self.parse_factor()
-                node = smt.Times(node, right_factor)
+                if self.variable_type == INT:
+                     # PySMT IntDiv might require specific versions or care.
+                     # Using smt.Div requires REALs.
+                     # Check pysmt.operators.op.DIV for integer division behavior, might truncate.
+                     # For true integer division, smt.IntDiv might be needed if available.
+                     # Let's use smt.Div and rely on pysmt's handling or raise error if types mismatch.
+                     # Safest might be to require REAL type for division.
+                     # Or raise specific error for Int division:
+                     raise NotImplementedError("Integer division '/' is ambiguous. Use Real type or ensure PySMT handles IntDiv appropriately.")
+                     # node = smt.Div(node, right_factor) # May work depending on pysmt version/backend if it does IntDiv
+                else: # Assume REAL
+                     node = smt.Div(node, right_factor)
         return node
 
-    # arith_expr ::= term ( (PLUS | MINUS) term )*
     def parse_arith_expr(self):
-        node = self.parse_term_arith()
+        """ Parses addition and subtraction. """
+        node = self.parse_term()
         while self.current_token.type in (TokenType.PLUS, TokenType.MINUS):
             token = self.current_token
             if token.type == TokenType.PLUS:
                 self.eat(TokenType.PLUS)
-                node = smt.Plus(node, self.parse_term_arith())
+                node = smt.Plus(node, self.parse_term())
             elif token.type == TokenType.MINUS:
                 self.eat(TokenType.MINUS)
-                node = smt.Minus(node, self.parse_term_arith())
+                node = smt.Minus(node, self.parse_term())
         return node
 
-    # comparison ::= arith_expr (LE | GE | LT | GT | EQ | NE) arith_expr
     def parse_comparison(self):
-        # *** Update: Use parse_arith_expr instead of parse_value ***
+        """ Parses comparison operators (==, !=, <, <=, >, >=).
+            If no comparison op is found, returns the result of the arith_expr,
+            which must evaluate to boolean contextually (e.g., from a parenthesized bool expr).
+        """
         left_node = self.parse_arith_expr()
 
+        # Check if a comparison operator follows
         if self.current_token.type in (TokenType.LE, TokenType.GE, TokenType.LT, TokenType.GT, TokenType.EQ, TokenType.NE):
             op_token = self.current_token
             self.eat(op_token.type)
-            # *** Update: Use parse_arith_expr instead of parse_value ***
-            right_node = self.parse_arith_expr()
+            right_node = self.parse_arith_expr() # Parse the right side arithmetic expression
 
             op_type = op_token.type
             if op_type == TokenType.LE:
@@ -842,139 +875,241 @@ class Parser:
             elif op_type == TokenType.GT:
                 return smt.GT(left_node, right_node)
             elif op_type == TokenType.EQ:
-                # Ensure we use smt.Equals for comparisons, not Python's ==
                 return smt.Equals(left_node, right_node)
             elif op_type == TokenType.NE:
                 return smt.Not(smt.Equals(left_node, right_node))
         else:
-             # It's possible a logic term is just a single comparison (handled below)
-             # Or maybe just a boolean variable/constant if allowed? Current grammar doesn't show this.
-             # If the grammar strictly means comparison *must* have an operator, raise error.
-             # If an arith_expr alone *cannot* be a logic_term, then this branch is an error.
-             # Based on the `logic_term` rule, if it's not LPAREN, it *must* be a comparison.
-             self._error(expected_type="Comparison Operator (<=, >=, <, >, ==, !=)")
-             # If we allowed single arith_expr to evaluate to bool (e.g., if x is bool), we'd return left_node here.
-             # return left_node
+            # No comparison operator found. The result is just the left node.
+            # This handles cases like `(x > 5)` being used in a logical context.
+            # The type system of the surrounding logic (AND/OR) must handle it.
+            # If left_node is Int/Real here, it might cause type errors later if used directly as Bool.
+            # This structure relies on parse_primary correctly returning boolean nodes
+            # when parsing parenthesized logical expressions like `(x < y)`.
+            return left_node
 
-    # logic_term ::= comparison | LPAREN expression RPAREN | (NOT logic_term)
-    def parse_logic_term(self): # Renamed from parse_term_logic for clarity
-        token = self.current_token
-        if token.type == TokenType.LPAREN:
-            self.eat(TokenType.LPAREN)
-            # *** Parentheses around logical expressions should contain logical expressions ***
-            node = self.parse_expression() # Correct: parse_expression inside logic parens
-            self.eat(TokenType.RPAREN)
-            return node
-        # elif token.type == TokenType.NOT: # Optional NOT
-        #     self.eat(TokenType.NOT)
-        #     node = smt.Not(self.parse_logic_term())
-        #     return node
-        else:
-            # If not parentheses (or NOT), it must be a comparison
-            return self.parse_comparison()
-
-    # expression ::= logic_term ( (AND | OR) logic_term )*
-    def parse_expression(self):
-        node = self.parse_logic_term() # Use the renamed function
-
-        while self.current_token.type in (TokenType.AND, TokenType.OR):
-            token = self.current_token
-            if token.type == TokenType.AND:
-                self.eat(TokenType.AND)
-                node = smt.And(node, self.parse_logic_term()) # Use the renamed function
-            elif token.type == TokenType.OR:
-                self.eat(TokenType.OR)
-                node = smt.Or(node, self.parse_logic_term()) # Use the renamed function
+    def parse_logic_and(self):
+        """ Parses logical AND (&&). """
+        # Assuming NOT would be handled at a higher precedence level if added (e.g., in factor/primary or a dedicated level)
+        node = self.parse_comparison()
+        while self.current_token.type == TokenType.AND:
+            self.eat(TokenType.AND)
+            # Ensure both sides are boolean compatible. PySMT handles this.
+            node = smt.And(node, self.parse_comparison())
         return node
 
-    # --- Main parse method ---
-    def parse(self):
-        # Reset state if parsing multiple times with the same parser instance
-        # self.lexer = Lexer(self.lexer.text) # Pass new text if needed
-        # self.current_token = self.lexer.get_next_token()
-        self.variables.clear() # Clear tracked variables for a fresh parse
+    def parse_logic_or(self):
+        """ Parses logical OR (||). """
+        node = self.parse_logic_and() # Parse higher precedence first
+        while self.current_token.type == TokenType.OR:
+            self.eat(TokenType.OR)
+            # Ensure both sides are boolean compatible. PySMT handles this.
+            node = smt.Or(node, self.parse_logic_and())
+        return node
 
+    # The top-level rule for a full expression
+    def parse_expression(self):
+        """ Parses a full logical expression (starting point). """
+        return self.parse_logic_or() # Start with the lowest precedence operator
+
+    def parse(self):
+        """ Parses the entire input text. """
+        self.variables.clear() # Reset variables for a new parse
         node = self.parse_expression()
         if self.current_token.type != TokenType.EOF:
-            self._error(expected_type="EOF")
-
+            # If parsing stopped before EOF, there's extra input or a syntax error
+            self._error(expected_type="EOF or operator") # Be more specific if possible
         return node
 
     def get_parsed_variables(self):
+        """ Returns the SMT variables discovered during parsing. """
         return self.variables
 
-def code_to_formula(code_str):
+
+# --- code_to_formula function (use the revised parser) ---
+# (Should be largely the same as the previous version, just ensure it calls the new Parser)
+def print_log(message):
+    print(message)
+
+def code_to_formula(code_str, variable_type=INT):
     substitutions = {}
-    result_expr = None
-    
+    result_expr_str = None # Renamed to avoid confusion with SMT expr node
+
+    # Basic preprocessing for C-like assignments
     for line in code_str.split(';'):
         line = line.strip()
         if not line: continue
-        
-        if line.startswith('result'):
-            result_expr = line.split('=', 1)[1].strip().rstrip(';')
-        elif '=' in line:
-            var, value = map(str.strip, line.split('=', 1))
-            substitutions[var] = value
-    
-    if substitutions and result_expr:
-        for var, val in substitutions.items():
-            result_expr = re.sub(rf'\b{var}\b', val, result_expr)
-    print_log(f"Code: {result_expr}")
-    if result_expr in ["(0)", "0"]:
-        return smt.Bool(False)
-    if result_expr in ["(1)", "1"]:
-        return smt.Bool(True)
-    lexer = Lexer(result_expr)
-    parser = Parser(lexer)
-    expr = parser.parse()
-    return expr
 
+        if line.startswith('result'):
+            result_expr_str = line.split('=', 1)[1].strip().rstrip(';')
+        elif '=' in line:
+            # Simple textual substitution (use with caution)
+            var, value = map(str.strip, line.split('=', 1))
+            # Use word boundaries to avoid partial replacements
+            substitutions[r'\b' + re.escape(var) + r'\b'] = value
+
+    if result_expr_str is None:
+         print_log(f"Warning: No 'result =' line found in code: {code_str}")
+         return None # Indicate failure
+
+    # Apply substitutions textually
+    processed_expr_str = result_expr_str
+    if substitutions:
+        for pattern, val in substitutions.items():
+            processed_expr_str = re.sub(pattern, val, processed_expr_str)
+        print_log(f"Code (after substitutions): {processed_expr_str}")
+    else:
+         print_log(f"Code (no substitutions): {processed_expr_str}")
+
+    # Handle trivial cases after substitution
+    if processed_expr_str in ["(0)", "0"]:
+        return smt.Bool(False)
+    if processed_expr_str in ["(1)", "1"]:
+        return smt.Bool(True)
+
+    # --- Use the Revised Parser ---
+    lexer = Lexer(processed_expr_str)
+    parser = Parser(lexer, variable_type=variable_type)
+
+    try:
+        expr_node = parser.parse() # This is the SMT formula node
+        # parsed_vars = parser.get_parsed_variables() # Get variables if needed
+        # print_log(f"Parsed Variables: {parsed_vars}")
+        return expr_node
+    except (ValueError, SyntaxError, NotImplementedError) as e: # Catch lexer/parser errors
+        print_log(f"Error parsing expression '{processed_expr_str}': {e}")
+        return None # Indicate failure
+
+# --- group_patches function (should be compatible) ---
+# (Make sure it handles None return from code_to_formula gracefully)
 def group_patches(subject_dir: str):
-    with open(os.path.join(subject_dir, "meta-program.json"), "r") as f:
-        meta = json.load(f)
-    patches = list()
-    done = set()
-    equivalences = dict()
-    correct = -1
-    for patch in meta["patches"]:
-        id = patch["id"]
-        if patch["name"] == "correct":
-            correct = id
-        code = patch["code"]
-        formula = code_to_formula(code)
-        patches.append((id, formula, formula.get_free_variables()))
-        print_log(f"Patch {id}: {formula.serialize()}")
-    for i in range(len(patches)):
-        id, formula, vars = patches[i]
-        if id in done:
+    meta_path = os.path.join(subject_dir, "meta-program.json")
+    equiv_path = os.path.join(subject_dir, "concrete", "equivalences.json")
+    os.makedirs(os.path.dirname(equiv_path), exist_ok=True)
+
+    try:
+        with open(meta_path, "r") as f:
+            meta = json.load(f)
+    except FileNotFoundError:
+        print_log(f"Error: Meta file not found at {meta_path}")
+        return
+    except json.JSONDecodeError:
+         print_log(f"Error: Could not decode JSON from {meta_path}")
+         return
+
+    patches_data = [] # Store parsed patch info: {id, formula, vars, name}
+    correct_patch_id = -1
+
+    print_log("Starting patch parsing...")
+    for patch in meta.get("patches", []):
+        id_ = patch.get("id")
+        code = patch.get("code")
+        name = patch.get("name")
+
+        if id_ is None or code is None:
+            print_log(f"Warning: Skipping patch with missing id or code: {patch}")
             continue
-        for j in range(i + 1, len(patches)):
-            id2, formula2, vars2 = patches[j]
-            if id2 in done:
+
+        if name == "correct":
+            correct_patch_id = id_
+
+        # --- Use the updated code_to_formula ---
+        # Specify INT type since the problem context implies integers
+        formula = code_to_formula(code, variable_type=INT)
+
+        if formula is None:
+            print_log(f"Warning: Failed to generate formula for Patch {id_}. Skipping.")
+            continue
+
+        # Get free variables *after* successful parsing
+        try:
+             # Handle constant formulas explicitly
+             if formula.is_constant():
+                 free_vars = set()
+             else:
+                free_vars = formula.get_free_variables()
+        except Exception as e:
+             # This might happen if formula is not a standard FNode, though unlikely here
+             print_log(f"Error getting free variables for Patch {id_} formula: {e}")
+             free_vars = set() # Default to empty set on error
+
+        patches_data.append({"id": id_, "formula": formula, "vars": free_vars, "name": name})
+        print_log(f"Patch {id_}: Parsed successfully.") # Formula serialization can be long
+
+    print_log(f"\nParsed {len(patches_data)} patches successfully.")
+    print_log("Starting equivalence check...")
+
+    equivalences = {} # Map leader_id -> [list_of_equivalent_ids]
+    processed_ids = set()
+
+    for i in range(len(patches_data)):
+        patch1 = patches_data[i]
+        id1 = patch1["id"]
+        formula1 = patch1["formula"]
+        vars1 = patch1["vars"]
+
+        if id1 in processed_ids:
+            continue
+
+        # Start a new equivalence group with patch1 as the leader
+        current_equiv_group = [id1]
+        equivalences[id1] = current_equiv_group
+        processed_ids.add(id1)
+
+        for j in range(i + 1, len(patches_data)):
+            patch2 = patches_data[j]
+            id2 = patch2["id"]
+            formula2 = patch2["formula"]
+            vars2 = patch2["vars"]
+
+            if id2 in processed_ids:
                 continue
-            if vars != vars2:
+
+            # --- Conditions for Equivalence Check ---
+            # 1. Same set of free variables
+            if vars1 != vars2:
                 continue
-            equivalence = smt.Iff(formula, formula2)
-            if smt.is_valid(equivalence):
-                if id not in equivalences:
-                    equivalences[id] = list()
-                equivalences[id].append(id2)
-                done.add(id2)
-                print_log(f"Equivalence: {id} == {id2} ({formula.serialize()} == {formula2.serialize()})")
-    print_log(f"Equivalences: {equivalences}")
-    result = list()
-    for id, eqs in equivalences.items():
-        data = list()
-        data.append(id)
-        for eq in eqs:
-            data.append(eq)
-        result.append(data)
-    obj = dict()
-    obj["equivalences"] = result
-    obj["correct"] = correct
-    with open(os.path.join(subject_dir, "concrete", "equivalences.json"), "w") as f:
-        json.dump(obj, f, indent=2)
+
+            # 2. Formulas are logically equivalent (using SMT solver)
+            try:
+                 # Check trivial cases first
+                 if formula1.is_constant() and formula2.is_constant():
+                      are_equivalent = (formula1.constant_value() == formula2.constant_value())
+                 else:
+                    # Check F <=> G is valid (i.e., Not(F <=> G) is unsatisfiable)
+                    equivalence_formula = smt.Iff(formula1, formula2)
+                    # is_valid can be slow for complex formulas, might need a timeout
+                    are_equivalent = smt.is_valid(equivalence_formula)
+                    # Alternative using solver explicitly:
+                    # with smt.Solver() as solver:
+                    #    solver.add_assertion(smt.Not(equivalence_formula))
+                    #    are_equivalent = not solver.solve() # UNSAT means equivalent
+
+            except Exception as e:
+                 print_log(f"SMT Error checking equivalence between {id1} and {id2}: {e}")
+                 are_equivalent = False # Assume not equivalent on error
+
+            # --- Record Equivalence ---
+            if are_equivalent:
+                print_log(f"  Equivalence Found: {id1} == {id2}")
+                current_equiv_group.append(id2)
+                processed_ids.add(id2) # Mark id2 as processed
+
+    print_log(f"\nFinal Equivalence Groups Identified: {len(equivalences)}")
+
+    # Format output for JSON
+    result_list = list(equivalences.values())
+
+    output_obj = {
+        "equivalences": result_list,
+        "correct_patch_id": correct_patch_id
+    }
+
+    try:
+        with open(equiv_path, "w") as f:
+            json.dump(output_obj, f, indent=2)
+        print_log(f"Equivalences saved to {equiv_path}")
+    except IOError as e:
+         print_log(f"Error writing equivalences to {equiv_path}: {e}")
     
 def main():
     parser = argparse.ArgumentParser(description="Symbolic Input Feasibility Analysis")
