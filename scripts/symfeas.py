@@ -833,8 +833,8 @@ class Parser:
                      # Let's use smt.Div and rely on pysmt's handling or raise error if types mismatch.
                      # Safest might be to require REAL type for division.
                      # Or raise specific error for Int division:
+                    #  node = smt.IntDiv(node, right_factor)
                      raise NotImplementedError("Integer division '/' is ambiguous. Use Real type or ensure PySMT handles IntDiv appropriately.")
-                     # node = smt.Div(node, right_factor) # May work depending on pysmt version/backend if it does IntDiv
                 else: # Assume REAL
                      node = smt.Div(node, right_factor)
         return node
@@ -924,12 +924,6 @@ class Parser:
         """ Returns the SMT variables discovered during parsing. """
         return self.variables
 
-
-# --- code_to_formula function (use the revised parser) ---
-# (Should be largely the same as the previous version, just ensure it calls the new Parser)
-def print_log(message):
-    print(message)
-
 def code_to_formula(code_str, variable_type=INT):
     substitutions = {}
     result_expr_str = None # Renamed to avoid confusion with SMT expr node
@@ -983,7 +977,7 @@ def code_to_formula(code_str, variable_type=INT):
 # (Make sure it handles None return from code_to_formula gracefully)
 def group_patches(subject_dir: str):
     meta_path = os.path.join(subject_dir, "meta-program.json")
-    equiv_path = os.path.join(subject_dir, "concrete", "equivalences.json")
+    equiv_path = os.path.join(subject_dir, "concrete", "group-patches.json")
     os.makedirs(os.path.dirname(equiv_path), exist_ok=True)
 
     try:
@@ -1066,8 +1060,6 @@ def group_patches(subject_dir: str):
 
             # --- Conditions for Equivalence Check ---
             # 1. Same set of free variables
-            if vars1 != vars2:
-                continue
 
             # 2. Formulas are logically equivalent (using SMT solver)
             try:
@@ -1090,7 +1082,7 @@ def group_patches(subject_dir: str):
 
             # --- Record Equivalence ---
             if are_equivalent:
-                print_log(f"  Equivalence Found: {id1} == {id2}")
+                print_log(f"  Equivalence Found: {id1} == {id2} ({formula1.serialize()} == {formula2.serialize()})")
                 current_equiv_group.append(id2)
                 processed_ids.add(id2) # Mark id2 as processed
 
@@ -1127,6 +1119,13 @@ def main():
     subject_dir = os.path.join(ROOT_DIR, "patches", subject["benchmark"], subject["subject"], subject["bug_id"])
     val_prefix = args.val_prefix if args.val_prefix != "" else args.symvass_prefix
     if args.cmd == "fuzz":
+        # with open(os.path.join(subject_dir, "meta-program.json"), "r") as f:
+        #     meta = json.load(f)
+        # for patch in meta["patches"]:
+        #     if "/" in patch["code"]:
+        #         print_out(f"{subject['subject']} has a division operator in the code")
+        #         return
+        # return
         run_fuzzer(subject, subject_dir, args.debug)
     elif args.cmd == "fuzz-seeds":
         run_fuzzer_multi(subject, subject_dir, args.debug)
