@@ -832,6 +832,22 @@ class SymvassAnalyzer:
         dp_filter = SymvassDataLogSbsvParser(self.filter_dir)
         with open(os.path.join(self.filter_dir, "filtered.json"), "r") as f:
             filtered = json.load(f)
+        subject_dir = os.path.join(uni_klee.ROOT_DIR, "patches", self.bug_info["benchmark"], self.bug_info["subject"], self.bug_info["bug_id"])
+        with open(os.path.join(subject_dir, "group-patches.json"), "r") as f:
+            group_patches = json.load(f)
+        patch_group_tmp = dict()
+        for patches in group_patches["equivalences"]:
+            representative = patches[0]
+            for patch in patches:
+                patch_group_tmp[patch] = representative
+        correct_patch = group_patches["correct_patch_id"]
+        patch_eq_map = dict()
+        for patch in filtered["remaining"]:
+            if patch in patch_group_tmp:
+                patch_eq_map[patch] = patch_group_tmp[patch]
+            else:
+                patch_eq_map[patch] = patch
+        correct_patch = patch_eq_map[correct_patch]
         # Get exit location in filter
         filter_metadata = dp_filter.parser.get_result()["meta-data"][0]
         exit_loc = filter_metadata["exitLoc"]
@@ -882,7 +898,10 @@ class SymvassAnalyzer:
                         result.append((crash_id, base_meta["state"], crash_meta["state"], crash))
         
         with open(os.path.join(self.dir, "table_v3.sbsv"), "w") as f:
-            all_patches = set(filtered["remaining"])
+            all_patches = set()
+            for patch in filtered["remaining"]:
+                if patch == patch_eq_map[patch]:
+                    all_patches.add(patch)
             default_removed = set()
             remaining_inputs = list()
             for res in result:
@@ -900,12 +919,9 @@ class SymvassAnalyzer:
             output = list()
             meta_out = list()
             output.append(f"[sym-out] [default] [inputs {len(remaining_inputs)}] [cnt {len(all_patches_default)}] [patches {sorted(list(all_patches_default))}]\n")
-            if self.bug_info is not None:
-                correct_patch = self.bug_info["correct"]["no"]
-                meta_out.append(f"[meta-data] [default] [correct {correct_patch}] [all-patches {len(all_patches)}] [sym-input {len(remaining_inputs)}] [is-correct {correct_patch in all_patches_default}] [patches {sorted(list(all_patches_default))}]\n")
+            meta_out.append(f"[meta-data] [default] [correct {correct_patch}] [all-patches {len(all_patches)}] [sym-input {len(remaining_inputs)}] [is-correct {correct_patch in all_patches_default}] [patches {sorted(list(all_patches_default))}]\n")
             
             # Further analysis with exit loc
-            all_patches = set(filtered["remaining"])
             new_removed = set()
             new_remaining_inputs = list()
             for res in remaining_inputs:
@@ -935,9 +951,7 @@ class SymvassAnalyzer:
             print_log(f"{len(new_remaining_inputs)}, {len(new_removed)}")
             all_patches_crash = all_patches - new_removed
             output.append(f"[sym-out] [remove-crash] [inputs {len(new_remaining_inputs)}] [cnt {len(all_patches_crash)}] [patches {sorted(list(all_patches_crash))}]\n")
-            if self.bug_info is not None:
-                correct_patch = self.bug_info["correct"]["no"]
-                meta_out.append(f"[meta-data] [remove-crash] [correct {correct_patch}] [all-patches {len(all_patches)}] [sym-input {len(new_remaining_inputs)}] [is-correct {correct_patch in all_patches_crash}] [patches {sorted(list(all_patches_crash))}]\n")
+            meta_out.append(f"[meta-data] [remove-crash] [correct {correct_patch}] [all-patches {len(all_patches)}] [sym-input {len(new_remaining_inputs)}] [is-correct {correct_patch in all_patches_crash}] [patches {sorted(list(all_patches_crash))}]\n")
             
             strict_remaining_inputs = list()
             strict_removed = set()
@@ -958,9 +972,7 @@ class SymvassAnalyzer:
                 f.write(f"[strict] [id {crash_id}] [base {base}] [test {test}] [cnt {len(remaining)}] [patches {sorted(list(remaining))}]\n")
             all_patches_strict = all_patches - strict_removed
             output.append(f"[sym-out] [strict] [inputs {len(strict_remaining_inputs)}] [cnt {len(all_patches_strict)}] [patches {sorted(list(all_patches_strict))}]\n")
-            if self.bug_info is not None:
-                correct_patch = self.bug_info["correct"]["no"]
-                meta_out.append(f"[meta-data] [strict] [correct {correct_patch}] [all-patches {len(all_patches)}] [sym-input {len(strict_remaining_inputs)}] [is-correct {correct_patch in all_patches_strict}] [patches {sorted(list(all_patches_strict))}]\n")
+            meta_out.append(f"[meta-data] [strict] [correct {correct_patch}] [all-patches {len(all_patches)}] [sym-input {len(strict_remaining_inputs)}] [is-correct {correct_patch in all_patches_strict}] [patches {sorted(list(all_patches_strict))}]\n")
             
             strict_new_remaining_inputs = list()
             strict_new_removed = set()
@@ -1001,9 +1013,7 @@ class SymvassAnalyzer:
                 meta_base = analyzer.meta_data[base]
                 f.write(f"[strict-remain] [crash] [id {crash_id}] [base {base}] [test {test}] [exit-loc {meta_base['exitLoc']}] [exit-res {meta_base['exit']}] [cnt {len(remaining)}] [patches {sorted(list(remaining))}]\n")
             output.append(f"[sym-out] [strict-remove-crash] [inputs {len(strict_new_remaining_inputs)}] [cnt {len(all_patches_strict_new)}] [patches {sorted(list(all_patches_strict_new))}]\n")
-            if self.bug_info is not None:
-                correct_patch = self.bug_info["correct"]["no"]
-                meta_out.append(f"[meta-data] [strict-remove-crash] [correct {correct_patch}] [all-patches {len(all_patches)}] [sym-input {len(strict_new_remaining_inputs)}] [is-correct {correct_patch in all_patches_strict_new}] [patches {sorted(list(all_patches_strict_new))}]\n")
+            meta_out.append(f"[meta-data] [strict-remove-crash] [correct {correct_patch}] [all-patches {len(all_patches)}] [sym-input {len(strict_new_remaining_inputs)}] [is-correct {correct_patch in all_patches_strict_new}] [patches {sorted(list(all_patches_strict_new))}]\n")
             
             for out in output:
                 f.write(out)
