@@ -493,13 +493,36 @@ def parse_val_results(val_out_dir: str):
 
 def analyze(subject: dict, val_out_dir: str, output: str):
     subject_dir = os.path.join(ROOT_DIR, "patches", subject["benchmark"], subject["subject"], subject["bug_id"])
+    group_patches_json = os.path.join(subject_dir, "group-patches.json")
+    if not os.path.exists(group_patches_json):
+        print_log(f"Group patches file {group_patches_json} not found")
+        return
+    with open(group_patches_json, "r") as f:
+        group_patches = json.load(f)
     filter_json = os.path.join(subject_dir, "patched", "filter", "filtered.json")
     if not os.path.exists(filter_json):
         print_log(f"Filter file {filter_json} not found")
         return
     with open(filter_json, "r") as f:
         filter_data = json.load(f)
-    filter_result = set(filter_data["remaining"])
+    correct_patch = group_patches["correct_patch_id"]
+    patch_eq_map = dict()
+    patch_group_tmp = dict()
+    for patches in group_patches["equivalences"]:
+        representative = patches[0]
+        for patch in patches:
+            patch_group_tmp[patch] = representative
+    for patch in filter_data["remaining"]:
+        if patch in patch_group_tmp:
+            patch_eq_map[patch] = patch_group_tmp[patch]
+        else:
+            patch_eq_map[patch] = patch
+    all_patches = set()
+    for patch in filter_data["remaining"]:
+        if patch == patch_eq_map[patch]:
+            all_patches.add(patch)
+    correct_patch = patch_eq_map[correct_patch]
+    
     result_file = os.path.join(val_out_dir, "result.sbsv")
     if not os.path.exists(result_file):
         print_log(f"Result file {result_file} not found")
@@ -511,17 +534,17 @@ def analyze(subject: dict, val_out_dir: str, output: str):
     parser.add_schema("[remaining] [patch] [patches: str]")
     with open(result_file, "r") as f:
         result = parser.load(f)
-    remaining_input_num = len(result["remaining"]["input"])
+    remaining_inputs = len(result["remaining"]["input"])
     remaining_patches = eval(result["remaining"]["patch"][0]["patches"])
     remaining_patches_filtered = list()
     for patch in remaining_patches:
-        if patch in filter_result:
+        if patch in all_patches:
             remaining_patches_filtered.append(patch)
 
     correct_patch = subject["correct"]["no"]
     found = correct_patch in remaining_patches_filtered
     # val_inputs val_remaining_patches val_filtered val_found
-    res = f"{subject['subject']}\t{subject['bug_id']}\t{remaining_input_num}\t{len(remaining_patches)}\t{len(remaining_patches_filtered)}\t{found}"
+    res = f"{subject['subject']}\t{subject['bug_id']}\t{remaining_inputs}\t{len(remaining_patches_filtered)}\t{found}\t{remaining_patches_filtered}"
     if output != "":
         with open(os.path.join(f"{ROOT_DIR}/out", output), "a") as f:
             f.write(res + "\n")

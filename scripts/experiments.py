@@ -40,7 +40,7 @@ def kill_proc_tree(pid: int, including_parent: bool = True):
 def execute(cmd: str, dir: str, log_file: str, log_dir: str, prefix: str, meta: dict):
   log_out(f"Executing: {cmd}")
   start = time.time()
-  timeout = 12 * 3600 + 600 # 12 hours + 10 minutes for analysis
+  timeout = 24 * 3600 + 600 # 12 hours + 10 minutes for analysis
   proc = subprocess.Popen(cmd, shell=True, cwd=dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
   try:
     stdout, stderr = proc.communicate(timeout=timeout)
