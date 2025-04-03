@@ -407,12 +407,14 @@ class DataAnalyzer():
         dot.render("fork-graph", self.dp.dir, format="png")
         dot.render("fork-graph", self.dp.dir, format="pdf")
     
-    def count_states(self, patches: Set[int]) -> int:
+    def count_states(self, patches: Set[int]) -> Tuple[int, int]:
         count = len(self.meta_data)
+        original_count = 0
         type_count = {"1": 0, "2": 0, "3": 0, "4": 0}
         base_states = dict()
         multi_patch_count = 0
         sym_inputs = list()
+        sym_reruns = list()
         for state in self.meta_data:
             meta = self.meta_data[state]
             if meta["stateType"] == "1":
@@ -424,7 +426,23 @@ class DataAnalyzer():
                 type_count["3"] += 1
             elif meta["stateType"] == "4":
                 type_count["4"] += 1
+                sym_reruns.append(state)
+        original_count = type_count["1"] + type_count["2"]
         multi_patch_count = type_count["1"] + type_count["2"]
+        
+        for state in sym_reruns:
+            if state not in self.meta_data:
+                continue
+            meta = self.meta_data[state]
+            patch_set = set(meta["patches"])
+            has_valid = False
+            for patch in patches:
+                if patch in patch_set:
+                    has_valid = True
+                    multi_patch_count += 1
+            if has_valid:
+                original_count += 1
+        
         for edge in self.graph.edges():
             src = edge[0]
             dst = edge[1]
@@ -432,13 +450,16 @@ class DataAnalyzer():
             if type == "fork":
                 pass
             elif type == "sel-patch":
-                pass
+                # In independent patch mode, sel-patch will actually fork states per patches
+                multi_patch_count += len(patches)
+                original_count += 1
             elif type == "merge":
+                # Get patch num
                 pass
             else:
                 print_log(f"[error] [unknown edge type {type}]")
-        print_out(f"[info] [state {count}]")
-        return count
+        print_log(f"[info] [original-count {original_count}] [independent-count {multi_patch_count}]")
+        return original_count, multi_patch_count
 
 
 class PatchSorter:
@@ -894,7 +915,6 @@ class SymvassAnalyzer:
         dp = SymvassDataLogSbsvParser(self.dir)
         analyzer = DataAnalyzer(dp)
         analyzer.analyze()
-        analyzer.count_states(all_patches)
         cluster = self.cluster(analyzer)
         result = list()
         for crash_state in cluster:
@@ -937,6 +957,8 @@ class SymvassAnalyzer:
                         result.append((crash_id, base_meta["state"], crash_meta["state"], crash))
         
         with open(os.path.join(self.dir, "table_v3.sbsv"), "w") as f:
+            original_count, independent_count = analyzer.count_states(all_patches)
+            f.write(f"[stat] [states] [original {original_count}] [independent {independent_count}]\n")
             default_removed = set()
             remaining_inputs = list()
             for res in result:
