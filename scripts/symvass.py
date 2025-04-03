@@ -773,7 +773,7 @@ class SymvassAnalyzer:
         return patches
     
     def generate_table(self, cluster: Dict[int, Set[int]], result: List[Tuple[int, int, int, List[int]]]) -> str:
-        with open(os.path.join(self.dir, "table_v3.sbsv"), "w") as f:
+        with open(os.path.join(self.dir, "table.sbsv"), "w") as f:
             all_patches = set()
             for res in result:
                 crash_id, base, test, patches = res
