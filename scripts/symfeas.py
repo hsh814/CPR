@@ -405,7 +405,7 @@ def parse_symvass_result(file_path: str) -> Dict[int, List[int]]:
         test = sym_in["test"]
         patches = sym_in["patches"]
         result[test] = eval(patches)
-    result[-1] = list(range(parser.get_result()["meta-data"][0]["all-patches"]))
+    result[-1] = list(range(parser.get_result()["meta-data"]["strict"][0]["all-patches"]))
     return result
         
 def parse_val_results(val_out_dir: str):
