@@ -22,6 +22,9 @@ import psutil
 def print_log(msg: str):
     print(msg, file=sys.stderr)
 
+def print_out(msg: str):
+    print(msg, file=sys.stdout)
+
 def get_trace(dir: str, id: int):
     # dp = SymvassDataLogSbsvParser(dir)
     # dp.read_data_log("data.log")
@@ -293,8 +296,6 @@ class DataAnalyzer():
             exit_type = meta["exit"]
             use = meta["use"]
             graph.add_node(state, fork_parent=False)
-            if exit_type == "early":
-                continue
             meta_data[state] = meta.data
             meta_data[state]["sel-patch"] = False
             meta_data[state]["input"] = False
@@ -405,6 +406,39 @@ class DataAnalyzer():
         
         dot.render("fork-graph", self.dp.dir, format="png")
         dot.render("fork-graph", self.dp.dir, format="pdf")
+    
+    def count_states(self, patches: Set[int]) -> int:
+        count = len(self.meta_data)
+        type_count = {"1": 0, "2": 0, "3": 0, "4": 0}
+        base_states = dict()
+        multi_patch_count = 0
+        sym_inputs = list()
+        for state in self.meta_data:
+            meta = self.meta_data[state]
+            if meta["stateType"] == "1":
+                type_count["1"] += 1
+            elif meta["stateType"] == "2":
+                type_count["2"] += 1
+                sym_inputs.append(state)
+            elif meta["stateType"] == "3":
+                type_count["3"] += 1
+            elif meta["stateType"] == "4":
+                type_count["4"] += 1
+        multi_patch_count = type_count["1"] + type_count["2"]
+        for edge in self.graph.edges():
+            src = edge[0]
+            dst = edge[1]
+            type = self.graph[src][dst]["type"]
+            if type == "fork":
+                pass
+            elif type == "sel-patch":
+                pass
+            elif type == "merge":
+                pass
+            else:
+                print_log(f"[error] [unknown edge type {type}]")
+        print_out(f"[info] [state {count}]")
+        return count
 
 
 class PatchSorter:
@@ -718,7 +752,7 @@ class SymvassAnalyzer:
         return patches
     
     def generate_table(self, cluster: Dict[int, Set[int]], result: List[Tuple[int, int, int, List[int]]]) -> str:
-        with open(os.path.join(self.dir, "table.sbsv"), "w") as f:
+        with open(os.path.join(self.dir, "table_v3.sbsv"), "w") as f:
             all_patches = set()
             for res in result:
                 crash_id, base, test, patches = res
@@ -848,6 +882,10 @@ class SymvassAnalyzer:
             else:
                 patch_eq_map[patch] = patch
         correct_patch = patch_eq_map[correct_patch]
+        all_patches = set()
+        for patch in filtered["remaining"]:
+            if patch == patch_eq_map[patch]:
+                all_patches.add(patch)
         # Get exit location in filter
         filter_metadata = dp_filter.parser.get_result()["meta-data"][0]
         exit_loc = filter_metadata["exitLoc"]
@@ -856,6 +894,7 @@ class SymvassAnalyzer:
         dp = SymvassDataLogSbsvParser(self.dir)
         analyzer = DataAnalyzer(dp)
         analyzer.analyze()
+        analyzer.count_states(all_patches)
         cluster = self.cluster(analyzer)
         result = list()
         for crash_state in cluster:
@@ -898,10 +937,6 @@ class SymvassAnalyzer:
                         result.append((crash_id, base_meta["state"], crash_meta["state"], crash))
         
         with open(os.path.join(self.dir, "table_v3.sbsv"), "w") as f:
-            all_patches = set()
-            for patch in filtered["remaining"]:
-                if patch == patch_eq_map[patch]:
-                    all_patches.add(patch)
             default_removed = set()
             remaining_inputs = list()
             for res in result:
@@ -1031,17 +1066,17 @@ class SymvassAnalyzer:
         return parser
     
     def cluster_symbolic_inputs(self):
-        if not os.path.exists(os.path.join(self.dir, "table.sbsv")):
-            self.analyze_v2()
+        if not os.path.exists(os.path.join(self.dir, "table_v3.sbsv")):
+            self.analyze_v3()
         parser = sbsv.parser()
-        parser.add_schema("[sym-in] [id: int] [base: int] [test: int] [cnt: int] [patches: str]")
-        with open(os.path.join(self.dir, "table.sbsv"), "r") as f:
+        parser.add_schema("[strict] [id: int] [base: int] [test: int] [cnt: int] [patches: str]")
+        with open(os.path.join(self.dir, "table_v3.sbsv"), "r") as f:
             result = parser.load(f)
         # symbolic_trace = self.symbolic_trace(analyzer)
         # buggy_trace = self.buggy_trace(analyzer)
         mem_cluster: Dict[frozenset, List[int]] = dict()
         # Cluster collected symbolic inputs
-        for sym_in in result["sym-in"]:
+        for sym_in in result["strict"]:
             state = sym_in["test"]
             base_id = sym_in["base"]
             # filename: 1 -> test000001.mem (6 digits)

@@ -59,9 +59,14 @@ def parse_mem_result_file(file_path: str) -> sbsv.parser:
     parser.add_schema("[global] [sym: str] [value: str]")
     parser.add_group("heap-check", "heap-check$begin", "heap-check$end")
     with open(file_path, "r") as f:
-        parser.load(f)
-        return parser
-
+        try:
+            parser.load(f)
+            return parser
+        except Exception as e:
+            print_log(f"Error parsing file {file_path}: {e}")
+            traceback.print_exc()
+            return None
+            
 
 def find_num(dir: str, name: str) -> int:
     result = 0
@@ -391,12 +396,12 @@ def read_val_out_file(parser: sbsv.parser, globals_list: List[Dict[str, str]], i
 def parse_symvass_result(file_path: str) -> Dict[int, List[int]]:
     result = dict()
     parser = sbsv.parser()
-    parser.add_schema("[sym-in] [id: int] [base: int] [test: int] [cnt: int] [patches: str]")
-    parser.add_schema("[sym-out] [best] [cnt: int] [patches: str]")
-    parser.add_schema("[meta-data] [correct: int] [all-patches: int] [sym-input: int] [correct-input: int]")
+    parser.add_schema("[strict] [id: int] [base: int] [test: int] [cnt: int] [patches: str]")
+    # parser.add_schema("[sym-out] [best] [cnt: int] [patches: str]")
+    parser.add_schema("[meta-data] [strict] [correct: int] [all-patches: int] [sym-input: int] [is-correct: bool] [patches: str]")
     with open(file_path, "r") as f:
         parser.load(f)
-    for sym_in in parser.get_result()["sym-in"]:
+    for sym_in in parser.get_result()["strict"]:
         test = sym_in["test"]
         patches = sym_in["patches"]
         result[test] = eval(patches)
@@ -419,7 +424,7 @@ def parse_val_results(val_out_dir: str):
     rf = open(os.path.join(val_out_dir, "result.sbsv"), "w")
     remaining_base_states = list()
     result["remaining_patches"] = list()
-    symvass_result = parse_symvass_result(os.path.join(uni_klee_out_dir, "table.sbsv"))
+    symvass_result = parse_symvass_result(os.path.join(uni_klee_out_dir, "table_v3.sbsv"))
     for i, c in enumerate(cluster):
         print_log(f"Processing cluster {i}")
         nodes = c["nodes"]
@@ -440,6 +445,8 @@ def parse_val_results(val_out_dir: str):
             for val in vals:
                 local_out_file = os.path.join(group_out_dir, val)
                 parser = parse_mem_result_file(local_out_file)
+                if parser is None:
+                    continue
                 indices = parser.get_group_index("heap-check")
                 if len(indices) == 0:
                     print_log(f"No heap-check in {local_out_file}")
@@ -823,8 +830,6 @@ class Parser:
             if node.is_constant():
                  if self.variable_type == INT and node.is_int_constant():
                       return smt.Int(-node.constant_value())
-                 elif self.variable_type == REAL and node.is_real_constant():
-                      return smt.Real(-node.constant_value())
             # General case: 0 - node or Times(-1, node)
             # Times(-1, node) often preferred
             if self.variable_type == INT:
