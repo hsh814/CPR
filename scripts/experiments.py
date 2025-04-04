@@ -400,8 +400,10 @@ def symvass_final_result_v3(meta: dict, result_f: TextIO):
   default_remove_crash_str = symvass_res_to_str(meta_data_default_remove_crash[0])
   strict_str = symvass_res_to_str(meta_data_strict[0])
   strict_remove_crash_str = symvass_res_to_str(meta_data_strict_remove_crash[0])
-
-  result_f.write(f"{subject}\t{bug_id}\t{correct_patch}\t{all_patches}\t{incomplete}\t{default_str}\t{strict_str}\t{default_remove_crash_str}\t{strict_remove_crash_str}\n")
+  
+  stat = result["stat"]["states"][0]
+  
+  result_f.write(f"{subject}\t{bug_id}\t{correct_patch}\t{all_patches}\t{incomplete}\t{default_str}\t{strict_str}\t{default_remove_crash_str}\t{strict_remove_crash_str}\t{stat['original']}\t{stat['independent']}\n")
   
 
 def final_analysis(meta_data: List[dict], output: str):
@@ -410,7 +412,7 @@ def final_analysis(meta_data: List[dict], output: str):
   meta_data = sorted(meta_data, key=lambda x: f"{x['subject']}/{x['bug_id']}")
   result_f = open(os.path.join(OUTPUT_DIR, output), "w")
   # result_f.write(f"project\tbug\tcorrect_patch\tall_patches\tincomplete\tinputs\tdefault_remaining_patches\tdefault_filtered_patches\tdefault_found\tbest_inputs\tbest_remaining_patches\tbest_filtered_patches\tbest_found\tdefault_inputs_new\tdefault_patches_new\tdefault_patches_new_filtered\tdefault_patches_new_found\n")
-  result_f.write(f"project\tbug\tcorrect_patch\tall_patches\tincomplete\tdefault_inputs\tdefault_remaining_patches\tdefault_correct\tstrict_inputs\tstrict_remaining_patches\tstrict_correct\tdefault_inputs_heuristic\tdefault_patches_heuristic\tdefault_found_heuristic\tstrict_inputs_heuristic\tstrict_patches_heuristic\tstrict_found_heuristic\n")
+  result_f.write(f"project\tbug\tcorrect_patch\tall_patches\tincomplete\tdefault_inputs\tdefault_remaining_patches\tdefault_correct\tstrict_inputs\tstrict_remaining_patches\tstrict_correct\tdefault_inputs_heuristic\tdefault_patches_heuristic\tdefault_found_heuristic\tstrict_inputs_heuristic\tstrict_patches_heuristic\tstrict_found_heuristic\tstates\tind_states\n")
   for meta in meta_data:
     if not check_correct_exists(meta):
       continue
