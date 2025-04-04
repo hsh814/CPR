@@ -447,6 +447,11 @@ def parse_val_results(val_out_dir: str):
                 parser = parse_mem_result_file(local_out_file)
                 if parser is None:
                     continue
+                ends = parser.get_result_in_order(["heap-check$end"])
+                if len(ends) == 0:
+                    print_log(f"No heap-check end in {local_out_file}")
+                    continue
+                begins = parser.get_result_in_order(["heap-check$begin"])
                 indices = parser.get_group_index("heap-check")
                 if len(indices) == 0:
                     print_log(f"No heap-check in {local_out_file}")

@@ -902,7 +902,10 @@ class SymvassAnalyzer:
                 patch_eq_map[patch] = patch_group_tmp[patch]
             else:
                 patch_eq_map[patch] = patch
-        correct_patch = patch_eq_map[correct_patch]
+        if correct_patch not in patch_eq_map:
+            correct_patch = self.bug_info["correct"]["no"]
+        else:
+            correct_patch = patch_eq_map[correct_patch]
         all_patches = set()
         for patch in filtered["remaining"]:
             if patch == patch_eq_map[patch]:

@@ -231,6 +231,7 @@ def parse_result(file: str) -> sbsv.parser:
 
 def parse_result_v3(file: str) -> sbsv.parser:
   parser = sbsv.parser()
+  parser.add_schema("[stat] [states] [original: int] [independent: int]")
   parser.add_schema("[sym-in] [id: int] [base: int] [test: int] [cnt: int] [patches: str]")
   parser.add_schema("[remove] [crash] [id: int] [base: int] [test: int] [exit-loc: str] [exit-res: str] [cnt: int] [patches: str]")
   parser.add_schema("[remain] [crash] [id: int] [base: int] [test: int] [exit-loc: str] [exit-res: str] [cnt: int] [patches: str]")
