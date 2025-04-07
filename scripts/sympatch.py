@@ -197,6 +197,49 @@ def search_files(meta_data: dict, patches: str):
     if not os.path.exists(f'{pat_dir}/patch-set-ranked'):
       print(f"Patch file does not exist: id ({id}) {pat_dir}/patch-set-ranked")
 
+
+def get_abstract_patches(patch_file: str) -> list:
+  # option == concrete
+  if not os.path.exists(patch_file):
+    print(f"Patch file does not exist: {patch_file}")
+    return []
+  with open(patch_file, "r") as f:
+    lines = f.readlines()
+  patch_num = 0
+  patch_list = list()
+  pattern = r'^L?\d+'
+  patch = dict()
+  partition_indent = 0
+  partition = dict()
+  for line in lines:
+    indent = len(line) - len(line.lstrip())
+    line = line.strip()
+    if line.startswith("Patch #"):
+      patch_num = int(line.split("#")[1])
+      patch = dict()
+      patch_list.append(patch)
+      patch["num"] = patch_num
+    elif bool(re.search(pattern, line)):
+      patch["patch"] = line.split(":")[1].strip()
+      patch["lid"] = line.split(":")[0].strip()
+    elif line.startswith("Partition: "):
+      partition_indent = indent
+      if "Partition" not in patch:
+        patch["Partition"] = list()
+      partition = dict()
+      patch["Partition"].append(partition)
+      partition["id"] = int(line.split(":")[1].strip())
+    elif indent > partition_indent:
+      key, val = line.split(":")
+      partition[key.strip()] = val.strip()
+    else:
+      key, val = line.split(":")
+      patch[key.strip()] = val.strip()
+  return patch_list
+  # with open(f"{outdir}/abs-patches.json", "w") as f:
+  #   print(f"Writing to {outdir}/abs-patches.json")
+  #   json.dump(patch_list, f, indent=2)
+
 def main(args: List[str]):
   if len(args) != 3:
     print("Usage: patch.py <opt> <patch-dir>")
@@ -255,62 +298,18 @@ def main(args: List[str]):
       os.system("./init.sh")
       os.chdir(dir)
       continue
-    if opt == "val-build":
-      dir = os.getcwd()
-      os.chdir(outdir)
-      os.system("./val.sh")
-      os.chdir(dir)
-      continue
     if opt == "meta":
-      with open(f"{outdir}/abs-patches.json", "r") as f:
-        patch_list = json.load(f)
-        meta_program = to_meta_program(patch_list, meta)
-        write_meta_program(meta_program, os.path.join(outdir, "concrete"))
-        with open(f"{outdir}/meta-program.json", "w") as f:
-          print(f"Writing to {outdir}/meta-program.json")
-          json.dump(meta_program, f, indent=2)
-        continue
-    
-    # option == concrete
-    patch_file = os.path.join(outdir, "patch-set-ranked")
-    if not os.path.exists(patch_file):
-      print(f"Patch file does not exist: {patch_file}")
+      patch_list = get_abstract_patches(f"{outdir}/patch-set-ranked")
+      meta_program = to_meta_program(patch_list, meta)
+      # with open(f"{outdir}/meta-program-original.json", "w") as f:
+      #   print(f"Writing to {outdir}/meta-program-original.json")
+      #   json.dump(meta_program, f, indent=2)
+      #   continue
+      write_meta_program(meta_program, os.path.join(outdir, "concrete"))
+      with open(f"{outdir}/meta-program.json", "w") as f:
+        print(f"Writing to {outdir}/meta-program.json")
+        json.dump(meta_program, f, indent=2)
       continue
-    with open(patch_file, "r") as f:
-      lines = f.readlines()
-    patch_num = 0
-    patch_list = list()
-    pattern = r'^L?\d+'
-    patch = None
-    partition_indent = 0
-    partition = None
-    for line in lines:
-      indent = len(line) - len(line.lstrip())
-      line = line.strip()
-      if line.startswith("Patch #"):
-        patch_num = int(line.split("#")[1])
-        patch = dict()
-        patch_list.append(patch)
-        patch["num"] = patch_num
-      elif bool(re.search(pattern, line)):
-        patch["patch"] = line.split(":")[1].strip()
-        patch["lid"] = line.split(":")[0].strip()
-      elif line.startswith("Partition: "):
-        partition_indent = indent
-        if "Partition" not in patch:
-          patch["Partition"] = list()
-        partition = dict()
-        patch["Partition"].append(partition)
-        partition["id"] = int(line.split(":")[1].strip())
-      elif indent > partition_indent:
-        key, val = line.split(":")
-        partition[key.strip()] = val.strip()
-      else:
-        key, val = line.split(":")
-        patch[key.strip()] = val.strip()
-    with open(f"{outdir}/abs-patches.json", "w") as f:
-      print(f"Writing to {outdir}/abs-patches.json")
-      json.dump(patch_list, f, indent=2)
 
 if __name__ == "__main__":
   main(sys.argv)
