@@ -1169,10 +1169,14 @@ def main():
     elif args.cmd == "check":
         # parse_smt2_file(args.input)
         out_no = find_num(os.path.join(subject_dir, "patched"), args.symvass_prefix) - 1
-        target_dir = os.path.join(ROOT_DIR, "patches", "tmp", subject["benchmark"], subject["subject"], subject["bug_id"], "patched", )
-        os.makedirs(target_dir, exist_ok=True)
-        
-        
+        target_dir = os.path.join(ROOT_DIR, "patches", "tmp", subject["benchmark"], subject["subject"], subject["bug_id"], "patched")
+        os.system(f"mv {target_dir}/high-snapshot {target_dir}/snapshot-high")
+        # os.makedirs(target_dir, exist_ok=True)
+        # os.system(f"rsync -avzh {os.path.join(subject_dir, 'patched', f'{args.symvass_prefix}-{out_no}')}/ {target_dir}/high-0/")
+        # os.system(f"rsync -avzh {os.path.join(subject_dir, 'patched', f'snapshot-{args.symvass_prefix}')}/ {target_dir}/high-snapshot")
+        # os.system(f"rsync -avzh {os.path.join(subject_dir, 'patched', 'filter')} {target_dir}/")
+        # uc_no = find_num(os.path.join(subject_dir, "patched"), "uc") - 1
+        # os.system(f"rsync -avzh {os.path.join(subject_dir, 'patched', f'uc-{uc_no}')}/ {target_dir}/uc-0")
     elif args.cmd == "fuzz-build":
         subprocess.run(f"./aflrun.sh", cwd=subject_dir, shell=True)
     elif args.cmd == "val-build":
