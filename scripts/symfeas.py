@@ -128,7 +128,7 @@ def run_fuzzer_multi(subject: dict, subject_dir: str, debug: bool = False):
     env["AFL_NO_UI"] = "1"
     bin = os.path.basename(conf["binary_path"])
     opts = conf["test_input_list"].replace("$POC", "@@")
-    cmd = f"timeout 12h /root/projects/AFLRun/afl-fuzz -C -i {in_dir} -o {out_dir} -m none -t 2000ms -- runtime/{bin} {opts}"
+    cmd = f"timeout 12h /root/projects/AFLRun/afl-fuzz -C -i {in_dir} -o {out_dir} -m none -t 2000ms -- {runtime_dir}/{bin}.aflrun {opts}"
     print_log(f"Running fuzzer: {cmd}")
     stdout = sys.stdout if debug else subprocess.DEVNULL
     stderr = sys.stderr # if debug else subprocess.DEVNULL
@@ -157,7 +157,7 @@ def run_fuzzer(subject: dict, subject_dir: str, debug: bool = False):
     env["AFL_NO_UI"] = "1"
     bin = os.path.basename(conf["binary_path"])
     opts = conf["test_input_list"].replace("$POC", "@@")
-    cmd = f"timeout 12h /root/projects/AFLRun/afl-fuzz -C -i {in_dir} -o {out_dir} -m none -t 2000ms -- runtime/{bin} {opts}"
+    cmd = f"timeout 12h /root/projects/AFLRun/afl-fuzz -C -i {in_dir} -o {out_dir} -m none -t 2000ms -- {runtime_dir}/{bin}.aflrun {opts}"
     print_log(f"Running fuzzer: {cmd}")
     stdout = sys.stdout if debug else subprocess.DEVNULL
     stderr = sys.stderr # if debug else subprocess.DEVNULL
