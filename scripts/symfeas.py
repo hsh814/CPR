@@ -547,6 +547,17 @@ def analyze(subject: dict, val_out_dir: str, output: str):
     with open(result_file, "r") as f:
         result = parser.load(f)
     remaining_inputs = len(result["remaining"]["input"])
+    if remaining_inputs == 0:
+        print_log("No remaining inputs")
+        found = correct_patch in all_patches
+        res = f"{subject['subject']}\t{subject['bug_id']}\t{remaining_inputs}\t{len(all_patches)}\t{found}\t{all_patches}"
+        if output != "":
+            with open(os.path.join(f"{ROOT_DIR}/out", output), "a") as f:
+                f.write(res + "\n")
+        else:
+            print_out(res)
+        return
+    
     remaining_patches = eval(result["remaining"]["patch"][0]["patches"])
     remaining_patches_filtered = list()
     for patch in remaining_patches:
@@ -1152,18 +1163,16 @@ def main():
     subject_dir = os.path.join(ROOT_DIR, "patches", subject["benchmark"], subject["subject"], subject["bug_id"])
     val_prefix = args.val_prefix if args.val_prefix != "" else args.symvass_prefix
     if args.cmd == "fuzz":
-        # with open(os.path.join(subject_dir, "meta-program.json"), "r") as f:
-        #     meta = json.load(f)
-        # for patch in meta["patches"]:
-        #     if "/" in patch["code"]:
-        #         print_out(f"{subject['subject']} has a division operator in the code")
-        #         return
-        # return
         run_fuzzer(subject, subject_dir, args.debug)
     elif args.cmd == "fuzz-seeds":
         run_fuzzer_multi(subject, subject_dir, args.debug)
     elif args.cmd == "check":
-        parse_smt2_file(args.input)
+        # parse_smt2_file(args.input)
+        out_no = find_num(os.path.join(subject_dir, "patched"), args.symvass_prefix) - 1
+        target_dir = os.path.join(ROOT_DIR, "patches", "tmp", subject["benchmark"], subject["subject"], subject["bug_id"], "patched", )
+        os.makedirs(target_dir, exist_ok=True)
+        
+        
     elif args.cmd == "fuzz-build":
         subprocess.run(f"./aflrun.sh", cwd=subject_dir, shell=True)
     elif args.cmd == "val-build":
