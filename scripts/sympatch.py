@@ -292,12 +292,6 @@ def main(args: List[str]):
       compile(f"{outdir}/concrete")
       continue
     vars = meta["vars"]
-    if opt == "init":
-      dir = os.getcwd()
-      os.chdir(outdir)
-      os.system("./init.sh")
-      os.chdir(dir)
-      continue
     if opt == "meta":
       patch_list = get_abstract_patches(f"{outdir}/patch-set-ranked")
       meta_program = to_meta_program(patch_list, meta)
