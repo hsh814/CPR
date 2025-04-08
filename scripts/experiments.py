@@ -146,7 +146,7 @@ class RunSingle():
   def get_feas_cmd(self, extra: str) -> str:
     if extra == "exp":
       return f"symfeas.py fuzz {self.meta['bug_id']}"
-    if extra in ["fuzz", "build", "val-build", "fuzz-build", "fuzz-seeds", "collect-inputs", "group-patches", "val", "feas", "analyze", "check"]:
+    if extra in ["fuzz", "build", "val-build", "fuzz-build", "extractfix-build", "fuzz-seeds", "collect-inputs", "group-patches", "val", "feas", "analyze", "check"]:
       return f"symfeas.py {extra} {self.meta['bug_id']} -s {SYMVASS_PREFIX}"
     log_out(f"Unknown extra: {extra}")
     exit(1)
