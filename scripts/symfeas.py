@@ -396,16 +396,16 @@ def read_val_out_file(parser: sbsv.parser, globals_list: List[Dict[str, str]], i
 def parse_symvass_result(file_path: str) -> Dict[int, List[int]]:
     result = dict()
     parser = sbsv.parser()
-    parser.add_schema("[strict] [id: int] [base: int] [test: int] [cnt: int] [patches: str]")
+    parser.add_schema("[sym-in] [id: int] [base: int] [test: int] [cnt: int] [patches: str]")
     # parser.add_schema("[sym-out] [best] [cnt: int] [patches: str]")
-    parser.add_schema("[meta-data] [strict] [correct: int] [all-patches: int] [sym-input: int] [is-correct: bool] [patches: str]")
+    parser.add_schema("[meta-data] [default] [correct: int] [all-patches: int] [sym-input: int] [is-correct: bool] [patches: str]")
     with open(file_path, "r") as f:
         parser.load(f)
-    for sym_in in parser.get_result()["strict"]:
+    for sym_in in parser.get_result()["sym-in"]:
         test = sym_in["test"]
         patches = sym_in["patches"]
         result[test] = eval(patches)
-    result[-1] = list(range(parser.get_result()["meta-data"]["strict"][0]["all-patches"]))
+    result[-1] = list(range(parser.get_result()["meta-data"]["default"][0]["all-patches"]))
     return result
         
 def parse_val_results(val_out_dir: str):
