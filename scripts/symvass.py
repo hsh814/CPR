@@ -891,25 +891,34 @@ class SymvassAnalyzer:
         with open(os.path.join(subject_dir, "group-patches.json"), "r") as f:
             group_patches = json.load(f)
         patch_group_tmp = dict()
+        correct_patch = group_patches["correct_patch_id"]
+        use_manually_added_correct_patch = True
         for patches in group_patches["equivalences"]:
             representative = patches[0]
             for patch in patches:
+                if patch == correct_patch:
+                    if correct_patch != representative:
+                        use_manually_added_correct_patch = False
                 patch_group_tmp[patch] = representative
-        correct_patch = group_patches["correct_patch_id"]
         patch_eq_map = dict()
         for patch in filtered["remaining"]:
             if patch in patch_group_tmp:
                 patch_eq_map[patch] = patch_group_tmp[patch]
             else:
                 patch_eq_map[patch] = patch
-        if correct_patch not in patch_eq_map:
-            correct_patch = self.bug_info["correct"]["no"]
-        else:
-            correct_patch = patch_eq_map[correct_patch]
         all_patches = set()
         for patch in filtered["remaining"]:
-            if patch == patch_eq_map[patch]:
+            if patch == correct_patch:
+                if use_manually_added_correct_patch:
+                    all_patches.add(patch)
+                else:
+                    correct_patch = patch_group_tmp[patch]
+            else:
                 all_patches.add(patch)
+        all_patches_eq = set()
+        for patch in filtered["remaining"]:
+            if patch == patch_eq_map[patch]:
+                all_patches_eq.add(patch)
         # Get exit location in filter
         filter_metadata = dp_filter.parser.get_result()["meta-data"][0]
         exit_loc = filter_metadata["exitLoc"]
@@ -1094,14 +1103,14 @@ class SymvassAnalyzer:
         if not os.path.exists(os.path.join(self.dir, "table_v3.sbsv")):
             self.analyze_v3()
         parser = sbsv.parser()
-        parser.add_schema("[strict] [id: int] [base: int] [test: int] [cnt: int] [patches: str]")
+        parser.add_schema("[sym-in] [id: int] [base: int] [test: int] [cnt: int] [patches: str]")
         with open(os.path.join(self.dir, "table_v3.sbsv"), "r") as f:
             result = parser.load(f)
         # symbolic_trace = self.symbolic_trace(analyzer)
         # buggy_trace = self.buggy_trace(analyzer)
         mem_cluster: Dict[frozenset, List[int]] = dict()
         # Cluster collected symbolic inputs
-        for sym_in in result["strict"]:
+        for sym_in in result["sym-in"]:
             state = sym_in["test"]
             base_id = sym_in["base"]
             # filename: 1 -> test000001.mem (6 digits)
