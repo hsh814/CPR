@@ -19,6 +19,7 @@ import sympatch
 import psutil
 
 MODE = "symradar"
+VULMASTER_ID = 0
 
 def print_log(msg: str):
     print(msg, file=sys.stderr)
@@ -87,13 +88,20 @@ class ConfigFiles(uni_klee.ConfigFiles):
         self.project_dir = os.path.join(
             patches_dir, self.benchmark, self.subject, self.bid
         )
-        self.work_dir = os.path.join(self.project_dir, "patched")
+        if MODE == "vulmaster":
+            self.work_dir = os.path.join(self.project_dir, "vulmaster-patched")
+            self.meta_patch_obj_file = os.path.join(
+                self.project_dir, "concrete", "libuni_klee_runtime_vulmaster.bca"
+            )
+        else:
+            self.work_dir = os.path.join(self.project_dir, "patched")
+            self.meta_patch_obj_file = os.path.join(
+                self.project_dir, "concrete", "libuni_klee_runtime_new.bca"
+            )
         self.repair_conf = os.path.join(self.project_dir, "repair.conf")
         self.meta_program = os.path.join(self.project_dir, "meta-program-original.json")
         sympatch.compile(os.path.join(self.project_dir, "concrete"))
-        self.meta_patch_obj_file = os.path.join(
-            self.project_dir, "concrete", "libuni_klee_runtime_new.bca"
-        )
+        
 
     def set_out_dir(self, out_dir: str, out_dir_prefix: str, bug_info: dict, snapshot_prefix: str, filter_prefix: str, use_last: bool):
         self.out_dir_prefix = out_dir_prefix
@@ -240,7 +248,10 @@ class Config(uni_klee.Config):
             add_opts.append("--start-from-snapshot")
             self.append_cmd(result, ",".join(self.patch_ids), add_opts)
         bin_file = os.path.basename(self.project_conf["binary_path"])
-        target = bin_file + ".bc"
+        if MODE == "vulmaster":
+            target = f"{bin_file}-{VULMASTER_ID}.bc"
+        else:
+            target = bin_file + ".bc"
         result.append(target)
         if "test_input_list" in self.project_conf:
             poc_path = "exploit"
@@ -1285,10 +1296,14 @@ def arg_parser(argv: List[str]) -> Config:
     parser.add_argument("-r", "--rerun", help="Rerun last command with same option", action="store_true")
     parser.add_argument("-z", "--analyze", help="Analyze symvass data", action="store_true")
     parser.add_argument("-g", "--use-last", help="Use last output directory", action="store_true")
-    parser.add_argument("--mode", help="mode", choices=["symradar", "extractfix"], default="symradar")
+    parser.add_argument("--mode", help="mode", choices=["symradar", "extractfix", "vulmaster"], default="symradar")
+    parser.add_argument("--vulmaster-id", help="Vulmaster id", type=int, default=0)
     args = parser.parse_args(argv[1:])
-    global MODE
+    global MODE, VULMASTER_ID
+    VULMASTER_ID = args.vulmaster_id
     MODE = args.mode
+    if MODE == "vulmaster":
+        args.outdir_prefix = f"{args.outdir_prefix}_{VULMASTER_ID}"
     if args.snapshot_prefix == "":
         args.snapshot_prefix = f"snapshot-{args.outdir_prefix}"
     conf = Config(args.cmd, args.query, args.debug, args.sym_level, args.max_fork, args.mode)
