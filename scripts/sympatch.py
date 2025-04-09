@@ -293,17 +293,16 @@ def main(args: List[str]):
       continue
     vars = meta["vars"]
     if opt == "meta":
-      patch_list = get_abstract_patches(f"{outdir}/patch-set-ranked")
+      patch_list = get_abstract_patches(f"{outdir}/patch-set-gen")
       meta_program = to_meta_program(patch_list, meta)
       # with open(f"{outdir}/meta-program-original.json", "w") as f:
       #   print(f"Writing to {outdir}/meta-program-original.json")
       #   json.dump(meta_program, f, indent=2)
       #   continue
       write_meta_program(meta_program, os.path.join(outdir, "concrete"))
-      with open(f"{outdir}/meta-program.json", "w") as f:
-        print(f"Writing to {outdir}/meta-program.json")
-        json.dump(meta_program, f, indent=2)
-      continue
+      # with open(f"{outdir}/meta-program.json", "w") as f:
+      #   print(f"Writing to {outdir}/meta-program.json")
+      #   json.dump(meta_program, f, indent=2)
 
 if __name__ == "__main__":
   main(sys.argv)

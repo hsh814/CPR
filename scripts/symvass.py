@@ -88,7 +88,7 @@ class ConfigFiles(uni_klee.ConfigFiles):
         )
         self.work_dir = os.path.join(self.project_dir, "patched")
         self.repair_conf = os.path.join(self.project_dir, "repair.conf")
-        self.meta_program = os.path.join(self.project_dir, "meta-program.json")
+        self.meta_program = os.path.join(self.project_dir, "meta-program-original.json")
         sympatch.compile(os.path.join(self.project_dir, "concrete"))
         self.meta_patch_obj_file = os.path.join(
             self.project_dir, "concrete", "libuni_klee_runtime_new.bca"
@@ -888,7 +888,7 @@ class SymvassAnalyzer:
         with open(os.path.join(self.filter_dir, "filtered.json"), "r") as f:
             filtered = json.load(f)
         subject_dir = os.path.join(uni_klee.ROOT_DIR, "patches", self.bug_info["benchmark"], self.bug_info["subject"], self.bug_info["bug_id"])
-        with open(os.path.join(subject_dir, "group-patches.json"), "r") as f:
+        with open(os.path.join(subject_dir, "group-patches-original.json"), "r") as f:
             group_patches = json.load(f)
         patch_group_tmp = dict()
         correct_patch = group_patches["correct_patch_id"]
