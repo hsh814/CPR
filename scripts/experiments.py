@@ -23,6 +23,7 @@ GLOBAL_LOG_DIR = os.path.join(ROOT_DIR, "logs")
 OUTPUT_DIR = "out"
 PREFIX = ""
 SYMVASS_PREFIX = "uni-m-out"
+MODE = "symradar"
 
 def log_out(msg: str):
   print(msg, file=sys.stderr)
@@ -117,7 +118,7 @@ class RunSingle():
         break
     log_out(patches)
     query = self.meta["bug_id"] + ":0" # ",".join([str(x) for x in patches])
-    cmd = f"symvass.py rerun {query} --lock=f --outdir-prefix={SYMVASS_PREFIX} --snapshot-prefix=snapshot-{SYMVASS_PREFIX}"
+    cmd = f"symvass.py rerun {query} --lock=f --outdir-prefix={SYMVASS_PREFIX} --snapshot-prefix=snapshot-{SYMVASS_PREFIX} --mode={MODE}"
     if extra == "k2-high":
       cmd += " --sym-level=high --additional='--symbolize-bound=2' --max-fork=1024,1024,1024"
     if extra == "high":
@@ -126,6 +127,8 @@ class RunSingle():
       cmd += " --additional='--symbolize-bound=2' --max-fork=1024,1024,1024"
     if extra == "low":
       cmd += " --sym-level=low" # --max-fork=1024,1024,1024
+    if extra == "none":
+      cmd += " --sym-level=none"
     return cmd
   
   def get_uc_cmd(self, extra: str) -> str:
@@ -506,9 +509,10 @@ def main(argv: List[str]):
   parser.add_argument("-p", "--prefix", type=str, help="Output prefix", default="", required=False)
   parser.add_argument("-s", "--symvass-prefix", type=str, help="Symvass prefix", default="", required=False)
   parser.add_argument("-a", "--additional", type=str, help="Additional arguments", default="", required=False)
+  parser.add_argument("-m", "--mode", type=str, help="Mode", choices=["symradar", "extractfix"], default="symradar")
   parser.add_argument("--seq", action="store_true", help="Run sequentially", default=False)
   args = parser.parse_args(argv)
-  global OUTPUT_DIR, PREFIX, SYMVASS_PREFIX
+  global OUTPUT_DIR, PREFIX, SYMVASS_PREFIX, MODE
   OUTPUT_DIR = os.path.join(ROOT_DIR, "out")
   if not os.path.exists(OUTPUT_DIR):
     os.makedirs(OUTPUT_DIR, exist_ok=True)
@@ -525,6 +529,7 @@ def main(argv: List[str]):
     SYMVASS_PREFIX = "uc"
   if args.symvass_prefix != "":
     SYMVASS_PREFIX = args.symvass_prefix
+  MODE = args.mode
   meta_data = uni_klee.global_config.get_meta_data_list()
   if args.cmd == "final":
     final_analysis(meta_data, args.output)

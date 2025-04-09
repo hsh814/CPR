@@ -18,6 +18,7 @@ import uni_klee
 import sympatch
 import psutil
 
+MODE = "symradar"
 
 def print_log(msg: str):
     print(msg, file=sys.stderr)
@@ -371,6 +372,13 @@ class DataAnalyzer():
             meta_data[state]["patches"] = patches
             meta_data[state]["reg"] = reg
             meta_data[state]["patch-eval"] = self.to_map(patch_eval)
+        if MODE == "extractfix":
+            for stack in self.data["stack-trace"]:
+                state = stack["state"]
+                if state not in meta_data:
+                    continue
+                meta_data[state]["stack-trace"] = stack
+
         for fp in self.data["fork-map"]["fork-parent"]:
             state = fp["state"]
             state_type = fp["type"]
@@ -972,7 +980,10 @@ class SymvassAnalyzer:
         exit_loc = filter_metadata["exitLoc"]
         exit_res = filter_metadata["exit"]
         # Analyze
-        dp = SymvassDataLogSbsvParser(self.dir)
+        if MODE == "extractfix":
+            dp = SymvassDataLogSbsvParser(self.dir, schema=["[stack-trace] [state: int] [reg?: str] [passed-crash-loc: bool]"])
+        else:
+            dp = SymvassDataLogSbsvParser(self.dir)
         analyzer = DataAnalyzer(dp)
         analyzer.analyze()
         cluster = self.cluster(analyzer)
@@ -986,6 +997,9 @@ class SymvassAnalyzer:
             base_reg = base_meta["reg"]
             is_crash = base_meta["isCrash"]
             if not is_crash:
+                if MODE == "extractfix":
+                    if not base_meta["stack-trace"]["passed-crash-loc"]:
+                        continue
                 result.append((crash_id, base_meta["state"], base_meta["state"], base))
             for crash_test in cluster[crash_state]:
                 if crash_test not in analyzer.meta_data:
@@ -1273,6 +1287,8 @@ def arg_parser(argv: List[str]) -> Config:
     parser.add_argument("-g", "--use-last", help="Use last output directory", action="store_true")
     parser.add_argument("--mode", help="mode", choices=["symradar", "extractfix"], default="symradar")
     args = parser.parse_args(argv[1:])
+    global MODE
+    MODE = args.mode
     if args.snapshot_prefix == "":
         args.snapshot_prefix = f"snapshot-{args.outdir_prefix}"
     conf = Config(args.cmd, args.query, args.debug, args.sym_level, args.max_fork, args.mode)
