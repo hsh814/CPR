@@ -117,15 +117,17 @@ class ConfigFiles(uni_klee.ConfigFiles):
 
 class Config(uni_klee.Config):
     conf_files: ConfigFiles
+    mode: str
 
     def __init__(
-        self, cmd: str, query: str, debug: bool, sym_level: str, max_fork: str
+        self, cmd: str, query: str, debug: bool, sym_level: str, max_fork: str, mode: str
     ):
         self.cmd = cmd
         self.query = query
         self.debug = debug
         self.sym_level = sym_level
         self.max_fork = max_fork
+        self.mode = mode
         self.conf_files = ConfigFiles()
 
     def append_snapshot_cmd(self, cmd: List[str]):
@@ -138,6 +140,47 @@ class Config(uni_klee.Config):
             patch_str = ",".join(all_patches)
         cmd.append(f"--output-dir={snapshot_dir}")
         cmd.append(f"--patch-id={patch_str}")
+    
+    def find_last_loc(self, dir: str, target_function: str) -> int:
+        # parse cfg.sbsv to get instruction range of target function
+        crash_loc = 0
+        cfg_parser = sbsv.parser()
+        cfg_parser.add_schema("[fn-start] [name: str]")
+        cfg_parser.add_schema("[fn-end] [name: str]")
+        cfg_parser.add_schema("[bb] [id: int] [start: int] [size: int] [line: int]")
+        cfg_parser.add_group("fn", "[fn-start]", "[fn-end]")
+        with open(os.path.join(dir, "cfg.sbsv"), "r") as f:
+            cfg_parser.load(f)
+        idx = cfg_parser.get_group_index("fn")
+        start_loc = -1
+        end_loc = 0
+        for i in idx:
+            fn = cfg_parser.get_result_by_index("[fn-start]", i)
+            if fn[0]["name"] == target_function:
+                print_log(f"[info] [find function {target_function}]")
+                bbs = cfg_parser.get_result_by_index("[bb]", i)
+                for bb in bbs:
+                    start = bb["start"]
+                    end = start + bb["size"] - 1
+                    if end > end_loc:
+                        end_loc = end
+                    if start < start_loc or start_loc == -1:
+                        start_loc = start
+        # Read data from snapshot
+        dp = SymvassDataLogSbsvParser(dir, schema=["[stack-trace] [state: int] [reg?: str] [passed-crash-loc: bool]"])
+        stack_trace_str = dp.data["stack-trace"][0]["reg"]
+        stack_trace = stack_trace_str.split(",")
+        for stack in stack_trace:
+            tokens = stack.strip().split(":")
+            if len(tokens) == 4:
+                loc = int(tokens[3])
+                if crash_loc == 0:
+                    crash_loc = loc
+                else:
+                    if loc >= start_loc and loc <= end_loc:
+                        crash_loc = loc
+        print_log(f"crash_loc: {crash_loc}")
+        return crash_loc
 
     def append_cmd(self, cmd: List[str], patch_str: str, opts: List[str]):
         out_dir = self.conf_files.out_dir
@@ -154,6 +197,10 @@ class Config(uni_klee.Config):
             cmd.append(f"--max-forks-per-phases={self.max_fork}")
             cmd.append("--no-snapshot")
             return
+        if self.mode == "extractfix":
+            exit_loc = self.find_last_loc(self.conf_files.snapshot_dir, self.bug_info["target"])
+            cmd.append("--use-extractfix")
+            cmd.append(f"--crash-loc={exit_loc}")
         cmd.extend(default_opts)
         cmd.extend(opts)
         cmd.append(f"--output-dir={out_dir}")
@@ -213,14 +260,14 @@ class SymvassDataLogSbsvParser():
     parser: sbsv.parser
     data: Dict[str, List[dict]]
 
-    def __init__(self, dir: str, name: str = "data.log"):
+    def __init__(self, dir: str, name: str = "data.log", schema: List[str] = []):
         self.dir = dir
         self.parser = sbsv.parser()
-        self.set_schema(self.parser)
+        self.set_schema(self.parser, schema)
         with open(os.path.join(dir, name), "r") as f:
             self.data = self.parser.load(f)
 
-    def set_schema(self, parser: sbsv.parser):
+    def set_schema(self, parser: sbsv.parser, schema: List[str]):
         parser.add_schema("[meta-data] [state: int] [crashId: int] [patchId: int] [stateType: str] [isCrash: bool] [actuallyCrashed: bool] [use: bool] [exitLoc: str] [exit: str]")
         parser.add_schema("[fork] [state$from: int] [state$to: int]")
         parser.add_schema("[fork-map] [fork] [state$from: int] [type$from: str] [base: int] [base-type: str] [state$to: int] [type$to: str] [fork-count: str]")
@@ -238,8 +285,9 @@ class SymvassDataLogSbsvParser():
         parser.add_schema("[patch] [fork] [state$true: int] [state$false: int] [iter: int] [patches: str]")
         parser.add_schema("[regression] [state: int] [reg?: str]")
         parser.add_schema("[lazy-trace] [state: int] [reg?: str] [patches?: str] [patch-eval?: str]")
-        parser.add_schema("[stack-trace] [state: int] [reg?: str]")
-    
+        # parser.add_schema("[stack-trace] [state: int] [reg?: str]")
+        for s in schema:
+            parser.add_schema(s)
     def get_data(self) -> Dict[str, List[dict]]:
         return self.data
 
@@ -1216,7 +1264,6 @@ def arg_parser(argv: List[str]) -> Config:
     parser.add_argument("-p", "--outdir-prefix", help="Output directory prefix(\"out\" for out dir)", default="uni-m-out")
     parser.add_argument("-b", "--snapshot-base-patch", help="Patches for snapshot", default="buggy")
     parser.add_argument("-s", "--snapshot-prefix", help="Snapshot directory prefix", default="")
-    # parser.add_argument("-f", "--filter-prefix", help="Filter directory prefix", default="filter")
     parser.add_argument("-l", "--sym-level", help="Symbolization level", default="medium")
     parser.add_argument("-m", "--max-fork", help="Max fork", default="256,256,64")
     parser.add_argument("-t", "--timeout", help="Timeout", default="12h")
@@ -1224,10 +1271,11 @@ def arg_parser(argv: List[str]) -> Config:
     parser.add_argument("-r", "--rerun", help="Rerun last command with same option", action="store_true")
     parser.add_argument("-z", "--analyze", help="Analyze symvass data", action="store_true")
     parser.add_argument("-g", "--use-last", help="Use last output directory", action="store_true")
+    parser.add_argument("--mode", help="mode", choices=["symradar", "extractfix"], default="symradar")
     args = parser.parse_args(argv[1:])
     if args.snapshot_prefix == "":
         args.snapshot_prefix = f"snapshot-{args.outdir_prefix}"
-    conf = Config(args.cmd, args.query, args.debug, args.sym_level, args.max_fork)
+    conf = Config(args.cmd, args.query, args.debug, args.sym_level, args.max_fork, args.mode)
     if args.analyze:
         conf.conf_files.out_dir = args.query
         return conf
