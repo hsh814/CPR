@@ -173,7 +173,20 @@ def compile(dir: str):
   lazy_compile(dir, cmd, "libuni_klee_runtime_new.a", "libuni_klee_runtime_new.bca")
   cmd = "wllvm -fPIC -shared -o libcpr_runtime_new.so uni_klee_runtime_new.o"
   lazy_compile(dir, cmd, "uni_klee_runtime_new.o", "libcpr_runtime_new.so")
-
+  
+  if not os.path.exists(os.path.join(dir, "uni_klee_runtime_vulmaster.c")):
+    print(f"\nWARNING!!! {dir}/uni_klee_runtime_vulmaster.c does not exist\n", file=sys.stderr)
+    return
+  cmd = "wllvm -g -fPIC -O0 -c -o uni_klee_runtime_vulmaster.o uni_klee_runtime_vulmaster.c -I{KLEE_INCLUDE_PATH}"
+  lazy_compile(dir, cmd, "uni_klee_runtime_vulmaster.c", "uni_klee_runtime_vulmaster.o")
+  cmd = "llvm-ar rcs libuni_klee_runtime_vulmaster.a uni_klee_runtime_vulmaster.o"
+  lazy_compile(dir, cmd, "uni_klee_runtime_vulmaster.o", "libuni_klee_runtime_vulmaster.a")
+  cmd = "extract-bc libuni_klee_runtime_vulmaster.a"
+  lazy_compile(dir, cmd, "libuni_klee_runtime_vulmaster.a", "libuni_klee_runtime_vulmaster.bca")
+  cmd = "wllvm -fPIC -shared -o libcpr_runtime_vulmaster.so uni_klee_runtime_vulmaster.o"
+  lazy_compile(dir, cmd, "uni_klee_runtime_vulmaster.o", "libcpr_runtime_vulmaster.so")
+  
+  
 def move_files(meta_data: dict, experiments: str, patches: str):
   for meta in meta_data:
     bug_id = meta["bug_id"]
@@ -293,17 +306,16 @@ def main(args: List[str]):
       continue
     vars = meta["vars"]
     if opt == "meta":
-      patch_list = get_abstract_patches(f"{outdir}/patch-set-ranked")
+      patch_list = get_abstract_patches(f"{outdir}/patch-set-gen")
       meta_program = to_meta_program(patch_list, meta)
       # with open(f"{outdir}/meta-program-original.json", "w") as f:
       #   print(f"Writing to {outdir}/meta-program-original.json")
       #   json.dump(meta_program, f, indent=2)
       #   continue
       write_meta_program(meta_program, os.path.join(outdir, "concrete"))
-      with open(f"{outdir}/meta-program.json", "w") as f:
-        print(f"Writing to {outdir}/meta-program.json")
-        json.dump(meta_program, f, indent=2)
-      continue
+      # with open(f"{outdir}/meta-program.json", "w") as f:
+      #   print(f"Writing to {outdir}/meta-program.json")
+      #   json.dump(meta_program, f, indent=2)
 
 if __name__ == "__main__":
   main(sys.argv)
