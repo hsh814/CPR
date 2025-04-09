@@ -1,7 +1,7 @@
 #!/bin/bash
 rm -rf vulmaster-src
 rm -rf vulmaster-patched && mkdir vulmaster-patched
-git clone https://github.com/coreutils/coreutils.git src
+git clone https://github.com/coreutils/coreutils.git vulmaster-src
 pushd vulmaster-src
   git checkout 658529a
   git clone https://github.com/coreutils/gnulib.git
