@@ -505,7 +505,7 @@ def parse_val_results(val_out_dir: str):
 
 def analyze(subject: dict, val_out_dir: str, output: str):
     subject_dir = os.path.join(ROOT_DIR, "patches", subject["benchmark"], subject["subject"], subject["bug_id"])
-    group_patches_json = os.path.join(subject_dir, "group-patches.json")
+    group_patches_json = os.path.join(subject_dir, "group-patches-original.json")
     if not os.path.exists(group_patches_json):
         print_log(f"Group patches file {group_patches_json} not found")
         return
@@ -1020,8 +1020,8 @@ def code_to_formula(code_str, variable_type=INT):
 # --- group_patches function (should be compatible) ---
 # (Make sure it handles None return from code_to_formula gracefully)
 def group_patches(subject_dir: str):
-    meta_path = os.path.join(subject_dir, "meta-program.json")
-    equiv_path = os.path.join(subject_dir, "concrete", "group-patches.json")
+    meta_path = os.path.join(subject_dir, "meta-program-original.json")
+    equiv_path = os.path.join(subject_dir,  "group-patches-original.json")
     os.makedirs(os.path.dirname(equiv_path), exist_ok=True)
 
     try:
