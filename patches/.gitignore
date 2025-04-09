@@ -8,6 +8,7 @@ logs
 *_build/
 error-log
 concrete/
+!extractfix/**/**/concrete
 concrete-inputs/
 */*/*/src
 */*/*/build
