@@ -115,6 +115,10 @@ class RunSingleVulmaster():
     result = list()
     query = self.meta["bug_id"] + ":0" # ",".join([str(x) for x in patches])
     for vid in self.vids:
+      if extra == "snapshot":
+        cmd = f"symvass.py snapshot {query} --outdir-prefix={SYMVASS_PREFIX} --mode=vulmaster --vulmaster-id={vid}"
+        result.append(cmd)
+        continue
       cmd = f"symvass.py rerun {query} --outdir-prefix={SYMVASS_PREFIX} --mode=vulmaster --vulmaster-id={vid}"
       if extra == "k2-high":
         cmd += " --sym-level=high --additional='--symbolize-bound=2' --max-fork=1024,1024,1024"
