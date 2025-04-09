@@ -6,7 +6,9 @@ mkdir -p patched
 project_url=https://github.com/coreutils/coreutils.git
 commit_id=ca99c52
 patched_dir=src
-patched_file=pr.extractfix.c
+patched_file=pr.c
+mode_name="extractfix"
+patched_file_from=${patched_file%.c}.${mode_name}.c
 bin_dir=src
 bin_file=pr
 git clone $project_url src
@@ -16,7 +18,7 @@ pushd src
   # Build
   ./bootstrap
   # Patch
-  cp ../${patched_file} ${patched_dir}/${patched_file}
+  cp ../${patched_file_from} ${patched_dir}/${patched_file}
   rm -rf build
   mkdir build
   pushd build

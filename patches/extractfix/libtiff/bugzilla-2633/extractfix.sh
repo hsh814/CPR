@@ -6,14 +6,16 @@ mkdir -p patched
 project_url=https://github.com/vadz/libtiff.git
 commit_id=f3069a5
 patched_dir=tools
-patched_file=tiff2ps.extractfix.c
+patched_file=tiff2ps.c
+mode_name="extractfix"
+patched_file_from=${patched_file%.c}.${mode_name}.c
 bin_dir=tools
 bin_file=tiff2ps
 git clone $project_url src
 pushd src
   git checkout $commit_id
   # Patch
-  cp ../${patched_file} ${patched_dir}/${patched_file}
+  cp ../${patched_file_from} ${patched_dir}/${patched_file}
   # Remove longjmp calls
   sed -i '118d;221d' libtiff/tif_jpeg.c
   sed -i '153d;2463d' libtiff/tif_ojpeg.c
