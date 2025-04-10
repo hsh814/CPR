@@ -1149,7 +1149,7 @@ def group_patches(subject_dir: str):
     
 def main():
     parser = argparse.ArgumentParser(description="Symbolic Input Feasibility Analysis")
-    parser.add_argument("cmd", help="Command to run", choices=["fuzz", "fuzz-seeds", "check", "fuzz-build", "val-build", "build", "extractfix-build", "vulmaster-build", "collect-inputs", "group-patches", "val", "feas", "analyze"])
+    parser.add_argument("cmd", help="Command to run", choices=["fuzz", "fuzz-seeds", "check", "fuzz-build", "val-build", "build", "extractfix-build", "vulmaster-build", "vulmaster-extractfix-build", "collect-inputs", "group-patches", "val", "feas", "analyze"])
     parser.add_argument("subject", help="Subject to run", default="")
     parser.add_argument("-i", "--input", help="Input file", default="")
     parser.add_argument("-o", "--output", help="Output file", default="")
@@ -1198,6 +1198,8 @@ def main():
         subprocess.run(f"./extractfix.sh", cwd=subject_dir, shell=True)
     elif args.cmd == "vulmaster-build":
         subprocess.run(f"./init-vulmaster.sh", cwd=subject_dir, shell=True)
+    elif args.cmd == "vulmaster-extractfix-build":
+        subprocess.run(f"./extractfix-vulmaster.sh", cwd=subject_dir, shell=True)
     elif args.cmd == "collect-inputs":
         out_no = find_num(os.path.join(subject_dir, "runtime"), "aflrun-out")
         collect_val_runtime(subject_dir, os.path.join(subject_dir, "runtime", f"aflrun-out-{out_no - 1}"))

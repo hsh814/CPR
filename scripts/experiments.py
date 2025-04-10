@@ -25,6 +25,7 @@ OUTPUT_DIR = "out"
 PREFIX = ""
 SYMVASS_PREFIX = "uni-m-out"
 MODE = "symradar"
+VULMASTER_MODE = False
 
 def log_out(msg: str):
   print(msg, file=sys.stderr)
@@ -100,13 +101,13 @@ class RunSingleVulmaster():
       self.vids.append(int(vid))
 
   def get_clean_cmd(self) -> List[str]:
-    return [f"symvass.py clean {self.meta['bug_id']} --mode=vulmaster --vulmaster-id={vid}" for vid in self.vids]
+    return [f"symvass.py clean {self.meta['bug_id']} --vulmaster-id={vid}" for vid in self.vids]
   def get_filter_cmd(self) -> List[str]:
-    return [f"symvass.py filter {self.meta['bug_id']} --mode=vulmaster --vulmaster-id={vid}" for vid in self.vids]
+    return [f"symvass.py filter {self.meta['bug_id']} --vulmaster-id={vid}" for vid in self.vids]
   def get_analyze_cmd(self, extra: str = "") -> List[str]:
     if extra != "":
-      return [f"symvass.py {extra} {self.meta['bug_id']} --use-last -p {SYMVASS_PREFIX} --mode=vulmaster --vulmaster-id={vid}" for vid in self.vids]
-    return [f"symvass.py analyze {self.meta['bug_id']} --use-last -p {SYMVASS_PREFIX} --mode=vulmaster --vulmaster-id={vid}" for vid in self.vids]
+      return [f"symvass.py {extra} {self.meta['bug_id']} --use-last -p {SYMVASS_PREFIX} --vulmaster-id={vid}" for vid in self.vids]
+    return [f"symvass.py analyze {self.meta['bug_id']} --use-last -p {SYMVASS_PREFIX} --vulmaster-id={vid}" for vid in self.vids]
   
   def get_exp_cmd(self, opt: str, extra: str) -> List[str]:
     if "correct" not in self.meta:
@@ -155,7 +156,7 @@ class RunSingleVulmaster():
     return result
 
   def get_feas_cmd(self, extra: str) -> List[str]:
-    if extra in ["fuzz", "build", "val-build", "fuzz-build", "extractfix-build", "vulmaster-build", "fuzz-seeds", "collect-inputs", "group-patches", "val", "feas", "analyze", "check"]:
+    if extra in ["fuzz", "build", "val-build", "fuzz-build", "extractfix-build", "vulmaster-build", "vulmaster-extractfix-build", "fuzz-seeds", "collect-inputs", "group-patches", "val", "feas", "analyze", "check"]:
       return [f"symfeas.py {extra} {self.meta['bug_id']} -s {SYMVASS_PREFIX}"]
     log_out(f"Unknown extra: {extra}")
     exit(1)
@@ -625,7 +626,7 @@ def run_cmd(opt: str, meta_data: List[dict], extra: str, additional: str):
   for meta in meta_data:
     if not check_correct_exists(meta):
       continue
-    if MODE == "vulmaster":
+    if VULMASTER_MODE:
       rsv = RunSingleVulmaster((meta["id"]))
       cmds = rsv.get_cmd(opt, extra)
       for cmd in cmds:
@@ -672,10 +673,13 @@ def main(argv: List[str]):
   parser.add_argument("-p", "--prefix", type=str, help="Output prefix", default="", required=False)
   parser.add_argument("-s", "--symvass-prefix", type=str, help="Symvass prefix", default="", required=False)
   parser.add_argument("-a", "--additional", type=str, help="Additional arguments", default="", required=False)
-  parser.add_argument("-m", "--mode", type=str, help="Mode", choices=["symradar", "extractfix", "vulmaster"], default="symradar")
+  parser.add_argument("-m", "--mode", type=str, help="Mode", choices=["symradar", "extractfix"], default="symradar")
+  parser.add_argument("-v", "--vulmaster", action="store_true", help="Run vulmaster", default=False)
   parser.add_argument("--seq", action="store_true", help="Run sequentially", default=False)
   args = parser.parse_args(argv)
-  global OUTPUT_DIR, PREFIX, SYMVASS_PREFIX, MODE
+  global OUTPUT_DIR, PREFIX, SYMVASS_PREFIX, MODE, VULMASTER_MODE
+  VULMASTER_MODE = args.vulmaster
+  MODE = args.mode
   OUTPUT_DIR = os.path.join(ROOT_DIR, "out")
   if not os.path.exists(OUTPUT_DIR):
     os.makedirs(OUTPUT_DIR, exist_ok=True)
@@ -692,7 +696,6 @@ def main(argv: List[str]):
     SYMVASS_PREFIX = "uc"
   if args.symvass_prefix != "":
     SYMVASS_PREFIX = args.symvass_prefix
-  MODE = args.mode
   meta_data = uni_klee.global_config.get_meta_data_list()
   if args.cmd == "final":
     final_analysis(meta_data, args.output)

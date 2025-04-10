@@ -18,8 +18,9 @@ import uni_klee
 import sympatch
 import psutil
 
-MODE = "symradar"
+VULMASTER_MODE = False
 VULMASTER_ID = 0
+EXTRACTFIX_MODE = False
 
 def print_log(msg: str):
     print(msg, file=sys.stderr)
@@ -88,7 +89,7 @@ class ConfigFiles(uni_klee.ConfigFiles):
         self.project_dir = os.path.join(
             patches_dir, self.benchmark, self.subject, self.bid
         )
-        if MODE == "vulmaster":
+        if VULMASTER_MODE:
             self.work_dir = os.path.join(self.project_dir, "vulmaster-patched")
             self.meta_patch_obj_file = os.path.join(
                 self.project_dir, "concrete", "libuni_klee_runtime_vulmaster.bca"
@@ -120,7 +121,7 @@ class ConfigFiles(uni_klee.ConfigFiles):
         else:
             self.out_dir = os.path.join(self.out_base_dir, f"{out_dir_prefix}-{no}")
         self.snapshot_dir = os.path.join(self.out_base_dir, self.snapshot_prefix)
-        if MODE == "vulmaster":
+        if VULMASTER_MODE:
             self.filter_dir = os.path.join(self.out_base_dir, f"{filter_prefix}_{VULMASTER_ID}")
         else:
             self.filter_dir = os.path.join(self.out_base_dir, filter_prefix)
@@ -209,7 +210,7 @@ class Config(uni_klee.Config):
             cmd.append(f"--max-forks-per-phases={self.max_fork}")
             cmd.append("--no-snapshot")
             return
-        if self.mode == "extractfix":
+        if EXTRACTFIX_MODE:
             exit_loc = self.find_last_loc(self.conf_files.snapshot_dir, self.bug_info["target"])
             cmd.append("--use-extractfix")
             cmd.append(f"--crash-loc={exit_loc}")
@@ -251,7 +252,7 @@ class Config(uni_klee.Config):
             add_opts.append("--start-from-snapshot")
             self.append_cmd(result, ",".join(self.patch_ids), add_opts)
         bin_file = os.path.basename(self.project_conf["binary_path"])
-        if MODE == "vulmaster":
+        if VULMASTER_MODE:
             target = f"{bin_file}-{VULMASTER_ID}.bc"
         else:
             target = bin_file + ".bc"
@@ -386,7 +387,7 @@ class DataAnalyzer():
             meta_data[state]["patches"] = patches
             meta_data[state]["reg"] = reg
             meta_data[state]["patch-eval"] = self.to_map(patch_eval)
-        if MODE == "extractfix":
+        if EXTRACTFIX_MODE:
             for stack in self.data["stack-trace"]:
                 state = stack["state"]
                 if state not in meta_data:
@@ -979,7 +980,7 @@ class SymvassAnalyzer:
         if correct_patch in patch_eq_map:
             correct_patch = patch_eq_map[correct_patch]
         
-        if MODE == "vulmaster":
+        if VULMASTER_MODE:
             all_patches = set(filtered["remaining"])
             correct_patch = 1 # This is mostly wrong, but we need any correct patch
         # Get exit location in filter
@@ -987,7 +988,7 @@ class SymvassAnalyzer:
         exit_loc = filter_metadata["exitLoc"]
         exit_res = filter_metadata["exit"]
         # Analyze
-        if MODE == "extractfix":
+        if EXTRACTFIX_MODE:
             dp = SymvassDataLogSbsvParser(self.dir, schema=["[stack-trace] [state: int] [reg?: str] [passed-crash-loc: bool]"])
         else:
             dp = SymvassDataLogSbsvParser(self.dir)
@@ -1004,7 +1005,7 @@ class SymvassAnalyzer:
             base_reg = base_meta["reg"]
             is_crash = base_meta["isCrash"]
             if not is_crash:
-                if MODE == "extractfix":
+                if EXTRACTFIX_MODE:
                     if not base_meta["stack-trace"]["passed-crash-loc"]:
                         continue
                 result.append((crash_id, base_meta["state"], base_meta["state"], base))
@@ -1292,13 +1293,15 @@ def arg_parser(argv: List[str]) -> Config:
     parser.add_argument("-r", "--rerun", help="Rerun last command with same option", action="store_true")
     parser.add_argument("-z", "--analyze", help="Analyze symvass data", action="store_true")
     parser.add_argument("-g", "--use-last", help="Use last output directory", action="store_true")
-    parser.add_argument("--mode", help="mode", choices=["symradar", "extractfix", "vulmaster"], default="symradar")
+    parser.add_argument("--mode", help="mode", choices=["symradar", "extractfix"], default="symradar")
     parser.add_argument("--vulmaster-id", help="Vulmaster id", type=int, default=0)
     args = parser.parse_args(argv[1:])
-    global MODE, VULMASTER_ID
-    VULMASTER_ID = args.vulmaster_id
-    MODE = args.mode
-    if MODE == "vulmaster":
+    global VULMASTER_MODE, VULMASTER_ID, EXTRACTFIX_MODE
+    if args.mode == "extractfix":
+        EXTRACTFIX_MODE = True
+    if args.vulmaster_id > 0:
+        VULMASTER_MODE = True
+        VULMASTER_ID = args.vulmaster_id
         args.outdir_prefix = f"{args.outdir_prefix}_{VULMASTER_ID}"
     if args.snapshot_prefix == "":
         args.snapshot_prefix = f"snapshot-{args.outdir_prefix}"
