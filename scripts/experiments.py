@@ -628,7 +628,7 @@ def final_analysis(meta_data: List[dict], output: str):
   for meta in meta_data:
     if not check_correct_exists(meta):
       continue
-    if MODE == "vulmaster":
+    if VULMASTER_MODE:
       symvass_final_result_vulmaster_v3(meta, result_f)
     else:
       symvass_final_result_v3(meta, result_f)
