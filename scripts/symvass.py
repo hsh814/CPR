@@ -301,7 +301,7 @@ class SymvassDataLogSbsvParser():
         parser.add_schema("[patch] [fork] [state$true: int] [state$false: int] [iter: int] [patches: str]")
         parser.add_schema("[regression] [state: int] [reg?: str]")
         parser.add_schema("[lazy-trace] [state: int] [reg?: str] [patches?: str] [patch-eval?: str]")
-        # parser.add_schema("[stack-trace] [state: int] [reg?: str]")
+        parser.add_schema("[stack-trace] [state: int] [reg?: str] [passed-crash-loc: bool]")
         for s in schema:
             parser.add_schema(s)
     def get_data(self) -> Dict[str, List[dict]]:
@@ -988,10 +988,7 @@ class SymvassAnalyzer:
         exit_loc = filter_metadata["exitLoc"]
         exit_res = filter_metadata["exit"]
         # Analyze
-        if EXTRACTFIX_MODE:
-            dp = SymvassDataLogSbsvParser(self.dir, schema=["[stack-trace] [state: int] [reg?: str] [passed-crash-loc: bool]"])
-        else:
-            dp = SymvassDataLogSbsvParser(self.dir)
+        dp = SymvassDataLogSbsvParser(self.dir)
         analyzer = DataAnalyzer(dp)
         analyzer.analyze()
         cluster = self.cluster(analyzer)
