@@ -964,17 +964,8 @@ class SymvassAnalyzer:
                 patch_eq_map[patch] = patch
         all_patches = set()
         for patch in filtered["remaining"]:
-            if patch == correct_patch:
-                if use_manually_added_correct_patch:
-                    all_patches.add(patch)
-                else:
-                    correct_patch = patch_group_tmp[patch]
-            else:
-                all_patches.add(patch)
-        all_patches_eq = set()
-        for patch in filtered["remaining"]:
             if patch == patch_eq_map[patch]:
-                all_patches_eq.add(patch)
+                all_patches.add(patch)
         # Get exit location in filter
         filter_metadata = dp_filter.parser.get_result()["meta-data"][0]
         exit_loc = filter_metadata["exitLoc"]
