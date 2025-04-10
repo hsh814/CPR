@@ -210,6 +210,7 @@ main (int argc, char **argv)
 
       for (j = (p*p - 3)/2; j < size; j+= p)
         sieve[j] = 0;
+        extractfix_make_symbolic(&(sieve[j]), sizeof(sieve[j]), "sieve[j]");
       if (__cpr_choice("L290", "bool", (long long[]){sieve[j]}, (char*[]){"x"}, 1, (int*[]){}, (char*[]){}, 0)) break;
 
       while(i < size && sieve[++i] == 0)
