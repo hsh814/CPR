@@ -988,8 +988,6 @@ bytes_chunk_extract (uintmax_t k, uintmax_t n, char *buf, size_t bufsize,
   
   if(initial_read != SIZE_MAX || start < initial_read)
     {
-      extractfix_make_symbolic(&start, sizeof(start), "start");
-      extractfix_make_symbolic(&initial_read, sizeof(initial_read), "initial_read");
       if (__cpr_choice("L290", "bool", (long long[]){start, initial_read}, (char*[]){"start","initial_read"}, 2, (int*[]){}, (char*[]){}, 0))
         initial_read = 0;
       memmove (buf, buf + start, initial_read - start);
