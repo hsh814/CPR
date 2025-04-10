@@ -818,6 +818,7 @@ OJPEGDecodeRaw(TIFF* tif, uint8* buf, tmsize_t cc)
 	uint8* r;
 	uint8 sx,sy;
 	// uni_klee_make_symbolic(&sp->bytes_per_line, sizeof(sp->bytes_per_line), "sp->bytes_per_line");
+	extractfix_make_symbolic(&cc, sizeof(cc), "cc");
 if(__cpr_choice("L816", "bool", (long long[]){cc}, (char*[]){"x"}, 1, (int*[]){}, (char*[]){}, 0)) return 0;
 	if (cc%sp->bytes_per_line!=0)
 	{
