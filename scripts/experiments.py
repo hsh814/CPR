@@ -407,7 +407,26 @@ def symvass_final_result(meta: dict, result_f: TextIO):
     data = json.load(f)
     filter_result = set(data["remaining"])
   
-  correct_patch = meta_data[0]["correct"]
+  with open(os.path.join(subject_dir, "group-patches-original.json"), "r") as f:
+    group_patches = json.load(f)
+  patch_group_tmp = dict()
+  correct_patch = group_patches["correct_patch_id"]
+  for patches in group_patches["equivalences"]:
+    representative = patches[0]
+    for patch in patches:
+      patch_group_tmp[patch] = representative
+  patch_eq_map = dict()
+  for patch in filter_result:
+    if patch in patch_group_tmp:
+      patch_eq_map[patch] = patch_group_tmp[patch]
+    else:
+      patch_eq_map[patch] = patch
+  all_patches = set()
+  for patch in filter_result:
+    if patch == patch_eq_map[patch]:
+      all_patches.add(patch)
+  correct_patch = patch_eq_map[correct_patch]
+  
   sym_inputs = len(result["sym-in"])
   default_patches = str_to_list(result["sym-out"]["default"][0]["patches"])
   
@@ -498,12 +517,41 @@ def symvass_final_result_v3(meta: dict, result_f: TextIO):
     result_f.write("\t\t\t\t\t\t\t\t\t\n")
     return
   
+  filter_result_file = os.path.join(subject_dir, "patched", "filter", "filtered.json")
+  filter_result = set(range(1, all_patches))
+  if not os.path.exists(filter_result_file):
+    log_out(f"File not found: {filter_result_file}")
+  with open(filter_result_file, "r") as f:
+    data = json.load(f)
+    filter_result = set(data["remaining"])
+  
+  with open(os.path.join(subject_dir, "group-patches-original.json"), "r") as f:
+    group_patches = json.load(f)
+  patch_group_tmp = dict()
+  correct_patch = group_patches["correct_patch_id"]
+  for patches in group_patches["equivalences"]:
+    representative = patches[0]
+    for patch in patches:
+      patch_group_tmp[patch] = representative
+  patch_eq_map = dict()
+  for patch in filter_result:
+    if patch in patch_group_tmp:
+      patch_eq_map[patch] = patch_group_tmp[patch]
+    else:
+      patch_eq_map[patch] = patch
+  all_patches = set()
+  for patch in filter_result:
+    if patch == patch_eq_map[patch]:
+      all_patches.add(patch)
+  if correct_patch in patch_eq_map:
+    correct_patch = patch_eq_map[correct_patch]
+  
   meta_data_default = result["meta-data"]["default"]
   meta_data_default_remove_crash = result["meta-data"]["remove-crash"]
   meta_data_strict = result["meta-data"]["strict"]
   meta_data_strict_remove_crash = result["meta-data"]["strict-remove-crash"]
   all_patches = meta_data_default[0]["all-patches"]
-  correct_patch = meta_data_default[0]["correct"]
+
   default_str = symvass_res_to_str(meta_data_default[0])
   default_remove_crash_str = symvass_res_to_str(meta_data_default_remove_crash[0])
   strict_str = symvass_res_to_str(meta_data_strict[0])

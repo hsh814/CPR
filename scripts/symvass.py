@@ -959,13 +959,9 @@ class SymvassAnalyzer:
             group_patches = json.load(f)
         patch_group_tmp = dict()
         correct_patch = group_patches["correct_patch_id"]
-        use_manually_added_correct_patch = True
         for patches in group_patches["equivalences"]:
             representative = patches[0]
             for patch in patches:
-                if patch == correct_patch:
-                    if correct_patch != representative:
-                        use_manually_added_correct_patch = False
                 patch_group_tmp[patch] = representative
         patch_eq_map = dict()
         for patch in filtered["remaining"]:
@@ -977,6 +973,8 @@ class SymvassAnalyzer:
         for patch in filtered["remaining"]:
             if patch == patch_eq_map[patch]:
                 all_patches.add(patch)
+        if correct_patch in patch_eq_map:
+            correct_patch = patch_eq_map[correct_patch]
         # Get exit location in filter
         filter_metadata = dp_filter.parser.get_result()["meta-data"][0]
         exit_loc = filter_metadata["exitLoc"]
