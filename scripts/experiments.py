@@ -98,6 +98,7 @@ class RunSingleVulmaster():
       if not vid.isdigit():
         continue
       self.vids.append(int(vid))
+    self.vids = sorted(self.vids)
 
   def get_clean_cmd(self) -> List[str]:
     return [f"symvass.py clean {self.meta['bug_id']} --mode=vulmaster --vulmaster-id={vid}" for vid in self.vids]
@@ -504,6 +505,54 @@ def symvass_res_to_str(res: dict) -> str:
   patches = str_to_list(res["patches"])
   return f"{res['sym-input']}\t{len(patches)}\t{res['is-correct']}"
 
+def symvass_final_result_vulmaster_v3(meta: dict, result_f: TextIO):
+  subject = meta["subject"]
+  bug_id = meta["bug_id"]
+  incomplete = meta["correct"]["incomplete"]
+  subject_dir = os.path.join(ROOT_DIR, "patches", meta["benchmark"], subject, bug_id)
+  patched_dir = os.path.join(subject_dir, "vulmaster-patched")
+  rsv = RunSingleVulmaster(meta["id"])
+  for vid in rsv.vids:
+    prefix = f"{SYMVASS_PREFIX}_{vid}"
+    out_dir_no = find_num(patched_dir, prefix) - 1
+    out_file = os.path.join(patched_dir, f"{prefix}-{out_dir_no}", "table_v3.sbsv")
+    if not os.path.exists(out_file):
+      log_out(f"File not found: {out_file}")
+      result_f.write("\t\t\t\t\t\t\t\t\t\n")
+      return
+    parser = parse_result_v3(out_file)
+    result = parser.get_result()
+    if result is None:
+      log_out(f"Failed to parse: {out_file}")
+      result_f.write("\t\t\t\t\t\t\t\t\t\n")
+      return
+    
+    filter_result_file = os.path.join(patched_dir, f"filter_{vid}", "filtered.json")
+    filter_result = set()
+    if not os.path.exists(filter_result_file):
+      log_out(f"File not found: {filter_result_file}")
+    with open(filter_result_file, "r") as f:
+      data = json.load(f)
+      filter_result = set(data["remaining"])
+    correct_patch = 1 # This is not actually correct - check
+    all_patches = set(filter_result)
+    
+    meta_data_default = result["meta-data"]["default"]
+    meta_data_default_remove_crash = result["meta-data"]["remove-crash"]
+    meta_data_strict = result["meta-data"]["strict"]
+    meta_data_strict_remove_crash = result["meta-data"]["strict-remove-crash"]
+    all_patches = meta_data_default[0]["all-patches"]
+
+    default_str = symvass_res_to_str(meta_data_default[0])
+    default_remove_crash_str = symvass_res_to_str(meta_data_default_remove_crash[0])
+    strict_str = symvass_res_to_str(meta_data_strict[0])
+    strict_remove_crash_str = symvass_res_to_str(meta_data_strict_remove_crash[0])
+    
+    stat = result["stat"]["states"][0]
+    
+    result_f.write(f"{subject}\t{bug_id}_{vid}\t{correct_patch}\t{all_patches}\t{incomplete}\t{default_str}\t{strict_str}\t{default_remove_crash_str}\t{strict_remove_crash_str}\t{stat['original']}\t{stat['independent']}\n")
+    
+
 def symvass_final_result_v3(meta: dict, result_f: TextIO):
   subject = meta["subject"]
   bug_id = meta["bug_id"]
@@ -578,7 +627,10 @@ def final_analysis(meta_data: List[dict], output: str):
   for meta in meta_data:
     if not check_correct_exists(meta):
       continue
-    symvass_final_result_v3(meta, result_f)
+    if MODE == "vulmaster":
+      symvass_final_result_vulmaster_v3(meta, result_f)
+    else:
+      symvass_final_result_v3(meta, result_f)
     # print(f"{meta['subject']}\t{meta['bug_id']}")
     # sub_dir = os.path.join(ROOT_DIR, "patches", meta["benchmark"], meta["subject"], meta['bug_id'], "patched")
     # no = find_num(sub_dir, SYMVASS_PREFIX) - 1
