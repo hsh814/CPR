@@ -100,6 +100,8 @@ class RunSingleVulmaster():
         continue
       self.vids.append(int(vid))
     self.vids = sorted(self.vids)
+    if self.meta["bug_id"] == "CVE-2017-15025":
+      self.vids = [] # Skip this
 
   def get_clean_cmd(self) -> List[str]:
     return [f"symvass.py clean {self.meta['bug_id']} --vulmaster-id={vid}" for vid in self.vids]
