@@ -118,13 +118,13 @@ class RunSingleVulmaster():
     query = self.meta["bug_id"] + ":0" # ",".join([str(x) for x in patches])
     for vid in self.vids:
       if extra == "snapshot":
-        cmd = f"symvass.py snapshot {query} --outdir-prefix={SYMVASS_PREFIX} --mode=vulmaster --vulmaster-id={vid}"
+        cmd = f"symvass.py snapshot {query} --outdir-prefix={SYMVASS_PREFIX} --mode={MODE} --vulmaster-id={vid}"
         result.append(cmd)
         continue
       symvass_cmd = "rerun"
       if opt == "run":
         symvass_cmd = "run"
-      cmd = f"symvass.py {symvass_cmd} {query} --outdir-prefix={SYMVASS_PREFIX} --mode=vulmaster --vulmaster-id={vid}"
+      cmd = f"symvass.py {symvass_cmd} {query} --outdir-prefix={SYMVASS_PREFIX} --mode={MODE} --vulmaster-id={vid}"
       if extra == "k2-high":
         cmd += " --sym-level=high --additional='--symbolize-bound=2' --max-fork=1024,1024,1024"
       if extra == "high":
@@ -152,7 +152,7 @@ class RunSingleVulmaster():
       return None
     result = list()
     for vid in self.vids:
-      cmd = f"symvass.py uc {self.meta['bug_id']}:0 --lock=f --outdir-prefix={SYMVASS_PREFIX} --snapshot-prefix=snapshot-{SYMVASS_PREFIX} --mode=vulmaster --vulmaster-id={vid}"
+      cmd = f"symvass.py uc {self.meta['bug_id']}:0 --lock=f --outdir-prefix={SYMVASS_PREFIX} --snapshot-prefix=snapshot-{SYMVASS_PREFIX} --mode={MODE} --vulmaster-id={vid}"
       result.append(cmd)
     return result
 
