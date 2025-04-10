@@ -151,6 +151,8 @@ class Config(uni_klee.Config):
             snapshot_dir = self.conf_files.filter_dir
             all_patches = [str(patch["id"]) for patch in self.meta_program["patches"]]
             patch_str = ",".join(all_patches)
+            if VULMASTER_MODE:
+                cmd.append(f"--patch-filtering")
         cmd.append(f"--output-dir={snapshot_dir}")
         cmd.append(f"--patch-id={patch_str}")
     
@@ -301,7 +303,7 @@ class SymvassDataLogSbsvParser():
         parser.add_schema("[patch] [fork] [state$true: int] [state$false: int] [iter: int] [patches: str]")
         parser.add_schema("[regression] [state: int] [reg?: str]")
         parser.add_schema("[lazy-trace] [state: int] [reg?: str] [patches?: str] [patch-eval?: str]")
-        # parser.add_schema("[stack-trace] [state: int] [reg?: str]")
+        parser.add_schema("[stack-trace] [state: int] [reg?: str] [passed-crash-loc: bool]")
         for s in schema:
             parser.add_schema(s)
     def get_data(self) -> Dict[str, List[dict]]:
@@ -387,12 +389,12 @@ class DataAnalyzer():
             meta_data[state]["patches"] = patches
             meta_data[state]["reg"] = reg
             meta_data[state]["patch-eval"] = self.to_map(patch_eval)
-        if EXTRACTFIX_MODE:
-            for stack in self.data["stack-trace"]:
-                state = stack["state"]
-                if state not in meta_data:
-                    continue
-                meta_data[state]["stack-trace"] = stack
+        
+        for stack in self.data["stack-trace"]:
+            state = stack["state"]
+            if state not in meta_data:
+                continue
+            meta_data[state]["stack-trace"] = stack
 
         for fp in self.data["fork-map"]["fork-parent"]:
             state = fp["state"]
@@ -988,10 +990,7 @@ class SymvassAnalyzer:
         exit_loc = filter_metadata["exitLoc"]
         exit_res = filter_metadata["exit"]
         # Analyze
-        if EXTRACTFIX_MODE:
-            dp = SymvassDataLogSbsvParser(self.dir, schema=["[stack-trace] [state: int] [reg?: str] [passed-crash-loc: bool]"])
-        else:
-            dp = SymvassDataLogSbsvParser(self.dir)
+        dp = SymvassDataLogSbsvParser(self.dir)
         analyzer = DataAnalyzer(dp)
         analyzer.analyze()
         cluster = self.cluster(analyzer)
@@ -1254,6 +1253,31 @@ class SymvassAnalyzer:
     
     def analyze_filtered(self):
         dp = SymvassDataLogSbsvParser(self.dir)
+        if VULMASTER_MODE:
+            analyzer = DataAnalyzer(dp)
+            analyzer.analyze()
+            exit_res_set = {"ret", "exit", "assert.err", "abort.err",
+                            "bad_vector_access.err", "free.err", "overflow.err",
+                            "overshift.err", "ptr.err", "div.err", "readonly.err",
+                             "extractfix"}
+            removed = set()
+            all_patches = set()
+            for state in analyzer.meta_data:
+                state_info = analyzer.meta_data[state]
+                patches = state_info["patches"]
+                exit_res = state_info["exit"]
+                for patch in patches:
+                    all_patches.add(patch)
+                if exit_res in exit_res_set:
+                    if exit_res.endswith(".err"):
+                        for patch in patches:
+                            removed.add(patch)
+            result = dict()
+            result["remaining"] = sorted(list(all_patches - removed))
+            with open(os.path.join(self.dir, "filtered.json"), "w") as f:
+                json.dump(result, f, indent=2)
+                return
+        
         patch_trace = dp.parser.get_result()["patch-base"]["trace"]
         remaining_patches = list()
         if len(patch_trace) > 0:
