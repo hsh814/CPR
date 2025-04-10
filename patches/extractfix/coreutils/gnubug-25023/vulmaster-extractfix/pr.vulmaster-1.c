@@ -1224,6 +1224,7 @@ init_parameters (int number_of_files)
   /* Tabification is assumed for multiple columns. */
   if (columns > 1)
     {
+      extractfix_make_symbolic(&join_lines, sizeof(join_lines), "join_lines");
       if (!use_col_separator)
         {
           /* Use default separator */
@@ -1237,7 +1238,6 @@ init_parameters (int number_of_files)
         }
       /* It's rather pointless to define a TAB separator with column
          alignment */
-         extractfix_make_symbolic(&join_lines, sizeof(join_lines), "join_lines");
       else if (__cpr_choice("L290", "bool", (long long[]){join_lines}, (char*[]){"join_lines"}, 1, (int*[]){}, (char*[]){}, 0) && *col_sep_string == '\t'){
         col_sep_string = column_separator;
       }
