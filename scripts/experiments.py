@@ -108,7 +108,7 @@ class RunSingleVulmaster():
       return [f"symvass.py {extra} {self.meta['bug_id']} --use-last -p {SYMVASS_PREFIX} --mode=vulmaster --vulmaster-id={vid}" for vid in self.vids]
     return [f"symvass.py analyze {self.meta['bug_id']} --use-last -p {SYMVASS_PREFIX} --mode=vulmaster --vulmaster-id={vid}" for vid in self.vids]
   
-  def get_exp_cmd(self, extra: str) -> List[str]:
+  def get_exp_cmd(self, opt: str, extra: str) -> List[str]:
     if "correct" not in self.meta:
       log_out("No correct patch")
       return None
@@ -119,7 +119,10 @@ class RunSingleVulmaster():
         cmd = f"symvass.py snapshot {query} --outdir-prefix={SYMVASS_PREFIX} --mode=vulmaster --vulmaster-id={vid}"
         result.append(cmd)
         continue
-      cmd = f"symvass.py rerun {query} --outdir-prefix={SYMVASS_PREFIX} --mode=vulmaster --vulmaster-id={vid}"
+      symvass_cmd = "rerun"
+      if opt == "run":
+        symvass_cmd = "run"
+      cmd = f"symvass.py {symvass_cmd} {query} --outdir-prefix={SYMVASS_PREFIX} --mode=vulmaster --vulmaster-id={vid}"
       if extra == "k2-high":
         cmd += " --sym-level=high --additional='--symbolize-bound=2' --max-fork=1024,1024,1024"
       if extra == "high":
@@ -168,8 +171,8 @@ class RunSingleVulmaster():
       return self.get_filter_cmd()
     if opt == "clean":
       return self.get_clean_cmd()
-    if opt == "exp":
-      return self.get_exp_cmd(extra)
+    if opt == "exp" or opt == "run":
+      return self.get_exp_cmd(opt, extra)
     if opt == "uc":
       return self.get_uc_cmd(extra)
     if opt == "analyze":
@@ -196,7 +199,7 @@ class RunSingle():
     if extra != "":
       return f"symvass.py {extra} {self.meta['bug_id']} --use-last -p {SYMVASS_PREFIX}"
     return f"symvass.py analyze {self.meta['bug_id']} --use-last -p {SYMVASS_PREFIX}"
-  def get_exp_cmd(self, extra: str = "") -> str:
+  def get_exp_cmd(self, opt: str, extra: str = "") -> str:
     if "correct" not in self.meta:
       log_out("No correct patch")
       return None
@@ -209,21 +212,24 @@ class RunSingle():
       log_out("No correct patch")
       return None
     correct = self.meta["correct"]["no"]
-    patches = list()
-    cnt = 0
-    limit = 100
-    for patch in self.meta_program["patches"]:
-      patches.append(patch["id"])
-      cnt += 1
-      if cnt >= limit:
-        if correct not in patches:
-          patches.append(correct)
-          patches.append(correct + 1)
-          patches.append(correct - 1)
-        break
-    log_out(patches)
+    # patches = list()
+    # cnt = 0
+    # limit = 100
+    # for patch in self.meta_program["patches"]:
+    #   patches.append(patch["id"])
+    #   cnt += 1
+    #   if cnt >= limit:
+    #     if correct not in patches:
+    #       patches.append(correct)
+    #       patches.append(correct + 1)
+    #       patches.append(correct - 1)
+    #     break
+    # log_out(patches)
     query = self.meta["bug_id"] + ":0" # ",".join([str(x) for x in patches])
-    cmd = f"symvass.py rerun {query} --lock=f --outdir-prefix={SYMVASS_PREFIX} --mode={MODE}"
+    symvass_cmd = "rerun"
+    if opt == "run":
+      symvass_cmd = "run"
+    cmd = f"symvass.py {symvass_cmd} {query} --lock=f --outdir-prefix={SYMVASS_PREFIX} --mode={MODE}"
     if extra == "k2-high":
       cmd += " --sym-level=high --additional='--symbolize-bound=2' --max-fork=1024,1024,1024"
     if extra == "high":
@@ -270,8 +276,8 @@ class RunSingle():
       return self.get_filter_cmd()
     if opt == "clean":
       return self.get_clean_cmd()
-    if opt == "exp":
-      return self.get_exp_cmd(extra)
+    if opt == "exp" or opt == "run":
+      return self.get_exp_cmd(opt, extra)
     if opt == "uc":
       return self.get_uc_cmd(extra)
     if opt == "analyze":
@@ -407,7 +413,26 @@ def symvass_final_result(meta: dict, result_f: TextIO):
     data = json.load(f)
     filter_result = set(data["remaining"])
   
-  correct_patch = meta_data[0]["correct"]
+  with open(os.path.join(subject_dir, "group-patches-original.json"), "r") as f:
+    group_patches = json.load(f)
+  patch_group_tmp = dict()
+  correct_patch = group_patches["correct_patch_id"]
+  for patches in group_patches["equivalences"]:
+    representative = patches[0]
+    for patch in patches:
+      patch_group_tmp[patch] = representative
+  patch_eq_map = dict()
+  for patch in filter_result:
+    if patch in patch_group_tmp:
+      patch_eq_map[patch] = patch_group_tmp[patch]
+    else:
+      patch_eq_map[patch] = patch
+  all_patches = set()
+  for patch in filter_result:
+    if patch == patch_eq_map[patch]:
+      all_patches.add(patch)
+  correct_patch = patch_eq_map[correct_patch]
+  
   sym_inputs = len(result["sym-in"])
   default_patches = str_to_list(result["sym-out"]["default"][0]["patches"])
   
@@ -498,12 +523,41 @@ def symvass_final_result_v3(meta: dict, result_f: TextIO):
     result_f.write("\t\t\t\t\t\t\t\t\t\n")
     return
   
+  filter_result_file = os.path.join(subject_dir, "patched", "filter", "filtered.json")
+  filter_result = set()
+  if not os.path.exists(filter_result_file):
+    log_out(f"File not found: {filter_result_file}")
+  with open(filter_result_file, "r") as f:
+    data = json.load(f)
+    filter_result = set(data["remaining"])
+  
+  with open(os.path.join(subject_dir, "group-patches-original.json"), "r") as f:
+    group_patches = json.load(f)
+  patch_group_tmp = dict()
+  correct_patch = group_patches["correct_patch_id"]
+  for patches in group_patches["equivalences"]:
+    representative = patches[0]
+    for patch in patches:
+      patch_group_tmp[patch] = representative
+  patch_eq_map = dict()
+  for patch in filter_result:
+    if patch in patch_group_tmp:
+      patch_eq_map[patch] = patch_group_tmp[patch]
+    else:
+      patch_eq_map[patch] = patch
+  all_patches = set()
+  for patch in filter_result:
+    if patch == patch_eq_map[patch]:
+      all_patches.add(patch)
+  if correct_patch in patch_eq_map:
+    correct_patch = patch_eq_map[correct_patch]
+  
   meta_data_default = result["meta-data"]["default"]
   meta_data_default_remove_crash = result["meta-data"]["remove-crash"]
   meta_data_strict = result["meta-data"]["strict"]
   meta_data_strict_remove_crash = result["meta-data"]["strict-remove-crash"]
   all_patches = meta_data_default[0]["all-patches"]
-  correct_patch = meta_data_default[0]["correct"]
+
   default_str = symvass_res_to_str(meta_data_default[0])
   default_remove_crash_str = symvass_res_to_str(meta_data_default_remove_crash[0])
   strict_str = symvass_res_to_str(meta_data_strict[0])
@@ -612,7 +666,7 @@ def run_cmd_seq(opt: str, meta_data: List[dict], extra: str, additional: str, ou
 
 def main(argv: List[str]):
   parser = argparse.ArgumentParser(description="Run symvass experiments")
-  parser.add_argument("cmd", type=str, help="Command to run", choices=["filter", "exp", "uc", "analyze", "final", "feas", "clean"], default="exp")
+  parser.add_argument("cmd", type=str, help="Command to run", choices=["filter", "exp", "run", "uc", "analyze", "final", "feas", "clean"], default="exp")
   parser.add_argument("-e", "--extra", type=str, help="Subcommand", default="exp")
   parser.add_argument("-o", "--output", type=str, help="Output file", default="", required=False)
   parser.add_argument("-p", "--prefix", type=str, help="Output prefix", default="", required=False)

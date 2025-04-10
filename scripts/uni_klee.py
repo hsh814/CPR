@@ -218,11 +218,10 @@ class ConfigFiles:
     dirs = os.listdir(dir)
     index = 0
     print_log(name)
-    print_log(dirs)
     dirs.sort(key=self.sorting_key)
     print_log(dirs)
     for d in dirs:
-      if name not in d:
+      if name.startswith("snapshot") or name not in d:
         continue
       index += 1
       result.append((d, index))

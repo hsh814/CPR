@@ -120,7 +120,10 @@ class ConfigFiles(uni_klee.ConfigFiles):
         else:
             self.out_dir = os.path.join(self.out_base_dir, f"{out_dir_prefix}-{no}")
         self.snapshot_dir = os.path.join(self.out_base_dir, self.snapshot_prefix)
-        self.filter_dir = os.path.join(self.out_base_dir, filter_prefix)
+        if MODE == "vulmaster":
+            self.filter_dir = os.path.join(self.out_base_dir, f"{filter_prefix}_{VULMASTER_ID}")
+        else:
+            self.filter_dir = os.path.join(self.out_base_dir, filter_prefix)
         # print_log(f"Use snapshot {self.bid} snapshot-last.json ...")
         self.snapshot_file = os.path.join(self.snapshot_dir, "snapshot-last.json")
 
@@ -949,7 +952,7 @@ class SymvassAnalyzer:
     
     def analyze_v3(self):
         if not os.path.exists(os.path.join(self.filter_dir, "filtered.json")):
-            print_log(f"[error] [filtered.json] not found")
+            print_log(f"[error] {os.path.join(self.filter_dir, 'filtered.json')} not found")
             exit(1)
         dp_filter = SymvassDataLogSbsvParser(self.filter_dir)
         with open(os.path.join(self.filter_dir, "filtered.json"), "r") as f:
@@ -959,13 +962,9 @@ class SymvassAnalyzer:
             group_patches = json.load(f)
         patch_group_tmp = dict()
         correct_patch = group_patches["correct_patch_id"]
-        use_manually_added_correct_patch = True
         for patches in group_patches["equivalences"]:
             representative = patches[0]
             for patch in patches:
-                if patch == correct_patch:
-                    if correct_patch != representative:
-                        use_manually_added_correct_patch = False
                 patch_group_tmp[patch] = representative
         patch_eq_map = dict()
         for patch in filtered["remaining"]:
@@ -975,17 +974,14 @@ class SymvassAnalyzer:
                 patch_eq_map[patch] = patch
         all_patches = set()
         for patch in filtered["remaining"]:
-            if patch == correct_patch:
-                if use_manually_added_correct_patch:
-                    all_patches.add(patch)
-                else:
-                    correct_patch = patch_group_tmp[patch]
-            else:
-                all_patches.add(patch)
-        all_patches_eq = set()
-        for patch in filtered["remaining"]:
             if patch == patch_eq_map[patch]:
-                all_patches_eq.add(patch)
+                all_patches.add(patch)
+        if correct_patch in patch_eq_map:
+            correct_patch = patch_eq_map[correct_patch]
+        
+        if MODE == "vulmaster":
+            all_patches = set(filtered["remaining"])
+            correct_patch = 1 # This is mostly wrong, but we need any correct patch
         # Get exit location in filter
         filter_metadata = dp_filter.parser.get_result()["meta-data"][0]
         exit_loc = filter_metadata["exitLoc"]
