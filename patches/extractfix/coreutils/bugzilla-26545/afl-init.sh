@@ -25,8 +25,8 @@ pushd dafl-src
   rm -rf build
   mkdir build
   pushd build
-    FORCE_UNSAFE_CONFIGURE=1 ../configure CFLAGS='-g -O0 -static -fPIE -fPIC -DDAFL_ASSERT' CXXFLAGS="$CFLAGS"
-    make CFLAGS="-fPIC -fPIE -ldafl_runtime -L'${PWD}' -I'${PWD}'/../concrete" CXXFLAGS=$CFLAGS -j32
+    FORCE_UNSAFE_CONFIGURE=1 ../configure CFLAGS='-g -O0 -static -fPIE -fPIC -DDAFL_ASSERT -Wno-error' CXXFLAGS="$CFLAGS"
+    make CFLAGS="-fPIC -fPIE -ldafl_runtime -L"${PWD}/.." -I"${PWD}"/../../concrete -DDAFL_ASSERT -Wno-error" CXXFLAGS=$CFLAGS -j32
   popd
   # cp
   cp build/${bin_dir}/${bin_file} ../dafl-patched/bin
