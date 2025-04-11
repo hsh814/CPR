@@ -106,11 +106,11 @@ class RunSingleVulmaster():
   def get_clean_cmd(self) -> List[str]:
     return [f"symvass.py clean {self.meta['bug_id']} --vulmaster-id={vid}" for vid in self.vids]
   def get_filter_cmd(self) -> List[str]:
-    return [f"symvass.py filter {self.meta['bug_id']} --vulmaster-id={vid}" for vid in self.vids]
+    return [f"symvass.py filter {self.meta['bug_id']} --mode={MODE} --vulmaster-id={vid}" for vid in self.vids]
   def get_analyze_cmd(self, extra: str = "") -> List[str]:
     if extra != "":
-      return [f"symvass.py {extra} {self.meta['bug_id']} --use-last -p {SYMVASS_PREFIX} --vulmaster-id={vid}" for vid in self.vids]
-    return [f"symvass.py analyze {self.meta['bug_id']} --use-last -p {SYMVASS_PREFIX} --vulmaster-id={vid}" for vid in self.vids]
+      return [f"symvass.py {extra} {self.meta['bug_id']} --mode={MODE} --use-last -p {SYMVASS_PREFIX} --vulmaster-id={vid}" for vid in self.vids]
+    return [f"symvass.py analyze {self.meta['bug_id']} --mode={MODE} --use-last -p {SYMVASS_PREFIX} --vulmaster-id={vid}" for vid in self.vids]
   
   def get_exp_cmd(self, opt: str, extra: str) -> List[str]:
     if "correct" not in self.meta:
@@ -198,11 +198,11 @@ class RunSingle():
   def get_clean_cmd(self) -> str:
     return f"symvass.py clean {self.meta['bug_id']} --lock=w"
   def get_filter_cmd(self) -> str:
-    return f"symvass.py filter {self.meta['bug_id']} --lock=f"
+    return f"symvass.py filter {self.meta['bug_id']} --mode={MODE} --lock=f"
   def get_analyze_cmd(self, extra: str = "") -> str:
     if extra != "":
-      return f"symvass.py {extra} {self.meta['bug_id']} --use-last -p {SYMVASS_PREFIX}"
-    return f"symvass.py analyze {self.meta['bug_id']} --use-last -p {SYMVASS_PREFIX}"
+      return f"symvass.py {extra} {self.meta['bug_id']} --mode={MODE} --use-last -p {SYMVASS_PREFIX}"
+    return f"symvass.py analyze {self.meta['bug_id']} --mode={MODE} --use-last -p {SYMVASS_PREFIX}"
   def get_exp_cmd(self, opt: str, extra: str = "") -> str:
     if "correct" not in self.meta:
       log_out("No correct patch")
