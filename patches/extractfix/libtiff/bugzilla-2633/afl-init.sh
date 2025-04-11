@@ -17,6 +17,7 @@ pushd concrete
 popd
 pushd dafl-src
   git checkout $commit_id
+  sed -i 's|fabs_cpr|fabs|g' $patched_dir/$patched_file
   # Patch
   cp ../${patched_file} ${patched_dir}/${patched_file}
   # Remove longjmp calls

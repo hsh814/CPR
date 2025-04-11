@@ -17,6 +17,7 @@ pushd concrete
 popd
 pushd dafl-src
   git checkout $commit_id
+  sed -i 's|#include <klee/klee.h>|#include "uni_klee_runtime.h"|g' $patched_dir/$patched_file
   git clone https://github.com/coreutils/gnulib.git
   # Build
   ./bootstrap
