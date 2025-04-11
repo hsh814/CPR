@@ -43,7 +43,7 @@ def run(sub):
         return
     print(f'Finished applying {sub}.\n')
 
-pool=mp.Pool(sys.argv[1])
+pool=mp.Pool(int(sys.argv[1]))
 for sub in CORRECT_PATCHES:
     pool.apply_async(run, (sub,))
 pool.close()
