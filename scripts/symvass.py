@@ -1288,7 +1288,7 @@ class SymvassAnalyzer:
                         if default_reg[i] != reg[i]:
                             reg_err = True
                             break
-                if reg_err:
+                if reg_err or 0 in patches:
                     removed = removed | patches
                 else:
                     if exit_res in exit_res_set:
@@ -1482,7 +1482,7 @@ class Runner(uni_klee.Runner):
     def run(self):
 
         if self.config.cmd in ["analyze", "symgroup", "symval"]:
-            if self.config.conf_files.out_dir_prefix == "filter":
+            if self.config.conf_files.out_dir_prefix.startswith("filter"):
                 analyzer = SymvassAnalyzer(self.config.conf_files.filter_dir, self.config.conf_files.filter_dir, self.config.bug_info)
                 analyzer.analyze_filtered()
                 return
