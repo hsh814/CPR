@@ -556,6 +556,28 @@ def symvass_final_result_vulmaster_v3(meta: dict, result_f: TextIO):
     result_f.write(f"{subject}\t{bug_id}_{vid}\t{correct_patch}\t{all_patches}\t{incomplete}\t{default_str}\t{strict_str}\t{default_remove_crash_str}\t{strict_remove_crash_str}\t{stat['original']}\t{stat['independent']}\n")
     
 
+def get_all_patches(file: str) -> Tuple[Set[int], int]:
+  with open(file, "r") as f:
+    group_patches = json.load(f)
+    patch_group_tmp = dict()
+    correct_patch = group_patches["correct_patch_id"]
+    for patches in group_patches["equivalences"]:
+      representative = patches[0]
+      for patch in patches:
+        patch_group_tmp[patch] = representative
+    patch_eq_map = dict()
+    all_patches = set()
+    for patch in range(1, correct_patch + 1):
+      if patch in patch_group_tmp:
+        patch_eq_map[patch] = patch_group_tmp[patch]
+      else:
+        patch_eq_map[patch] = patch
+      all_patches.add(patch_eq_map[patch])
+    
+    if correct_patch in patch_eq_map:
+      correct_patch = patch_eq_map[correct_patch]      
+    return all_patches, correct_patch
+
 def symvass_final_result_v3(meta: dict, result_f: TextIO):
   subject = meta["subject"]
   bug_id = meta["bug_id"]
@@ -583,33 +605,13 @@ def symvass_final_result_v3(meta: dict, result_f: TextIO):
     data = json.load(f)
     filter_result = set(data["remaining"])
 
-  with open(os.path.join(subject_dir, "group-patches-original.json"), "r") as f:
-    group_patches = json.load(f)
-  patch_group_tmp = dict()
-  correct_patch = group_patches["correct_patch_id"]
-
-  for patches in group_patches["equivalences"]:
-    representative = patches[0]
-    for patch in patches:
-      patch_group_tmp[patch] = representative
-  patch_eq_map = dict()
-  for patch in filter_result:
-    if patch in patch_group_tmp:
-      patch_eq_map[patch] = patch_group_tmp[patch]
-    else:
-      patch_eq_map[patch] = patch
-  all_patches = set()
-  for patch in filter_result:
-    if patch == patch_eq_map[patch]:
-      all_patches.add(patch)
-  if correct_patch in patch_eq_map:
-    correct_patch = patch_eq_map[correct_patch]
+  all_patches, correct_patch = get_all_patches(os.path.join(subject_dir, "group-patches-original.json"))
   
   meta_data_default = result["meta-data"]["default"]
   meta_data_default_remove_crash = result["meta-data"]["remove-crash"]
   meta_data_strict = result["meta-data"]["strict"]
   meta_data_strict_remove_crash = result["meta-data"]["strict-remove-crash"]
-  all_patches = meta_data_default[0]["all-patches"]
+  # all_patches = meta_data_default[0]["all-patches"]
 
   default_str = symvass_res_to_str(meta_data_default[0])
   default_remove_crash_str = symvass_res_to_str(meta_data_default_remove_crash[0])
@@ -618,7 +620,7 @@ def symvass_final_result_v3(meta: dict, result_f: TextIO):
   
   stat = result["stat"]["states"][0]
   
-  result_f.write(f"{subject}\t{bug_id}\t{correct_patch}\t{all_patches}\t{incomplete}\t{default_str}\t{strict_str}\t{default_remove_crash_str}\t{strict_remove_crash_str}\t{stat['original']}\t{stat['independent']}\n")
+  result_f.write(f"{subject}\t{bug_id}\t{correct_patch}\t{len(all_patches)}\t{incomplete}\t{default_str}\t{strict_str}\t{default_remove_crash_str}\t{strict_remove_crash_str}\t{stat['original']}\t{stat['independent']}\n")
   
 
 def final_analysis(meta_data: List[dict], output: str):
