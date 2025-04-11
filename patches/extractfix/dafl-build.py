@@ -35,8 +35,8 @@ CORRECT_PATCHES=(
 
 def run(sub):
     print(f'Applying {sub}...')
-    res=subprocess.run(['./afl-init.sh'], stdout=subprocess.PIPE, stderr=subprocess.STDOUT,text=True, cwd=sub)
-    with open(f'{sub}/afl-init.log', 'w') as f:
+    res=subprocess.run('./afl-init.sh', stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=sub,shell=True)
+    with open(f'{sub}/afl-init.log', 'wb') as f:
         f.write(res.stdout)
     if res.returncode != 0:
         print(f'Error applying {sub}!')
