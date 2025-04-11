@@ -17,12 +17,12 @@ pushd concrete
 popd
 pushd dafl-src
   git checkout $commit_id
-  sed -i 's|fabs_cpr|fabs|g' $patched_dir/$patched_file
   # Patch
   cp ../${patched_file} ${patched_dir}/${patched_file}
   # Remove longjmp calls
   sed -i '118d;221d' libtiff/tif_jpeg.c
   sed -i '153d;2463d' libtiff/tif_ojpeg.c
+  sed -i 's|fabs_cpr|fabs|g' $patched_dir/$patched_file
   ./autogen.sh
   ./configure --enable-static --disable-shared --without-threads --without-lzma
   make CFLAGS="-static -O0 -g -DDAFL_ASSERT -Wno-error -ldafl_runtime -L"${PWD}" -I"${PWD}"/../concrete" CXXFLAGS="-static -O0 -g -DDAFL_ASSERT -Wno-error -ldafl_runtime -L"${PWD}" -I"${PWD}"/../concrete" -j16
