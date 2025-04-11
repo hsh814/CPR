@@ -1,4 +1,6 @@
 import subprocess
+import multiprocessing as mp
+import sys
 
 CORRECT_PATCHES=(
     'binutils/cve_2017_15025',
@@ -31,12 +33,18 @@ CORRECT_PATCHES=(
     'libxml2/cve_2017_5969',
 )
 
-for sub in CORRECT_PATCHES:
+def run(sub):
     print(f'Applying {sub}...')
     res=subprocess.run(['./afl-init.sh'], stdout=subprocess.PIPE, stderr=subprocess.STDOUT,text=True, cwd=sub)
     with open(f'{sub}/afl-init.log', 'w') as f:
         f.write(res.stdout)
     if res.returncode != 0:
         print(f'Error applying {sub}!')
-        continue
+        return
     print(f'Finished applying {sub}.\n')
+
+pool=mp.Pool(sys.argv[1])
+for sub in CORRECT_PATCHES:
+    pool.apply_async(run, (sub,))
+pool.close()
+pool.join()
