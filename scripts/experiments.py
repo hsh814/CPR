@@ -582,11 +582,12 @@ def symvass_final_result_v3(meta: dict, result_f: TextIO):
   with open(filter_result_file, "r") as f:
     data = json.load(f)
     filter_result = set(data["remaining"])
-  
+
   with open(os.path.join(subject_dir, "group-patches-original.json"), "r") as f:
     group_patches = json.load(f)
   patch_group_tmp = dict()
   correct_patch = group_patches["correct_patch_id"]
+
   for patches in group_patches["equivalences"]:
     representative = patches[0]
     for patch in patches:

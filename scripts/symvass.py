@@ -153,8 +153,6 @@ class Config(uni_klee.Config):
             patch_str = ",".join(all_patches)
             if VULMASTER_MODE:
                 cmd.append(f"--patch-filtering")
-            else:
-                cmd.append("--patch-filtering")
         cmd.append(f"--output-dir={snapshot_dir}")
         cmd.append(f"--patch-id={patch_str}")
     
@@ -1255,7 +1253,7 @@ class SymvassAnalyzer:
     
     def analyze_filtered(self):
         dp = SymvassDataLogSbsvParser(self.dir)
-        if True:
+        if VULMASTER_MODE:
             analyzer = DataAnalyzer(dp)
             analyzer.analyze()
             exit_res_set = {"ret", "exit", "assert.err", "abort.err",
@@ -1263,6 +1261,7 @@ class SymvassAnalyzer:
                             "overshift.err", "ptr.err", "div.err", "readonly.err",
                              "extractfix"}
             removed = set()
+            default_exit_loc = ""
             all_patches = set()
             default_reg = list()
             for state in analyzer.meta_data:
@@ -1271,12 +1270,14 @@ class SymvassAnalyzer:
                 print_log(f"patches {state} {patches}")
                 if 0 in patches:
                     default_reg = state_info["reg"]
+                    default_exit_loc = state_info["exitLoc"]
                 all_patches = all_patches | patches
             print_log(f"Default reg: {default_reg}")
             for state in analyzer.meta_data:
                 state_info = analyzer.meta_data[state]
                 patches = set(state_info["patches"])
                 exit_res = state_info["exit"]
+                exit_loc = state_info["exitLoc"]
                 reg = state_info["reg"]
                 reg_err = False
                 for i in range(len(default_reg) - 1):
@@ -1287,13 +1288,13 @@ class SymvassAnalyzer:
                         if default_reg[i] != reg[i]:
                             reg_err = True
                             break
-                if exit_res in exit_res_set:
-                    if exit_res.endswith(".err"):
-                        removed = removed | patches
-                    else:
-                        if reg_err:
-                            removed = removed | patches
-
+                if reg_err:
+                    removed = removed | patches
+                else:
+                    if exit_res in exit_res_set:
+                        if exit_res.endswith(".err"):
+                            if exit_loc == default_exit_loc:
+                                removed = removed | patches
             result = dict()
             result["remaining"] = sorted(list(all_patches - removed))
             with open(os.path.join(self.dir, "filtered.json"), "w") as f:
