@@ -11,6 +11,7 @@
 
 #ifdef DAFL_ASSERT
 #define klee_assert(x) assert(x)
+#define fabs_cpr(x) fabs(x)
 #endif
   
 int __cpr_choice(char* lid, char* typestr,

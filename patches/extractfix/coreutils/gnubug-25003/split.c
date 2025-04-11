@@ -94,9 +94,13 @@ static char *infile;
 
 /* stat buf for input file.  */
 static struct stat in_stat_buf;
+#ifdef DAFL_ASSERT
+#include "uni_klee_runtime.h"
+#else
 #include <klee/klee.h>
 #ifndef CPR_OUTPUT
 #define CPR_OUTPUT(id, typestr, value) value
+#endif
 #endif
 
 /* Descriptor on which output file is open.  */

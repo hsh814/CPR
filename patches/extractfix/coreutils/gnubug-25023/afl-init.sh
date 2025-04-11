@@ -26,7 +26,7 @@ pushd dafl-src
   mkdir build
   pushd build
     FORCE_UNSAFE_CONFIGURE=1 ../configure CFLAGS='-g -O0 -DDAFL_ASSERT -Wno-error -static -fPIE -fPIC' CXXFLAGS="$CFLAGS"
-    make CFLAGS="-fno-discard-value-names -fPIC -fPIE -ldafl_runtime -L"${PWD}"/.. -I"${PWD}"/../../concrete -DDAFL_ASSERT -Wno-error" CXXFLAGS=$CFLAGS -j32
+    make CFLAGS="-fPIC -fPIE -ldafl_runtime -L"${PWD}"/.. -I"${PWD}"/../../concrete -DDAFL_ASSERT -Wno-error" CXXFLAGS=$CFLAGS -j32
   popd
   # cp
   cp build/${bin_dir}/${bin_file} ../dafl-patched/bin
