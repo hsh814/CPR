@@ -18,6 +18,9 @@ import uni_klee
 import sympatch
 import psutil
 
+VULMASTER_MODE = False
+VULMASTER_ID = 0
+EXTRACTFIX_MODE = False
 
 def print_log(msg: str):
     print(msg, file=sys.stderr)
@@ -86,13 +89,20 @@ class ConfigFiles(uni_klee.ConfigFiles):
         self.project_dir = os.path.join(
             patches_dir, self.benchmark, self.subject, self.bid
         )
-        self.work_dir = os.path.join(self.project_dir, "patched")
+        if VULMASTER_MODE:
+            self.work_dir = os.path.join(self.project_dir, "vulmaster-patched")
+            self.meta_patch_obj_file = os.path.join(
+                self.project_dir, "concrete", "libuni_klee_runtime_vulmaster.bca"
+            )
+        else:
+            self.work_dir = os.path.join(self.project_dir, "patched")
+            self.meta_patch_obj_file = os.path.join(
+                self.project_dir, "concrete", "libuni_klee_runtime_new.bca"
+            )
         self.repair_conf = os.path.join(self.project_dir, "repair.conf")
-        self.meta_program = os.path.join(self.project_dir, "meta-program.json")
+        self.meta_program = os.path.join(self.project_dir, "meta-program-original.json")
         sympatch.compile(os.path.join(self.project_dir, "concrete"))
-        self.meta_patch_obj_file = os.path.join(
-            self.project_dir, "concrete", "libuni_klee_runtime_new.bca"
-        )
+        
 
     def set_out_dir(self, out_dir: str, out_dir_prefix: str, bug_info: dict, snapshot_prefix: str, filter_prefix: str, use_last: bool):
         self.out_dir_prefix = out_dir_prefix
@@ -111,21 +121,26 @@ class ConfigFiles(uni_klee.ConfigFiles):
         else:
             self.out_dir = os.path.join(self.out_base_dir, f"{out_dir_prefix}-{no}")
         self.snapshot_dir = os.path.join(self.out_base_dir, self.snapshot_prefix)
-        self.filter_dir = os.path.join(self.out_base_dir, filter_prefix)
+        if VULMASTER_MODE:
+            self.filter_dir = os.path.join(self.out_base_dir, f"{filter_prefix}_{VULMASTER_ID}")
+        else:
+            self.filter_dir = os.path.join(self.out_base_dir, filter_prefix)
         # print_log(f"Use snapshot {self.bid} snapshot-last.json ...")
         self.snapshot_file = os.path.join(self.snapshot_dir, "snapshot-last.json")
 
 class Config(uni_klee.Config):
     conf_files: ConfigFiles
+    mode: str
 
     def __init__(
-        self, cmd: str, query: str, debug: bool, sym_level: str, max_fork: str
+        self, cmd: str, query: str, debug: bool, sym_level: str, max_fork: str, mode: str
     ):
         self.cmd = cmd
         self.query = query
         self.debug = debug
         self.sym_level = sym_level
         self.max_fork = max_fork
+        self.mode = mode
         self.conf_files = ConfigFiles()
 
     def append_snapshot_cmd(self, cmd: List[str]):
@@ -136,8 +151,51 @@ class Config(uni_klee.Config):
             snapshot_dir = self.conf_files.filter_dir
             all_patches = [str(patch["id"]) for patch in self.meta_program["patches"]]
             patch_str = ",".join(all_patches)
+            if VULMASTER_MODE:
+                cmd.append(f"--patch-filtering")
         cmd.append(f"--output-dir={snapshot_dir}")
         cmd.append(f"--patch-id={patch_str}")
+    
+    def find_last_loc(self, dir: str, target_function: str) -> int:
+        # parse cfg.sbsv to get instruction range of target function
+        crash_loc = 0
+        cfg_parser = sbsv.parser()
+        cfg_parser.add_schema("[fn-start] [name: str]")
+        cfg_parser.add_schema("[fn-end] [name: str]")
+        cfg_parser.add_schema("[bb] [id: int] [start: int] [size: int] [line: int]")
+        cfg_parser.add_group("fn", "[fn-start]", "[fn-end]")
+        with open(os.path.join(dir, "cfg.sbsv"), "r") as f:
+            cfg_parser.load(f)
+        idx = cfg_parser.get_group_index("fn")
+        start_loc = -1
+        end_loc = 0
+        for i in idx:
+            fn = cfg_parser.get_result_by_index("[fn-start]", i)
+            if fn[0]["name"] == target_function:
+                print_log(f"[info] [find function {target_function}]")
+                bbs = cfg_parser.get_result_by_index("[bb]", i)
+                for bb in bbs:
+                    start = bb["start"]
+                    end = start + bb["size"] - 1
+                    if end > end_loc:
+                        end_loc = end
+                    if start < start_loc or start_loc == -1:
+                        start_loc = start
+        # Read data from snapshot
+        dp = SymvassDataLogSbsvParser(dir, schema=["[stack-trace] [state: int] [reg?: str] [passed-crash-loc: bool]"])
+        stack_trace_str = dp.data["stack-trace"][0]["reg"]
+        stack_trace = stack_trace_str.split(",")
+        for stack in stack_trace:
+            tokens = stack.strip().split(":")
+            if len(tokens) == 4:
+                loc = int(tokens[3])
+                if crash_loc == 0:
+                    crash_loc = loc
+                else:
+                    if loc >= start_loc and loc <= end_loc:
+                        crash_loc = loc
+        print_log(f"crash_loc: {crash_loc}")
+        return crash_loc
 
     def append_cmd(self, cmd: List[str], patch_str: str, opts: List[str]):
         out_dir = self.conf_files.out_dir
@@ -154,6 +212,10 @@ class Config(uni_klee.Config):
             cmd.append(f"--max-forks-per-phases={self.max_fork}")
             cmd.append("--no-snapshot")
             return
+        if EXTRACTFIX_MODE:
+            exit_loc = self.find_last_loc(self.conf_files.snapshot_dir, self.bug_info["target"])
+            cmd.append("--use-extractfix")
+            cmd.append(f"--crash-loc={exit_loc}")
         cmd.extend(default_opts)
         cmd.extend(opts)
         cmd.append(f"--output-dir={out_dir}")
@@ -192,7 +254,10 @@ class Config(uni_klee.Config):
             add_opts.append("--start-from-snapshot")
             self.append_cmd(result, ",".join(self.patch_ids), add_opts)
         bin_file = os.path.basename(self.project_conf["binary_path"])
-        target = bin_file + ".bc"
+        if VULMASTER_MODE:
+            target = f"{bin_file}-{VULMASTER_ID}.bc"
+        else:
+            target = bin_file + ".bc"
         result.append(target)
         if "test_input_list" in self.project_conf:
             poc_path = "exploit"
@@ -213,14 +278,14 @@ class SymvassDataLogSbsvParser():
     parser: sbsv.parser
     data: Dict[str, List[dict]]
 
-    def __init__(self, dir: str, name: str = "data.log"):
+    def __init__(self, dir: str, name: str = "data.log", schema: List[str] = []):
         self.dir = dir
         self.parser = sbsv.parser()
-        self.set_schema(self.parser)
+        self.set_schema(self.parser, schema)
         with open(os.path.join(dir, name), "r") as f:
             self.data = self.parser.load(f)
 
-    def set_schema(self, parser: sbsv.parser):
+    def set_schema(self, parser: sbsv.parser, schema: List[str]):
         parser.add_schema("[meta-data] [state: int] [crashId: int] [patchId: int] [stateType: str] [isCrash: bool] [actuallyCrashed: bool] [use: bool] [exitLoc: str] [exit: str]")
         parser.add_schema("[fork] [state$from: int] [state$to: int]")
         parser.add_schema("[fork-map] [fork] [state$from: int] [type$from: str] [base: int] [base-type: str] [state$to: int] [type$to: str] [fork-count: str]")
@@ -238,8 +303,9 @@ class SymvassDataLogSbsvParser():
         parser.add_schema("[patch] [fork] [state$true: int] [state$false: int] [iter: int] [patches: str]")
         parser.add_schema("[regression] [state: int] [reg?: str]")
         parser.add_schema("[lazy-trace] [state: int] [reg?: str] [patches?: str] [patch-eval?: str]")
-        parser.add_schema("[stack-trace] [state: int] [reg?: str]")
-    
+        parser.add_schema("[stack-trace] [state: int] [reg?: str] [passed-crash-loc: bool]")
+        for s in schema:
+            parser.add_schema(s)
     def get_data(self) -> Dict[str, List[dict]]:
         return self.data
 
@@ -323,6 +389,13 @@ class DataAnalyzer():
             meta_data[state]["patches"] = patches
             meta_data[state]["reg"] = reg
             meta_data[state]["patch-eval"] = self.to_map(patch_eval)
+        
+        for stack in self.data["stack-trace"]:
+            state = stack["state"]
+            if state not in meta_data:
+                continue
+            meta_data[state]["stack-trace"] = stack
+
         for fp in self.data["fork-map"]["fork-parent"]:
             state = fp["state"]
             state_type = fp["type"]
@@ -882,34 +955,36 @@ class SymvassAnalyzer:
     
     def analyze_v3(self):
         if not os.path.exists(os.path.join(self.filter_dir, "filtered.json")):
-            print_log(f"[error] [filtered.json] not found")
+            print_log(f"[error] {os.path.join(self.filter_dir, 'filtered.json')} not found")
             exit(1)
         dp_filter = SymvassDataLogSbsvParser(self.filter_dir)
         with open(os.path.join(self.filter_dir, "filtered.json"), "r") as f:
             filtered = json.load(f)
         subject_dir = os.path.join(uni_klee.ROOT_DIR, "patches", self.bug_info["benchmark"], self.bug_info["subject"], self.bug_info["bug_id"])
-        with open(os.path.join(subject_dir, "group-patches.json"), "r") as f:
+        with open(os.path.join(subject_dir, "group-patches-original.json"), "r") as f:
             group_patches = json.load(f)
         patch_group_tmp = dict()
+        correct_patch = group_patches["correct_patch_id"]
         for patches in group_patches["equivalences"]:
             representative = patches[0]
             for patch in patches:
                 patch_group_tmp[patch] = representative
-        correct_patch = group_patches["correct_patch_id"]
         patch_eq_map = dict()
         for patch in filtered["remaining"]:
             if patch in patch_group_tmp:
                 patch_eq_map[patch] = patch_group_tmp[patch]
             else:
                 patch_eq_map[patch] = patch
-        if correct_patch not in patch_eq_map:
-            correct_patch = self.bug_info["correct"]["no"]
-        else:
-            correct_patch = patch_eq_map[correct_patch]
         all_patches = set()
         for patch in filtered["remaining"]:
             if patch == patch_eq_map[patch]:
                 all_patches.add(patch)
+        if correct_patch in patch_eq_map:
+            correct_patch = patch_eq_map[correct_patch]
+        
+        if VULMASTER_MODE:
+            all_patches = set(filtered["remaining"])
+            correct_patch = 1 # This is mostly wrong, but we need any correct patch
         # Get exit location in filter
         filter_metadata = dp_filter.parser.get_result()["meta-data"][0]
         exit_loc = filter_metadata["exitLoc"]
@@ -929,6 +1004,9 @@ class SymvassAnalyzer:
             base_reg = base_meta["reg"]
             is_crash = base_meta["isCrash"]
             if not is_crash:
+                if EXTRACTFIX_MODE:
+                    if not base_meta["stack-trace"]["passed-crash-loc"]:
+                        continue
                 result.append((crash_id, base_meta["state"], base_meta["state"], base))
             for crash_test in cluster[crash_state]:
                 if crash_test not in analyzer.meta_data:
@@ -998,6 +1076,10 @@ class SymvassAnalyzer:
                         new_removed = new_removed | removed
                         new_remaining_inputs.append(res)
                 else:
+                    if EXTRACTFIX_MODE:
+                        if not meta["stack-trace"]["passed-crash-loc"]:
+                            f.write(f"[remove] [crash] [id {crash_id}] [base {base}] [test {test}] [exit-loc {meta_base['exitLoc']}] [exit-res {meta_base['exit']}] [cnt {len(remaining)}] [patches {sorted(list(remaining))}]\n")
+                            continue
                     new_removed = new_removed | removed
                     new_remaining_inputs.append(res)
 
@@ -1094,14 +1176,14 @@ class SymvassAnalyzer:
         if not os.path.exists(os.path.join(self.dir, "table_v3.sbsv")):
             self.analyze_v3()
         parser = sbsv.parser()
-        parser.add_schema("[strict] [id: int] [base: int] [test: int] [cnt: int] [patches: str]")
+        parser.add_schema("[sym-in] [id: int] [base: int] [test: int] [cnt: int] [patches: str]")
         with open(os.path.join(self.dir, "table_v3.sbsv"), "r") as f:
             result = parser.load(f)
         # symbolic_trace = self.symbolic_trace(analyzer)
         # buggy_trace = self.buggy_trace(analyzer)
         mem_cluster: Dict[frozenset, List[int]] = dict()
         # Cluster collected symbolic inputs
-        for sym_in in result["strict"]:
+        for sym_in in result["sym-in"]:
             state = sym_in["test"]
             base_id = sym_in["base"]
             # filename: 1 -> test000001.mem (6 digits)
@@ -1175,6 +1257,54 @@ class SymvassAnalyzer:
     
     def analyze_filtered(self):
         dp = SymvassDataLogSbsvParser(self.dir)
+        if VULMASTER_MODE:
+            analyzer = DataAnalyzer(dp)
+            analyzer.analyze()
+            exit_res_set = {"ret", "exit", "assert.err", "abort.err",
+                            "bad_vector_access.err", "free.err", "overflow.err",
+                            "overshift.err", "ptr.err", "div.err", "readonly.err",
+                             "extractfix"}
+            removed = set()
+            default_exit_loc = ""
+            all_patches = set()
+            default_reg = list()
+            for state in analyzer.meta_data:
+                state_info = analyzer.meta_data[state]
+                patches = set(state_info["patches"])
+                print_log(f"patches {state} {patches}")
+                if 0 in patches:
+                    default_reg = state_info["reg"]
+                    default_exit_loc = state_info["exitLoc"]
+                all_patches = all_patches | patches
+            print_log(f"Default reg: {default_reg}")
+            for state in analyzer.meta_data:
+                state_info = analyzer.meta_data[state]
+                patches = set(state_info["patches"])
+                exit_res = state_info["exit"]
+                exit_loc = state_info["exitLoc"]
+                reg = state_info["reg"]
+                reg_err = False
+                for i in range(len(default_reg) - 1):
+                    if len(reg) <= i:
+                        reg_err = True
+                        break
+                    else:
+                        if default_reg[i] != reg[i]:
+                            reg_err = True
+                            break
+                if reg_err or 0 in patches:
+                    removed = removed | patches
+                else:
+                    if exit_res in exit_res_set:
+                        if exit_res.endswith(".err"):
+                            if exit_loc == default_exit_loc:
+                                removed = removed | patches
+            result = dict()
+            result["remaining"] = sorted(list(all_patches - removed))
+            with open(os.path.join(self.dir, "filtered.json"), "w") as f:
+                json.dump(result, f, indent=2)
+                return
+        
         patch_trace = dp.parser.get_result()["patch-base"]["trace"]
         remaining_patches = list()
         if len(patch_trace) > 0:
@@ -1207,7 +1337,6 @@ def arg_parser(argv: List[str]) -> Config:
     parser.add_argument("-p", "--outdir-prefix", help="Output directory prefix(\"out\" for out dir)", default="uni-m-out")
     parser.add_argument("-b", "--snapshot-base-patch", help="Patches for snapshot", default="buggy")
     parser.add_argument("-s", "--snapshot-prefix", help="Snapshot directory prefix", default="")
-    # parser.add_argument("-f", "--filter-prefix", help="Filter directory prefix", default="filter")
     parser.add_argument("-l", "--sym-level", help="Symbolization level", default="medium")
     parser.add_argument("-m", "--max-fork", help="Max fork", default="256,256,64")
     parser.add_argument("-t", "--timeout", help="Timeout", default="12h")
@@ -1215,10 +1344,19 @@ def arg_parser(argv: List[str]) -> Config:
     parser.add_argument("-r", "--rerun", help="Rerun last command with same option", action="store_true")
     parser.add_argument("-z", "--analyze", help="Analyze symvass data", action="store_true")
     parser.add_argument("-g", "--use-last", help="Use last output directory", action="store_true")
+    parser.add_argument("--mode", help="mode", choices=["symradar", "extractfix"], default="symradar")
+    parser.add_argument("--vulmaster-id", help="Vulmaster id", type=int, default=0)
     args = parser.parse_args(argv[1:])
+    global VULMASTER_MODE, VULMASTER_ID, EXTRACTFIX_MODE
+    if args.mode == "extractfix":
+        EXTRACTFIX_MODE = True
+    if args.vulmaster_id > 0:
+        VULMASTER_MODE = True
+        VULMASTER_ID = args.vulmaster_id
+        args.outdir_prefix = f"{args.outdir_prefix}_{VULMASTER_ID}"
     if args.snapshot_prefix == "":
         args.snapshot_prefix = f"snapshot-{args.outdir_prefix}"
-    conf = Config(args.cmd, args.query, args.debug, args.sym_level, args.max_fork)
+    conf = Config(args.cmd, args.query, args.debug, args.sym_level, args.max_fork, args.mode)
     if args.analyze:
         conf.conf_files.out_dir = args.query
         return conf
@@ -1348,7 +1486,7 @@ class Runner(uni_klee.Runner):
     def run(self):
 
         if self.config.cmd in ["analyze", "symgroup", "symval"]:
-            if self.config.conf_files.out_dir_prefix == "filter":
+            if self.config.conf_files.out_dir_prefix.startswith("filter"):
                 analyzer = SymvassAnalyzer(self.config.conf_files.filter_dir, self.config.conf_files.filter_dir, self.config.bug_info)
                 analyzer.analyze_filtered()
                 return

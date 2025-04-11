@@ -11,6 +11,7 @@ import datetime
 import sbsv
 import argparse
 import psutil
+import re
 
 # import importlib
 # PARENT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -23,6 +24,8 @@ GLOBAL_LOG_DIR = os.path.join(ROOT_DIR, "logs")
 OUTPUT_DIR = "out"
 PREFIX = ""
 SYMVASS_PREFIX = "uni-m-out"
+MODE = "symradar"
+VULMASTER_MODE = False
 
 def log_out(msg: str):
   print(msg, file=sys.stderr)
@@ -40,7 +43,7 @@ def kill_proc_tree(pid: int, including_parent: bool = True):
 def execute(cmd: str, dir: str, log_file: str, log_dir: str, prefix: str, meta: dict):
   log_out(f"Executing: {cmd}")
   start = time.time()
-  timeout = 24 * 3600 + 600 # 12 hours + 10 minutes for analysis
+  timeout = 72 * 3600 + 600 # 12 hours + 10 minutes for analysis
   proc = subprocess.Popen(cmd, shell=True, cwd=dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
   try:
     stdout, stderr = proc.communicate(timeout=timeout)
@@ -73,6 +76,116 @@ def execute(cmd: str, dir: str, log_file: str, log_dir: str, prefix: str, meta: 
 def execute_wrapper(args):
   return execute(*args)
 
+class RunSingleVulmaster():
+  meta: dict = None
+  meta_program: dict = None
+  conf: dict = None
+  vids: List[int] = None
+  def __init__(self, id: int):
+    res = uni_klee.global_config.get_meta_data_info_by_id(id)
+    self.meta = res["meta"]
+    self.meta_program = res["meta_program"]
+    self.conf = res["conf"]
+    self.vids = list()
+    vulmaster_dir = os.path.join(ROOT_DIR, "patches", self.meta["benchmark"], self.meta["subject"], self.meta["bug_id"], "vulmaster")
+    if not os.path.exists(vulmaster_dir):
+      log_out(f"Vulmaster dir not found: {vulmaster_dir}")
+      return
+    for vulmaster_file in os.listdir(vulmaster_dir):
+      match = re.search(r'vulmaster-([^.]+)\.c$', vulmaster_file)
+      if not match:
+        continue
+      vid = match.group(1)
+      if not vid.isdigit():
+        continue
+      self.vids.append(int(vid))
+    self.vids = sorted(self.vids)
+    if self.meta["bug_id"] == "CVE-2017-15025":
+      self.vids = [] # Skip this
+
+  def get_clean_cmd(self) -> List[str]:
+    return [f"symvass.py clean {self.meta['bug_id']} --vulmaster-id={vid}" for vid in self.vids]
+  def get_filter_cmd(self) -> List[str]:
+    return [f"symvass.py filter {self.meta['bug_id']} --mode={MODE} --vulmaster-id={vid}" for vid in self.vids]
+  def get_analyze_cmd(self, extra: str = "") -> List[str]:
+    if extra != "":
+      return [f"symvass.py {extra} {self.meta['bug_id']} --mode={MODE} --use-last -p {SYMVASS_PREFIX} --vulmaster-id={vid}" for vid in self.vids]
+    return [f"symvass.py analyze {self.meta['bug_id']} --mode={MODE} --use-last -p {SYMVASS_PREFIX} --vulmaster-id={vid}" for vid in self.vids]
+  
+  def get_exp_cmd(self, opt: str, extra: str) -> List[str]:
+    if "correct" not in self.meta:
+      log_out("No correct patch")
+      return None
+    result = list()
+    query = self.meta["bug_id"] + ":0" # ",".join([str(x) for x in patches])
+    for vid in self.vids:
+      if extra == "snapshot":
+        cmd = f"symvass.py snapshot {query} --outdir-prefix={SYMVASS_PREFIX} --mode={MODE} --vulmaster-id={vid}"
+        result.append(cmd)
+        continue
+      symvass_cmd = "rerun"
+      if opt == "run":
+        symvass_cmd = "run"
+      cmd = f"symvass.py {symvass_cmd} {query} --outdir-prefix={SYMVASS_PREFIX} --mode={MODE} --vulmaster-id={vid}"
+      if extra == "k2-high":
+        cmd += " --sym-level=high --additional='--symbolize-bound=2' --max-fork=1024,1024,1024"
+      if extra == "high":
+        cmd += " --sym-level=high" #  --max-fork=1024,1024,128
+      if extra == "k2":
+        cmd += " --additional='--symbolize-bound=2' --max-fork=1024,1024,1024"
+      if extra == "low":
+        cmd += " --sym-level=low" # --max-fork=1024,1024,1024
+      if extra == "none":
+        cmd += " --sym-level=none"
+      result.append(cmd)
+    return result
+  
+  def get_uc_cmd(self, extra: str) -> List[str]:
+    if "correct" not in self.meta:
+      log_out("No correct patch")
+      return None
+    if "no" not in self.meta["correct"]:
+      for patch in self.meta_program["patches"]:
+        if patch["name"] == "correct":
+          self.meta["correct"]["no"] = patch["id"]
+          break
+    if "no" not in self.meta["correct"]:
+      log_out("No correct patch")
+      return None
+    result = list()
+    for vid in self.vids:
+      cmd = f"symvass.py uc {self.meta['bug_id']}:0 --lock=f --outdir-prefix={SYMVASS_PREFIX} --snapshot-prefix=snapshot-{SYMVASS_PREFIX} --mode={MODE} --vulmaster-id={vid}"
+      result.append(cmd)
+    return result
+
+  def get_feas_cmd(self, extra: str) -> List[str]:
+    if extra in ["fuzz", "build", "val-build", "fuzz-build", "extractfix-build", "vulmaster-build", "vulmaster-extractfix-build", "fuzz-seeds", "collect-inputs", "group-patches", "val", "feas", "analyze", "check"]:
+      return [f"symfeas.py {extra} {self.meta['bug_id']} -s {SYMVASS_PREFIX}"]
+    log_out(f"Unknown extra: {extra}")
+    exit(1)
+    
+  def get_cmd(self, opt: str, extra: str) -> List[str]:
+    # if "correct" not in self.meta:
+    #   log_out("No correct patch")
+    #   return None
+    if "no" not in self.meta["correct"]:
+      log_out("No correct patch")
+      return None
+    if opt == "filter":
+      return self.get_filter_cmd()
+    if opt == "clean":
+      return self.get_clean_cmd()
+    if opt == "exp" or opt == "run":
+      return self.get_exp_cmd(opt, extra)
+    if opt == "uc":
+      return self.get_uc_cmd(extra)
+    if opt == "analyze":
+      return self.get_analyze_cmd(extra)
+    if opt == "feas": # clean with rm -r patches/*/*/*/runtime/aflrun-out-*
+      return self.get_feas_cmd(extra)
+    log_out(f"Unknown opt: {opt}")
+    return []
+
 class RunSingle():
   meta: dict = None
   meta_program: dict = None
@@ -85,12 +198,12 @@ class RunSingle():
   def get_clean_cmd(self) -> str:
     return f"symvass.py clean {self.meta['bug_id']} --lock=w"
   def get_filter_cmd(self) -> str:
-    return f"symvass.py filter {self.meta['bug_id']} --lock=f"
+    return f"symvass.py filter {self.meta['bug_id']} --mode={MODE} --lock=f"
   def get_analyze_cmd(self, extra: str = "") -> str:
     if extra != "":
-      return f"symvass.py {extra} {self.meta['bug_id']} --use-last -p {SYMVASS_PREFIX}"
-    return f"symvass.py analyze {self.meta['bug_id']} --use-last -p {SYMVASS_PREFIX}"
-  def get_exp_cmd(self, extra: str = "") -> str:
+      return f"symvass.py {extra} {self.meta['bug_id']} --mode={MODE} --use-last -p {SYMVASS_PREFIX}"
+    return f"symvass.py analyze {self.meta['bug_id']} --mode={MODE} --use-last -p {SYMVASS_PREFIX}"
+  def get_exp_cmd(self, opt: str, extra: str = "") -> str:
     if "correct" not in self.meta:
       log_out("No correct patch")
       return None
@@ -103,21 +216,24 @@ class RunSingle():
       log_out("No correct patch")
       return None
     correct = self.meta["correct"]["no"]
-    patches = list()
-    cnt = 0
-    limit = 100
-    for patch in self.meta_program["patches"]:
-      patches.append(patch["id"])
-      cnt += 1
-      if cnt >= limit:
-        if correct not in patches:
-          patches.append(correct)
-          patches.append(correct + 1)
-          patches.append(correct - 1)
-        break
-    log_out(patches)
+    # patches = list()
+    # cnt = 0
+    # limit = 100
+    # for patch in self.meta_program["patches"]:
+    #   patches.append(patch["id"])
+    #   cnt += 1
+    #   if cnt >= limit:
+    #     if correct not in patches:
+    #       patches.append(correct)
+    #       patches.append(correct + 1)
+    #       patches.append(correct - 1)
+    #     break
+    # log_out(patches)
     query = self.meta["bug_id"] + ":0" # ",".join([str(x) for x in patches])
-    cmd = f"symvass.py rerun {query} --lock=f --outdir-prefix={SYMVASS_PREFIX} --snapshot-prefix=snapshot-{SYMVASS_PREFIX}"
+    symvass_cmd = "rerun"
+    if opt == "run":
+      symvass_cmd = "run"
+    cmd = f"symvass.py {symvass_cmd} {query} --lock=f --outdir-prefix={SYMVASS_PREFIX} --mode={MODE}"
     if extra == "k2-high":
       cmd += " --sym-level=high --additional='--symbolize-bound=2' --max-fork=1024,1024,1024"
     if extra == "high":
@@ -126,6 +242,8 @@ class RunSingle():
       cmd += " --additional='--symbolize-bound=2' --max-fork=1024,1024,1024"
     if extra == "low":
       cmd += " --sym-level=low" # --max-fork=1024,1024,1024
+    if extra == "none":
+      cmd += " --sym-level=none"
     return cmd
   
   def get_uc_cmd(self, extra: str) -> str:
@@ -146,7 +264,7 @@ class RunSingle():
   def get_feas_cmd(self, extra: str) -> str:
     if extra == "exp":
       return f"symfeas.py fuzz {self.meta['bug_id']}"
-    if extra in ["build", "val-build", "fuzz-build", "fuzz-seeds", "collect-inputs", "group-patches", "val", "feas", "analyze"]:
+    if extra in ["fuzz", "build", "val-build", "fuzz-build", "extractfix-build", "fuzz-seeds", "collect-inputs", "group-patches", "val", "feas", "analyze", "check"]:
       return f"symfeas.py {extra} {self.meta['bug_id']} -s {SYMVASS_PREFIX}"
     log_out(f"Unknown extra: {extra}")
     exit(1)
@@ -162,8 +280,8 @@ class RunSingle():
       return self.get_filter_cmd()
     if opt == "clean":
       return self.get_clean_cmd()
-    if opt == "exp":
-      return self.get_exp_cmd(extra)
+    if opt == "exp" or opt == "run":
+      return self.get_exp_cmd(opt, extra)
     if opt == "uc":
       return self.get_uc_cmd(extra)
     if opt == "analyze":
@@ -299,7 +417,26 @@ def symvass_final_result(meta: dict, result_f: TextIO):
     data = json.load(f)
     filter_result = set(data["remaining"])
   
-  correct_patch = meta_data[0]["correct"]
+  with open(os.path.join(subject_dir, "group-patches-original.json"), "r") as f:
+    group_patches = json.load(f)
+  patch_group_tmp = dict()
+  correct_patch = group_patches["correct_patch_id"]
+  for patches in group_patches["equivalences"]:
+    representative = patches[0]
+    for patch in patches:
+      patch_group_tmp[patch] = representative
+  patch_eq_map = dict()
+  for patch in filter_result:
+    if patch in patch_group_tmp:
+      patch_eq_map[patch] = patch_group_tmp[patch]
+    else:
+      patch_eq_map[patch] = patch
+  all_patches = set()
+  for patch in filter_result:
+    if patch == patch_eq_map[patch]:
+      all_patches.add(patch)
+  correct_patch = patch_eq_map[correct_patch]
+  
   sym_inputs = len(result["sym-in"])
   default_patches = str_to_list(result["sym-out"]["default"][0]["patches"])
   
@@ -371,6 +508,76 @@ def symvass_res_to_str(res: dict) -> str:
   patches = str_to_list(res["patches"])
   return f"{res['sym-input']}\t{len(patches)}\t{res['is-correct']}"
 
+def symvass_final_result_vulmaster_v3(meta: dict, result_f: TextIO):
+  subject = meta["subject"]
+  bug_id = meta["bug_id"]
+  incomplete = meta["correct"]["incomplete"]
+  subject_dir = os.path.join(ROOT_DIR, "patches", meta["benchmark"], subject, bug_id)
+  patched_dir = os.path.join(subject_dir, "vulmaster-patched")
+  rsv = RunSingleVulmaster(meta["id"])
+  for vid in rsv.vids:
+    prefix = f"{SYMVASS_PREFIX}_{vid}"
+    out_dir_no = find_num(patched_dir, prefix) - 1
+    out_file = os.path.join(patched_dir, f"{prefix}-{out_dir_no}", "table_v3.sbsv")
+    if not os.path.exists(out_file):
+      log_out(f"File not found: {out_file}")
+      result_f.write("\t\t\t\t\t\t\t\t\t\n")
+      return
+    parser = parse_result_v3(out_file)
+    result = parser.get_result()
+    if result is None:
+      log_out(f"Failed to parse: {out_file}")
+      result_f.write("\t\t\t\t\t\t\t\t\t\n")
+      return
+    
+    filter_result_file = os.path.join(patched_dir, f"filter_{vid}", "filtered.json")
+    filter_result = set()
+    if not os.path.exists(filter_result_file):
+      log_out(f"File not found: {filter_result_file}")
+    with open(filter_result_file, "r") as f:
+      data = json.load(f)
+      filter_result = set(data["remaining"])
+    correct_patch = 1 # This is not actually correct - check
+    all_patches = set(filter_result)
+    
+    meta_data_default = result["meta-data"]["default"]
+    meta_data_default_remove_crash = result["meta-data"]["remove-crash"]
+    meta_data_strict = result["meta-data"]["strict"]
+    meta_data_strict_remove_crash = result["meta-data"]["strict-remove-crash"]
+    all_patches = meta_data_default[0]["all-patches"]
+
+    default_str = symvass_res_to_str(meta_data_default[0])
+    default_remove_crash_str = symvass_res_to_str(meta_data_default_remove_crash[0])
+    strict_str = symvass_res_to_str(meta_data_strict[0])
+    strict_remove_crash_str = symvass_res_to_str(meta_data_strict_remove_crash[0])
+    
+    stat = result["stat"]["states"][0]
+    
+    result_f.write(f"{subject}\t{bug_id}_{vid}\t{correct_patch}\t{all_patches}\t{incomplete}\t{default_str}\t{strict_str}\t{default_remove_crash_str}\t{strict_remove_crash_str}\t{stat['original']}\t{stat['independent']}\n")
+    
+
+def get_all_patches(file: str) -> Tuple[Set[int], int]:
+  with open(file, "r") as f:
+    group_patches = json.load(f)
+    patch_group_tmp = dict()
+    correct_patch = group_patches["correct_patch_id"]
+    for patches in group_patches["equivalences"]:
+      representative = patches[0]
+      for patch in patches:
+        patch_group_tmp[patch] = representative
+    patch_eq_map = dict()
+    all_patches = set()
+    for patch in range(1, correct_patch + 1):
+      if patch in patch_group_tmp:
+        patch_eq_map[patch] = patch_group_tmp[patch]
+      else:
+        patch_eq_map[patch] = patch
+      all_patches.add(patch_eq_map[patch])
+    
+    if correct_patch in patch_eq_map:
+      correct_patch = patch_eq_map[correct_patch]      
+    return all_patches, correct_patch
+
 def symvass_final_result_v3(meta: dict, result_f: TextIO):
   subject = meta["subject"]
   bug_id = meta["bug_id"]
@@ -390,12 +597,22 @@ def symvass_final_result_v3(meta: dict, result_f: TextIO):
     result_f.write("\t\t\t\t\t\t\t\t\t\n")
     return
   
+  filter_result_file = os.path.join(subject_dir, "patched", "filter", "filtered.json")
+  filter_result = set()
+  if not os.path.exists(filter_result_file):
+    log_out(f"File not found: {filter_result_file}")
+  with open(filter_result_file, "r") as f:
+    data = json.load(f)
+    filter_result = set(data["remaining"])
+
+  all_patches, correct_patch = get_all_patches(os.path.join(subject_dir, "group-patches-original.json"))
+  
   meta_data_default = result["meta-data"]["default"]
   meta_data_default_remove_crash = result["meta-data"]["remove-crash"]
   meta_data_strict = result["meta-data"]["strict"]
   meta_data_strict_remove_crash = result["meta-data"]["strict-remove-crash"]
-  all_patches = meta_data_default[0]["all-patches"]
-  correct_patch = meta_data_default[0]["correct"]
+  # all_patches = meta_data_default[0]["all-patches"]
+
   default_str = symvass_res_to_str(meta_data_default[0])
   default_remove_crash_str = symvass_res_to_str(meta_data_default_remove_crash[0])
   strict_str = symvass_res_to_str(meta_data_strict[0])
@@ -403,7 +620,7 @@ def symvass_final_result_v3(meta: dict, result_f: TextIO):
   
   stat = result["stat"]["states"][0]
   
-  result_f.write(f"{subject}\t{bug_id}\t{correct_patch}\t{all_patches}\t{incomplete}\t{default_str}\t{strict_str}\t{default_remove_crash_str}\t{strict_remove_crash_str}\t{stat['original']}\t{stat['independent']}\n")
+  result_f.write(f"{subject}\t{bug_id}\t{correct_patch}\t{len(all_patches)}\t{incomplete}\t{default_str}\t{strict_str}\t{default_remove_crash_str}\t{strict_remove_crash_str}\t{stat['original']}\t{stat['independent']}\n")
   
 
 def final_analysis(meta_data: List[dict], output: str):
@@ -416,7 +633,10 @@ def final_analysis(meta_data: List[dict], output: str):
   for meta in meta_data:
     if not check_correct_exists(meta):
       continue
-    symvass_final_result_v3(meta, result_f)
+    if VULMASTER_MODE:
+      symvass_final_result_vulmaster_v3(meta, result_f)
+    else:
+      symvass_final_result_v3(meta, result_f)
     # print(f"{meta['subject']}\t{meta['bug_id']}")
     # sub_dir = os.path.join(ROOT_DIR, "patches", meta["benchmark"], meta["subject"], meta['bug_id'], "patched")
     # no = find_num(sub_dir, SYMVASS_PREFIX) - 1
@@ -459,14 +679,16 @@ def run_clean(meta_data: List[dict]):
       os.remove(full_name)
 
 def run_cmd(opt: str, meta_data: List[dict], extra: str, additional: str):
-  core = 32
-  pool = mp.Pool(core)
   args_list = list()
   for meta in meta_data:
     if not check_correct_exists(meta):
       continue
-    # if is_high and not check_use_high_level(meta):
-    #   continue
+    if VULMASTER_MODE:
+      rsv = RunSingleVulmaster((meta["id"]))
+      cmds = rsv.get_cmd(opt, extra)
+      for cmd in cmds:
+        args_list.append((cmd, ROOT_DIR, f"{meta['bug_id']}.log", opt, f"{opt},{meta['subject']}/{meta['bug_id']}", meta))
+      continue
     rs = RunSingle(meta["id"])
     cmd = rs.get_cmd(opt, extra)
     if cmd is None:
@@ -475,6 +697,8 @@ def run_cmd(opt: str, meta_data: List[dict], extra: str, additional: str):
       cmd = f"{cmd} {additional}"
     args_list.append((cmd, ROOT_DIR, f"{meta['bug_id']}.log", opt, f"{opt},{meta['subject']}/{meta['bug_id']}", meta))
   log_out(f"Total {opt}: {len(args_list)}")
+  core = len(args_list)
+  pool = mp.Pool(core)
   pool.map(execute_wrapper, args_list)
   pool.close()
   pool.join()
@@ -500,15 +724,19 @@ def run_cmd_seq(opt: str, meta_data: List[dict], extra: str, additional: str, ou
 
 def main(argv: List[str]):
   parser = argparse.ArgumentParser(description="Run symvass experiments")
-  parser.add_argument("cmd", type=str, help="Command to run", choices=["filter", "exp", "uc", "analyze", "final", "feas", "clean"], default="exp")
+  parser.add_argument("cmd", type=str, help="Command to run", choices=["filter", "exp", "run", "uc", "analyze", "final", "feas", "clean"], default="exp")
   parser.add_argument("-e", "--extra", type=str, help="Subcommand", default="exp")
   parser.add_argument("-o", "--output", type=str, help="Output file", default="", required=False)
   parser.add_argument("-p", "--prefix", type=str, help="Output prefix", default="", required=False)
   parser.add_argument("-s", "--symvass-prefix", type=str, help="Symvass prefix", default="", required=False)
   parser.add_argument("-a", "--additional", type=str, help="Additional arguments", default="", required=False)
+  parser.add_argument("-m", "--mode", type=str, help="Mode", choices=["symradar", "extractfix"], default="symradar")
+  parser.add_argument("-v", "--vulmaster", action="store_true", help="Run vulmaster", default=False)
   parser.add_argument("--seq", action="store_true", help="Run sequentially", default=False)
   args = parser.parse_args(argv)
-  global OUTPUT_DIR, PREFIX, SYMVASS_PREFIX
+  global OUTPUT_DIR, PREFIX, SYMVASS_PREFIX, MODE, VULMASTER_MODE
+  VULMASTER_MODE = args.vulmaster
+  MODE = args.mode
   OUTPUT_DIR = os.path.join(ROOT_DIR, "out")
   if not os.path.exists(OUTPUT_DIR):
     os.makedirs(OUTPUT_DIR, exist_ok=True)

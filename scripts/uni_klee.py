@@ -173,7 +173,7 @@ class ConfigFiles:
     self.project_dir = os.path.join(patches_dir, self.benchmark, self.subject, self.bid)
     self.work_dir = os.path.join(self.project_dir, "patched")
     self.repair_conf = os.path.join(self.project_dir, "repair.conf")
-    self.meta_program = os.path.join(self.project_dir, "meta-program.json")
+    self.meta_program = os.path.join(self.project_dir, "meta-program-original.json")
     patch.compile(os.path.join(self.project_dir, "concrete"))
     self.meta_patch_obj_file = os.path.join(self.project_dir, "concrete", "libuni_klee_runtime.bca")
   def set_out_dir(self, out_dir: str, out_dir_prefix: str, bug_info: dict, snapshot_prefix: str, filter_prefix: str):
@@ -218,11 +218,10 @@ class ConfigFiles:
     dirs = os.listdir(dir)
     index = 0
     print_log(name)
-    print_log(dirs)
     dirs.sort(key=self.sorting_key)
     print_log(dirs)
     for d in dirs:
-      if name not in d:
+      if name.startswith("snapshot") or name not in d:
         continue
       index += 1
       result.append((d, index))

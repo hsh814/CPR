@@ -128,7 +128,7 @@ def run_fuzzer_multi(subject: dict, subject_dir: str, debug: bool = False):
     env["AFL_NO_UI"] = "1"
     bin = os.path.basename(conf["binary_path"])
     opts = conf["test_input_list"].replace("$POC", "@@")
-    cmd = f"timeout 24h /root/projects/AFLRun/afl-fuzz -C -i {in_dir} -o {out_dir} -m none -t 2000ms -- ./{bin}.aflrun {opts}"
+    cmd = f"timeout 12h /root/projects/AFLRun/afl-fuzz -C -i {in_dir} -o {out_dir} -m none -t 2000ms -- {runtime_dir}/{bin}.aflrun {opts}"
     print_log(f"Running fuzzer: {cmd}")
     stdout = sys.stdout if debug else subprocess.DEVNULL
     stderr = sys.stderr # if debug else subprocess.DEVNULL
@@ -157,7 +157,7 @@ def run_fuzzer(subject: dict, subject_dir: str, debug: bool = False):
     env["AFL_NO_UI"] = "1"
     bin = os.path.basename(conf["binary_path"])
     opts = conf["test_input_list"].replace("$POC", "@@")
-    cmd = f"timeout 12h /root/projects/AFLRun/afl-fuzz -C -i {in_dir} -o {out_dir} -m none -t 2000ms -- ./{bin}.aflrun {opts}"
+    cmd = f"timeout 12h /root/projects/AFLRun/afl-fuzz -C -i {in_dir} -o {out_dir} -m none -t 2000ms -- {runtime_dir}/{bin}.aflrun {opts}"
     print_log(f"Running fuzzer: {cmd}")
     stdout = sys.stdout if debug else subprocess.DEVNULL
     stderr = sys.stderr # if debug else subprocess.DEVNULL
@@ -396,16 +396,16 @@ def read_val_out_file(parser: sbsv.parser, globals_list: List[Dict[str, str]], i
 def parse_symvass_result(file_path: str) -> Dict[int, List[int]]:
     result = dict()
     parser = sbsv.parser()
-    parser.add_schema("[strict] [id: int] [base: int] [test: int] [cnt: int] [patches: str]")
+    parser.add_schema("[sym-in] [id: int] [base: int] [test: int] [cnt: int] [patches: str]")
     # parser.add_schema("[sym-out] [best] [cnt: int] [patches: str]")
-    parser.add_schema("[meta-data] [strict] [correct: int] [all-patches: int] [sym-input: int] [is-correct: bool] [patches: str]")
+    parser.add_schema("[meta-data] [default] [correct: int] [all-patches: int] [sym-input: int] [is-correct: bool] [patches: str]")
     with open(file_path, "r") as f:
         parser.load(f)
-    for sym_in in parser.get_result()["strict"]:
+    for sym_in in parser.get_result()["sym-in"]:
         test = sym_in["test"]
         patches = sym_in["patches"]
         result[test] = eval(patches)
-    result[-1] = list(range(parser.get_result()["meta-data"]["strict"][0]["all-patches"]))
+    result[-1] = list(range(parser.get_result()["meta-data"]["default"][0]["all-patches"]))
     return result
         
 def parse_val_results(val_out_dir: str):
@@ -505,7 +505,7 @@ def parse_val_results(val_out_dir: str):
 
 def analyze(subject: dict, val_out_dir: str, output: str):
     subject_dir = os.path.join(ROOT_DIR, "patches", subject["benchmark"], subject["subject"], subject["bug_id"])
-    group_patches_json = os.path.join(subject_dir, "group-patches.json")
+    group_patches_json = os.path.join(subject_dir, "group-patches-original.json")
     if not os.path.exists(group_patches_json):
         print_log(f"Group patches file {group_patches_json} not found")
         return
@@ -547,6 +547,17 @@ def analyze(subject: dict, val_out_dir: str, output: str):
     with open(result_file, "r") as f:
         result = parser.load(f)
     remaining_inputs = len(result["remaining"]["input"])
+    if remaining_inputs == 0:
+        print_log("No remaining inputs")
+        found = correct_patch in all_patches
+        res = f"{subject['subject']}\t{subject['bug_id']}\t{remaining_inputs}\t{len(all_patches)}\t{found}\t{all_patches}"
+        if output != "":
+            with open(os.path.join(f"{ROOT_DIR}/out", output), "a") as f:
+                f.write(res + "\n")
+        else:
+            print_out(res)
+        return
+    
     remaining_patches = eval(result["remaining"]["patch"][0]["patches"])
     remaining_patches_filtered = list()
     for patch in remaining_patches:
@@ -1009,8 +1020,8 @@ def code_to_formula(code_str, variable_type=INT):
 # --- group_patches function (should be compatible) ---
 # (Make sure it handles None return from code_to_formula gracefully)
 def group_patches(subject_dir: str):
-    meta_path = os.path.join(subject_dir, "meta-program.json")
-    equiv_path = os.path.join(subject_dir, "concrete", "group-patches.json")
+    meta_path = os.path.join(subject_dir, "meta-program-original.json")
+    equiv_path = os.path.join(subject_dir,  "group-patches-original.json")
     os.makedirs(os.path.dirname(equiv_path), exist_ok=True)
 
     try:
@@ -1138,7 +1149,7 @@ def group_patches(subject_dir: str):
     
 def main():
     parser = argparse.ArgumentParser(description="Symbolic Input Feasibility Analysis")
-    parser.add_argument("cmd", help="Command to run", choices=["fuzz", "fuzz-seeds", "check", "fuzz-build", "val-build", "build", "collect-inputs", "group-patches", "val", "feas", "analyze"])
+    parser.add_argument("cmd", help="Command to run", choices=["fuzz", "fuzz-seeds", "check", "fuzz-build", "val-build", "build", "extractfix-build", "vulmaster-build", "vulmaster-extractfix-build", "collect-inputs", "group-patches", "val", "feas", "analyze"])
     parser.add_argument("subject", help="Subject to run", default="")
     parser.add_argument("-i", "--input", help="Input file", default="")
     parser.add_argument("-o", "--output", help="Output file", default="")
@@ -1152,18 +1163,20 @@ def main():
     subject_dir = os.path.join(ROOT_DIR, "patches", subject["benchmark"], subject["subject"], subject["bug_id"])
     val_prefix = args.val_prefix if args.val_prefix != "" else args.symvass_prefix
     if args.cmd == "fuzz":
-        # with open(os.path.join(subject_dir, "meta-program.json"), "r") as f:
-        #     meta = json.load(f)
-        # for patch in meta["patches"]:
-        #     if "/" in patch["code"]:
-        #         print_out(f"{subject['subject']} has a division operator in the code")
-        #         return
-        # return
         run_fuzzer(subject, subject_dir, args.debug)
     elif args.cmd == "fuzz-seeds":
         run_fuzzer_multi(subject, subject_dir, args.debug)
     elif args.cmd == "check":
-        parse_smt2_file(args.input)
+        # parse_smt2_file(args.input)
+        out_no = find_num(os.path.join(subject_dir, "patched"), args.symvass_prefix) - 1
+        target_dir = os.path.join(ROOT_DIR, "patches", "tmp", subject["benchmark"], subject["subject"], subject["bug_id"], "patched")
+        os.system(f"mv {target_dir}/high-snapshot {target_dir}/snapshot-high")
+        # os.makedirs(target_dir, exist_ok=True)
+        # os.system(f"rsync -avzh {os.path.join(subject_dir, 'patched', f'{args.symvass_prefix}-{out_no}')}/ {target_dir}/high-0/")
+        # os.system(f"rsync -avzh {os.path.join(subject_dir, 'patched', f'snapshot-{args.symvass_prefix}')}/ {target_dir}/high-snapshot")
+        # os.system(f"rsync -avzh {os.path.join(subject_dir, 'patched', 'filter')} {target_dir}/")
+        # uc_no = find_num(os.path.join(subject_dir, "patched"), "uc") - 1
+        # os.system(f"rsync -avzh {os.path.join(subject_dir, 'patched', f'uc-{uc_no}')}/ {target_dir}/uc-0")
     elif args.cmd == "fuzz-build":
         subprocess.run(f"./aflrun.sh", cwd=subject_dir, shell=True)
     elif args.cmd == "val-build":
@@ -1181,6 +1194,12 @@ def main():
         subprocess.run(f"./val.sh", cwd=subject_dir, shell=True, env=env)
     elif args.cmd == "build":
         subprocess.run(f"./init.sh", cwd=subject_dir, shell=True)
+    elif args.cmd == "extractfix-build":
+        subprocess.run(f"./extractfix.sh", cwd=subject_dir, shell=True)
+    elif args.cmd == "vulmaster-build":
+        subprocess.run(f"./init-vulmaster.sh", cwd=subject_dir, shell=True)
+    elif args.cmd == "vulmaster-extractfix-build":
+        subprocess.run(f"./extractfix-vulmaster.sh", cwd=subject_dir, shell=True)
     elif args.cmd == "collect-inputs":
         out_no = find_num(os.path.join(subject_dir, "runtime"), "aflrun-out")
         collect_val_runtime(subject_dir, os.path.join(subject_dir, "runtime", f"aflrun-out-{out_no - 1}"))
