@@ -158,13 +158,15 @@ def run(sub:str):
                         line=f.readline()
                         new_cond=[int(x) for x in line.strip().split()]
                     os.remove(f'{os.getcwd()}/{sub}/dafl-condition.log')
-                    print(f'Successfully parse original condition log for {input}: {orig_conditions[input]}',file=log_file)
+                    print(f'Successfully parse non-crashing condition log for {input}: {orig_conditions[input]}',file=log_file)
                 else:
-                    print(f'No original condition log for {input}',file=log_file)
+                    print(f'No non-crashing condition log for {input}',file=log_file)
                     new_cond=[]
                 if new_cond!=orig_conditions[input]:
                     # Filter out if the patch covers different branches
                     print(f'Program covers different branches with input {input} with patch {id}',file=log_file)
+                    print(f'Original condition: {orig_conditions[input]}',file=log_file)
+                    print(f'New condition: {new_cond}',file=log_file)
                     filtered_out_patches.add(id)
                     break
 
@@ -192,8 +194,8 @@ def run(sub:str):
                 res=subprocess.run(cur_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=sub, env=env,shell=True)
                 os.remove(temp_input_path)
                 print(f'{input} returns {res.returncode} with patch {id}',file=log_file)
-                if res.returncode != 0 and res.returncode != 1:
-                    # Filter out if the patch crashes
+                if res.returncode != 0 and res.returncode != 1 and orig_returncode[input] != res.returncode:
+                    # Filter out if the patch still crashes and change the behavior
                     print(f'Program crashed with input {input} with patch {id}',file=log_file)
                     filtered_out_patches.add(id)
                     break
