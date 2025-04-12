@@ -59,16 +59,17 @@ def run(sub:str):
         orig_returncode:Dict[str, int]=dict()
         orig_conditions:Dict[str, List[int]]=dict()
         env=os.environ.copy()
-        env['LD_LIBRARY_PATH']=f'{os.getcwd()}/{sub}/concrete'
+        env['LD_LIBRARY_PATH']=f'{os.getcwd()}/{sub}/dafl-src'
         env['DAFL_PATCH_ID']='0'
         env['DAFL_RESULT_FILE']=f'{os.getcwd()}/{sub}/dafl-condition.log'
         for input in inputs:
-            input_path=os.path.join('concrete-inputs', input)
+            input_path=os.path.join(os.getcwd(),sub,'concrete-inputs', input)
             cur_cmd=cmd.copy()
             for i in range(len(cur_cmd)):
                 if cur_cmd[i] == '<exploit>':
                     cur_cmd[i]=input_path
 
+            print(cur_cmd,file=log_file)
             res=subprocess.run(cur_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=sub, env=env)
             print(f'{input} returns {res.returncode} with patch 0',file=log_file)
             orig_returncode[input]=res.returncode
