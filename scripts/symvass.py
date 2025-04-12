@@ -1079,6 +1079,10 @@ class SymvassAnalyzer:
                         new_removed = new_removed | removed
                         new_remaining_inputs.append(res)
                 else:
+                    if EXTRACTFIX_MODE:
+                        if not meta["stack-trace"]["passed-crash-loc"]:
+                            f.write(f"[remove] [crash] [id {crash_id}] [base {base}] [test {test}] [exit-loc {meta_base['exitLoc']}] [exit-res {meta_base['exit']}] [cnt {len(remaining)}] [patches {sorted(list(remaining))}]\n")
+                            continue
                     new_removed = new_removed | removed
                     new_remaining_inputs.append(res)
 

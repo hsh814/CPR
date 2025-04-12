@@ -7,7 +7,7 @@ PROXY_C = cpr_proxy.c
 PROXY_OBJ = cpr_proxy.o
 OBJ_KLEE = $(SRC:%.c=%.o)
 
-all: cpr_runtime.o libcpr_runtime.a libcpr_runtime.so libcpr_runtime.bca libcpr_proxy.so libcpr_proxy.a libcpr_proxy.bca libuni_klee_memory_check.a UniKleeGlobalVariablePass.so
+all: cpr_runtime.o libcpr_runtime.a libcpr_runtime.so libcpr_runtime.bca libcpr_proxy.so libcpr_proxy.a libcpr_proxy.bca libuni_klee_memory_check.a UniKleeGlobalVariablePass.so ExtractFix.so
 
 %.o: %.c $(DEP)
 	wllvm -g -fPIC -O0 -c -o $@ $< $(CFLAGS)
@@ -36,6 +36,10 @@ libuni_klee_memory_check.a: uni_klee_memory_check.c uni_klee_memory_check.h
 
 UniKleeGlobalVariablePass.so: UniKleeGlobalVariablePass.cpp
 	clang++ -fPIC -shared -o UniKleeGlobalVariablePass.so UniKleeGlobalVariablePass.cpp `llvm-config --cxxflags --ldflags --system-libs --libs core`
+
+ExtractFix.so: ExtractFix.cpp MetadataExtractor.cpp MetadataExtractor.h
+	clang++ -fPIC -shared -o ExtractFix.so ExtractFix.cpp MetadataExtractor.cpp `llvm-config --cxxflags --ldflags --system-libs --libs core`
+
 
 clean:
 	rm -f *.o

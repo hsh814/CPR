@@ -367,7 +367,7 @@ def read_val_out_file(parser: sbsv.parser, globals_list: List[Dict[str, str]], i
         eq = cur_env.formula_manager.Equals(bv, val)
         formula = cur_env.formula_manager.And(formula, eq)
     
-    if len(globals_list) > 0:
+    if len(globals_list) > iter:
         for name, value in globals_list[iter].items():
             var = get_var_from_script(script, name, cur_env)
             if var is None:

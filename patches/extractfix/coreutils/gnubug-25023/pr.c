@@ -94,10 +94,6 @@
    Including version 1.22i:
    Some SMALL LETTER options have been redefined with the object of a
    better POSIX compliance. The output of some further cases has been
-#include <klee/klee.h>
-#ifndef CPR_OUTPUT
-#define CPR_OUTPUT(id, typestr, value) value
-#endif
    adapted to other UNIXes. A violation of downward compatibility has to
    be accepted.
    Some NEW CAPITAL LETTER options ( -J, -S, -W) has been introduced to
@@ -327,7 +323,10 @@
 #include "strftime.h"
 #include "xstrtol.h"
 #include "xdectoint.h"
-
+#include <klee/klee.h>
+#ifndef CPR_OUTPUT
+#define CPR_OUTPUT(id, typestr, value) value
+#endif
 /* The official name of this program (e.g., no 'g' prefix).  */
 #define PROGRAM_NAME "pr"
 
