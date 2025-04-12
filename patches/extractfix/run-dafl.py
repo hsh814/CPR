@@ -103,7 +103,7 @@ def run(sub:str):
         log_file.close()
         print(f'Error running {sub}: {e}')
 
-pool=mp.Pool(sys.argv[1])
+pool=mp.Pool(int(sys.argv[1]))
 for sub in CORRECT_PATCHES.keys():
     pool.apply_async(run, args=(sub,))
 pool.close()
