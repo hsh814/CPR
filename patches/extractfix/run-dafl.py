@@ -69,20 +69,21 @@ def run(sub:str):
                 if cur_cmd[i] == '<exploit>':
                     cur_cmd[i]=input_path
 
-            res=subprocess.run(cur_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=sub, env=env)
+            res=subprocess.run(cur_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=sub, env=env)
             print(f'{input} returns {res.returncode} with patch 0',file=log_file)
             orig_returncode[input]=res.returncode
             if res.returncode != 0 and res.returncode != 1: # If return code is 1, it is not a vulnerability
                 print(f'Program crashed with input {input}',file=log_file)
             else:
                 print(f'Program executed successfully with input {input}',file=log_file)
+            print(res.stderr.decode('utf-8'),file=log_file)
 
             # Parse the condition at the location
-            if os.path.exists(f'{sub}/dafl-condition.log'):
-                with open(f'{sub}/dafl-condition.log', 'r') as f:
+            if os.path.exists(f'{os.getcwd()}/{sub}/dafl-condition.log'):
+                with open(f'{os.getcwd()}/{sub}/dafl-condition.log', 'r') as f:
                     line=f.readline()
                     orig_conditions[input]=[int(x) for x in line.strip().split()]
-                os.remove(f'{sub}/dafl-condition.log')
+                os.remove(f'{os.getcwd()}/{sub}/dafl-condition.log')
                 print(f'Successfully parse original condition log for {input}: {orig_conditions[input]}',file=log_file)
             else:
                 print(f'No original condition log for {input}',file=log_file)
