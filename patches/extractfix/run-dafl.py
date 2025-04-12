@@ -1,8 +1,9 @@
+import json
 import subprocess
 import multiprocessing as mp
 import sys
 import os
-from typing import Dict, List
+from typing import Dict, List, Set, Tuple
 import shutil
 
 CORRECT_PATCHES={
@@ -36,6 +37,28 @@ CORRECT_PATCHES={
     # 'libxml2/CVE-2017-5969',
 }
 
+def get_all_patches(file: str) -> Tuple[Set[int], int]:
+    with open(file, "r") as f:
+        group_patches = json.load(f)
+        patch_group_tmp = dict()
+        correct_patch = group_patches["correct_patch_id"]
+        for patches in group_patches["equivalences"]:
+            representative = patches[0]
+            for patch in patches:
+                patch_group_tmp[patch] = representative
+        patch_eq_map = dict()
+        all_patches = set()
+        for patch in range(1, correct_patch + 1):
+            if patch in patch_group_tmp:
+                patch_eq_map[patch] = patch_group_tmp[patch]
+            else:
+                patch_eq_map[patch] = patch
+            all_patches.add(patch_eq_map[patch])
+    
+        if correct_patch in patch_eq_map:
+            correct_patch = patch_eq_map[correct_patch]      
+        return all_patches, correct_patch
+  
 def run(sub:str):
     try:
         log_file=open(f'{sub}/dafl-test.log', 'w')
@@ -98,11 +121,75 @@ def run(sub:str):
         print(f'Original {sub} returns {len(list(filter(lambda x: orig_returncode[x] != 0 and orig_returncode[x] != 1, inputs)))} crashing inputs')
             
         # Run patched program with non-crashing inputs and compare branches, filter out if the patch crashes or covers different branches
-        for input in inputs:
-            if orig_returncode[input] != 0:
-                continue
+        filtered_out_patches=set()
+        all_patches, correct_patch = get_all_patches(f'{sub}/group-patches-original.json')
+        print(f'Running {sub} with non-crashing inputs...')
+        for id in all_patches:
+            print(f'Running {sub} with non-crashing input with patch {id}...',file=log_file)
+            for input in inputs:
+                if orig_returncode[input] != 0 and orig_returncode[input] != 1:
+                    continue
+                env['DAFL_PATCH_ID']=str(id)
+                input_path=os.path.join(os.getcwd(),sub,'concrete-inputs', input)
+                temp_input_path=os.path.join(os.getcwd(),sub,'dafl-patched','input')
+                shutil.copy(input_path, temp_input_path)
+                cur_cmd=cmd.replace('<exploit>', temp_input_path)
+
+                print(cur_cmd,file=log_file)
+                res=subprocess.run(cur_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=sub, env=env,shell=True)
+                os.remove(temp_input_path)
+                print(f'{input} returns {res.returncode} with patch {id}',file=log_file)
+                if res.returncode != 0 and res.returncode != 1:
+                    # Filter out if the patch crashes
+                    print(f'Program crashed with input {input} with patch {id}',file=log_file)
+                    filtered_out_patches.add(id)
+                    break
+
+                if os.path.exists(f'{os.getcwd()}/{sub}/dafl-condition.log'):
+                    with open(f'{os.getcwd()}/{sub}/dafl-condition.log', 'r') as f:
+                        line=f.readline()
+                        new_cond=[int(x) for x in line.strip().split()]
+                    os.remove(f'{os.getcwd()}/{sub}/dafl-condition.log')
+                    print(f'Successfully parse original condition log for {input}: {orig_conditions[input]}',file=log_file)
+                else:
+                    print(f'No original condition log for {input}',file=log_file)
+                    new_cond=[]
+                if new_cond!=orig_conditions[input]:
+                    # Filter out if the patch covers different branches
+                    print(f'Program covers different branches with input {input} with patch {id}',file=log_file)
+                    filtered_out_patches.add(id)
+                    break
 
         # Run patched program with crashing inputs, filter out if the patch still crashes
+        print(f'Running {sub} with crashing inputs...')
+        for id in all_patches:
+            if id in filtered_out_patches:
+                continue
+
+            print(f'Running {sub} with crashing input with patch {id}...',file=log_file)
+            for input in inputs:
+                if orig_returncode[input] == 0 or orig_returncode[input] == 1:
+                    continue
+                env['DAFL_PATCH_ID']=str(id)
+                input_path=os.path.join(os.getcwd(),sub,'concrete-inputs', input)
+                temp_input_path=os.path.join(os.getcwd(),sub,'dafl-patched','input')
+                shutil.copy(input_path, temp_input_path)
+                cur_cmd=cmd.replace('<exploit>', temp_input_path)
+
+                print(cur_cmd,file=log_file)
+                res=subprocess.run(cur_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=sub, env=env,shell=True)
+                os.remove(temp_input_path)
+                print(f'{input} returns {res.returncode} with patch {id}',file=log_file)
+                if res.returncode != 0 and res.returncode != 1:
+                    # Filter out if the patch crashes
+                    print(f'Program crashed with input {input} with patch {id}',file=log_file)
+                    filtered_out_patches.add(id)
+                    break
+                if os.path.exists(f'{os.getcwd()}/{sub}/dafl-condition.log'):
+                    os.remove(f'{os.getcwd()}/{sub}/dafl-condition.log')
+
+        final_patches=all_patches-filtered_out_patches
+        print(f'Final patches for {sub}: total: {len(all_patches)}, remained: {len(final_patches)}, remained: {final_patches}',file=log_file)
         log_file.close()
         print(f'{sub} finished')
     except Exception as e:
