@@ -40,9 +40,9 @@ def run(sub:str):
         log_file=open(f'{sub}/dafl-test.log', 'w')
         inputs=os.listdir(f'{sub}/concrete-inputs')
         if 'coreutils' in sub:
-            cmd='./dafl-patched/bin < <exploit>'
+            cmd='./dafl-patched/bin < <exploit> '
         else:
-            cmd='./dafl-patched/bin'
+            cmd='./dafl-patched/bin '
             if os.path.exists(f'{sub}/config'):
                 with open(f'{sub}/config','r') as f:
                     for line in f:
