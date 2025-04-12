@@ -60,6 +60,7 @@ def execute(cmd: str, dir: str, log_file: str, log_dir: str, prefix: str, meta: 
   #   collect_result(meta)
   if proc.returncode != 0:
     log_out(f"Failed to execute: {cmd}")
+    log_out(stderr.decode("utf-8", errors="ignore"))
     try:
       if not os.path.exists(os.path.join(GLOBAL_LOG_DIR, log_dir)):
         os.makedirs(os.path.join(GLOBAL_LOG_DIR, log_dir), exist_ok=True)
@@ -101,7 +102,8 @@ class RunSingleVulmaster():
       self.vids.append(int(vid))
     self.vids = sorted(self.vids)
     if self.meta["bug_id"] == "CVE-2017-15025":
-      self.vids = [] # Skip this
+      # Use cases that passed filtering
+      self.vids = [2, 3, 4]
 
   def get_clean_cmd(self) -> List[str]:
     return [f"symvass.py clean {self.meta['bug_id']} --vulmaster-id={vid}" for vid in self.vids]
