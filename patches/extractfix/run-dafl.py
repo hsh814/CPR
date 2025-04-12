@@ -64,7 +64,7 @@ def run(sub:str):
         env['DAFL_RESULT_FILE']=f'{os.getcwd()}/{sub}/dafl-condition.log'
         for input in inputs:
             input_path=os.path.join(os.getcwd(),sub,'concrete-inputs', input)
-            cur_cmd=cmd.replace('<exploit>', input_path)
+            cur_cmd=cmd.replace('<exploit>', f'"{input_path}"')
 
             print(cur_cmd,file=log_file)
             res=subprocess.run(cur_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=sub, env=env,shell=True)
@@ -89,6 +89,8 @@ def run(sub:str):
             else:
                 print(f'No original condition log for {input}',file=log_file)
                 orig_conditions[input]=[]
+
+        print(f'Original {sub} returns {len(list(filter(lambda x: orig_returncode[x] != 0 and orig_returncode[x] != 1, inputs)))} crashing inputs')
             
         # Run patched program with non-crashing inputs and compare branches, filter out if the patch crashes or covers different branches
         for input in inputs:
