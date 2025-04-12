@@ -189,9 +189,8 @@ def run(sub:str):
                     os.remove(f'{os.getcwd()}/{sub}/dafl-condition.log')
 
         final_patches=all_patches-filtered_out_patches
-        print(f'Final patches for {sub}: total: {len(all_patches)}, remained: {len(final_patches)}, remained: {final_patches}',file=log_file)
+        print(f'Final patches for {sub}: total: {len(all_patches)}, remained: {len(final_patches)}, remained: {final_patches}')
         log_file.close()
-        print(f'{sub} finished')
     except Exception as e:
         import traceback
         traceback.print_exc(file=log_file)
