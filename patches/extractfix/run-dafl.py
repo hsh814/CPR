@@ -40,19 +40,19 @@ def run(sub:str):
         log_file=open(f'{sub}/dafl-test.log', 'w')
         inputs=os.listdir(f'{sub}/concrete-inputs')
         if 'coreutils' in sub:
-            cmd=['./dafl-patched/bin','<','<exploit>']
+            cmd='./dafl-patched/bin < <exploit>'
         else:
-            cmd=['./dafl-patched/bin']
+            cmd='./dafl-patched/bin'
             if os.path.exists(f'{sub}/config'):
                 with open(f'{sub}/config','r') as f:
                     for line in f:
                         if line.startswith('cmd='):
-                            cmd+=line[4:].strip().split()
+                            cmd+=' '.join(line[4:].strip().split())
             else:
                 with open(f'{sub}/repair.conf','r') as f:
                     for line in f:
                         if line.startswith('test_input_list:'):
-                            cmd+=line[17:].strip().replace('$POC','<exploit>').split()
+                            cmd+=' '.join(line[17:].strip().replace('$POC','<exploit>').split())
 
         # Run original program with inputs
         print(f'Running {sub} with {len(inputs)} inputs...')
@@ -64,13 +64,10 @@ def run(sub:str):
         env['DAFL_RESULT_FILE']=f'{os.getcwd()}/{sub}/dafl-condition.log'
         for input in inputs:
             input_path=os.path.join(os.getcwd(),sub,'concrete-inputs', input)
-            cur_cmd=cmd.copy()
-            for i in range(len(cur_cmd)):
-                if cur_cmd[i] == '<exploit>':
-                    cur_cmd[i]=input_path
+            cur_cmd=cmd.replace('<exploit>', input_path)
 
             print(cur_cmd,file=log_file)
-            res=subprocess.run(cur_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=sub, env=env)
+            res=subprocess.run(cur_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=sub, env=env,shell=True)
             print(f'{input} returns {res.returncode} with patch 0',file=log_file)
             orig_returncode[input]=res.returncode
             if res.returncode != 0 and res.returncode != 1: # If return code is 1, it is not a vulnerability
