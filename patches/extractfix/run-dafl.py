@@ -3,6 +3,7 @@ import multiprocessing as mp
 import sys
 import os
 from typing import Dict, List
+import shutil
 
 CORRECT_PATCHES={
     # 'binutils/CVE-2017-15025',
@@ -64,10 +65,13 @@ def run(sub:str):
         env['DAFL_RESULT_FILE']=f'{os.getcwd()}/{sub}/dafl-condition.log'
         for input in inputs:
             input_path=os.path.join(os.getcwd(),sub,'concrete-inputs', input)
-            cur_cmd=cmd.replace('<exploit>', f'"{input_path}"')
+            temp_input_path=os.path.join(os.getcwd(),sub,'dafl-patched','input')
+            shutil.copy(input_path, temp_input_path)
+            cur_cmd=cmd.replace('<exploit>', temp_input_path)
 
             print(cur_cmd,file=log_file)
             res=subprocess.run(cur_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=sub, env=env,shell=True)
+            os.remove(temp_input_path)
             print(f'{input} returns {res.returncode} with patch 0',file=log_file)
             orig_returncode[input]=res.returncode
             if res.returncode != 0 and res.returncode != 1: # If return code is 1, it is not a vulnerability
