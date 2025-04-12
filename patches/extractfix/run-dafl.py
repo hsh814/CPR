@@ -65,6 +65,8 @@ def run(sub:str):
         env['DAFL_RESULT_FILE']=f'{os.getcwd()}/{sub}/dafl-condition.log'
         for input in inputs:
             input_path=os.path.join(os.getcwd(),sub,'concrete-inputs', input)
+            if not os.path.isfile(input_path):
+                continue
             temp_input_path=os.path.join(os.getcwd(),sub,'dafl-patched','input')
             shutil.copy(input_path, temp_input_path)
             cur_cmd=cmd.replace('<exploit>', temp_input_path)
