@@ -77,7 +77,10 @@ def run(sub:str):
                 print(f'Program crashed with input {input}',file=log_file)
             else:
                 print(f'Program executed successfully with input {input}',file=log_file)
-            print(res.stderr.decode('utf-8'),file=log_file)
+            try:
+                print(res.stderr.decode('utf-8'),file=log_file)
+            except UnicodeDecodeError:
+                print('Error decoding stderr',file=log_file)
 
             # Parse the condition at the location
             if os.path.exists(f'{os.getcwd()}/{sub}/dafl-condition.log'):
