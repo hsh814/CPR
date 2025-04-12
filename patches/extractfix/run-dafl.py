@@ -89,7 +89,11 @@ def run(sub:str):
         env['DAFL_RESULT_FILE']=f'{os.getcwd()}/{sub}/dafl-condition.log'
         for input in inputs:
             input_path=os.path.join(os.getcwd(),sub,'concrete-inputs', input)
-            temp_input_path=os.path.join(os.getcwd(),sub,'dafl-patched','input')
+            if '.' in input:
+                extension=input.split('.')[-1]
+                temp_input_path=os.path.join(os.getcwd(),sub,'dafl-patched',f'input.{extension}')
+            else:
+                temp_input_path=os.path.join(os.getcwd(),sub,'dafl-patched','input')
             shutil.copy(input_path, temp_input_path)
             cur_cmd=cmd.replace('<exploit>', temp_input_path)
 
@@ -131,7 +135,11 @@ def run(sub:str):
                     continue
                 env['DAFL_PATCH_ID']=str(id)
                 input_path=os.path.join(os.getcwd(),sub,'concrete-inputs', input)
-                temp_input_path=os.path.join(os.getcwd(),sub,'dafl-patched','input')
+                if '.' in input:
+                    extension=input.split('.')[-1]
+                    temp_input_path=os.path.join(os.getcwd(),sub,'dafl-patched',f'input.{extension}')
+                else:
+                    temp_input_path=os.path.join(os.getcwd(),sub,'dafl-patched','input')
                 shutil.copy(input_path, temp_input_path)
                 cur_cmd=cmd.replace('<exploit>', temp_input_path)
 
@@ -172,7 +180,11 @@ def run(sub:str):
                     continue
                 env['DAFL_PATCH_ID']=str(id)
                 input_path=os.path.join(os.getcwd(),sub,'concrete-inputs', input)
-                temp_input_path=os.path.join(os.getcwd(),sub,'dafl-patched','input')
+                if '.' in input:
+                    extension=input.split('.')[-1]
+                    temp_input_path=os.path.join(os.getcwd(),sub,'dafl-patched',f'input.{extension}')
+                else:
+                    temp_input_path=os.path.join(os.getcwd(),sub,'dafl-patched','input')
                 shutil.copy(input_path, temp_input_path)
                 cur_cmd=cmd.replace('<exploit>', temp_input_path)
 
@@ -189,7 +201,7 @@ def run(sub:str):
                     os.remove(f'{os.getcwd()}/{sub}/dafl-condition.log')
 
         final_patches=all_patches-filtered_out_patches
-        print(f'Final patches for {sub}: total: {len(all_patches)}, remained: {len(final_patches)}, remained: {final_patches}')
+        print(f'Final patches for {sub}: total: {len(all_patches)}, remained: {len(final_patches)}, remained: {list(final_patches)}')
         log_file.close()
     except Exception as e:
         import traceback
