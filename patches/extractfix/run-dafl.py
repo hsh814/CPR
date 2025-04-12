@@ -83,7 +83,7 @@ def run(sub:str):
                     line=f.readline()
                     orig_conditions[input]=[int(x) for x in line.strip().split()]
                 os.remove(f'{sub}/dafl-condition.log')
-                print(f'Original condition log for {input}: {orig_conditions[input]}',file=log_file)
+                print(f'Successfully parse original condition log for {input}: {orig_conditions[input]}',file=log_file)
             else:
                 print(f'No original condition log for {input}',file=log_file)
                 orig_conditions[input]=[]
