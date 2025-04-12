@@ -216,9 +216,6 @@ class Config(uni_klee.Config):
             exit_loc = self.find_last_loc(self.conf_files.snapshot_dir, self.bug_info["target"])
             cmd.append("--use-extractfix")
             cmd.append(f"--crash-loc={exit_loc}")
-        elif not VULMASTER_MODE:
-            exit_loc = self.find_last_loc(self.conf_files.filter_dir, self.bug_info["target"])
-            cmd.append(f"--crash-loc={exit_loc}")
         cmd.extend(default_opts)
         cmd.extend(opts)
         cmd.append(f"--output-dir={out_dir}")
