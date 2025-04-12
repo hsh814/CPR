@@ -24,6 +24,7 @@ GLOBAL_LOG_DIR = os.path.join(ROOT_DIR, "logs")
 OUTPUT_DIR = "out"
 PREFIX = ""
 SYMVASS_PREFIX = "uni-m-out"
+SNAPSHOT_PREFIX = ""
 MODE = "symradar"
 VULMASTER_MODE = False
 
@@ -125,14 +126,15 @@ class RunSingleVulmaster():
         cmd = f"symvass.py snapshot {query} --outdir-prefix={SYMVASS_PREFIX} --mode={MODE} --vulmaster-id={vid}"
         result.append(cmd)
         continue
-      symvass_cmd = "rerun"
+      cmd = f"symvass.py rerun {query} --lock=f --outdir-prefix={SYMVASS_PREFIX} --mode={MODE} --vulmaster-id={vid}"
       if opt == "run":
-        symvass_cmd = "run"
-      cmd = f"symvass.py {symvass_cmd} {query} --outdir-prefix={SYMVASS_PREFIX} --mode={MODE} --vulmaster-id={vid}"
+        cmd = f"symvass.py run {query} --lock=f --outdir-prefix={SYMVASS_PREFIX} --mode={MODE} --vulmaster-id={vid}"
+        if SNAPSHOT_PREFIX != "":
+          cmd += f" --snapshot-prefix={SNAPSHOT_PREFIX}"
       if extra == "k2-high":
         cmd += " --sym-level=high --additional='--symbolize-bound=2' --max-fork=1024,1024,1024"
       if extra == "high":
-        cmd += " --sym-level=high" #  --max-fork=1024,1024,128
+        cmd += " --sym-level=high --s=snapshot-high" #  --max-fork=1024,1024,128
       if extra == "k2":
         cmd += " --additional='--symbolize-bound=2' --max-fork=1024,1024,1024"
       if extra == "low":
@@ -232,14 +234,15 @@ class RunSingle():
     #     break
     # log_out(patches)
     query = self.meta["bug_id"] + ":0" # ",".join([str(x) for x in patches])
-    symvass_cmd = "rerun"
+    cmd = f"symvass.py rerun {query} --lock=f --outdir-prefix={SYMVASS_PREFIX} --mode={MODE}"
     if opt == "run":
-      symvass_cmd = "run"
-    cmd = f"symvass.py {symvass_cmd} {query} --lock=f --outdir-prefix={SYMVASS_PREFIX} --mode={MODE}"
+      cmd = f"symvass.py run {query} --lock=f --outdir-prefix={SYMVASS_PREFIX} --mode={MODE}"
+      if SNAPSHOT_PREFIX != "":
+        cmd += f" --snapshot-prefix={SNAPSHOT_PREFIX}"
     if extra == "k2-high":
       cmd += " --sym-level=high --additional='--symbolize-bound=2' --max-fork=1024,1024,1024"
     if extra == "high":
-      cmd += " --sym-level=high" #  --max-fork=1024,1024,128
+      cmd += " --sym-level=high --s=snapshot-high" #  --max-fork=1024,1024,128
     if extra == "k2":
       cmd += " --additional='--symbolize-bound=2' --max-fork=1024,1024,1024"
     if extra == "low":
@@ -731,14 +734,16 @@ def main(argv: List[str]):
   parser.add_argument("-o", "--output", type=str, help="Output file", default="", required=False)
   parser.add_argument("-p", "--prefix", type=str, help="Output prefix", default="", required=False)
   parser.add_argument("-s", "--symvass-prefix", type=str, help="Symvass prefix", default="", required=False)
+  parser.add_argument("--snapshot-prefix", type=str, help="Snapshot prefix", default="", required=False)
   parser.add_argument("-a", "--additional", type=str, help="Additional arguments", default="", required=False)
   parser.add_argument("-m", "--mode", type=str, help="Mode", choices=["symradar", "extractfix"], default="symradar")
   parser.add_argument("-v", "--vulmaster", action="store_true", help="Run vulmaster", default=False)
   parser.add_argument("--seq", action="store_true", help="Run sequentially", default=False)
   args = parser.parse_args(argv)
-  global OUTPUT_DIR, PREFIX, SYMVASS_PREFIX, MODE, VULMASTER_MODE
+  global OUTPUT_DIR, PREFIX, SYMVASS_PREFIX, MODE, VULMASTER_MODE, SNAPSHOT_PREFIX
   VULMASTER_MODE = args.vulmaster
   MODE = args.mode
+  SNAPSHOT_PREFIX = args.snapshot_prefix
   OUTPUT_DIR = os.path.join(ROOT_DIR, "out")
   if not os.path.exists(OUTPUT_DIR):
     os.makedirs(OUTPUT_DIR, exist_ok=True)
