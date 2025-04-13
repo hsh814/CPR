@@ -3,6 +3,7 @@ import subprocess
 import multiprocessing as mp
 import sys
 import os
+from time import sleep
 from typing import Dict, List, Set, Tuple
 import shutil
 
@@ -103,6 +104,9 @@ def run(sub:str):
                 out,err=proc.communicate(timeout=180)
             except subprocess.TimeoutExpired:
                 out,err=b'',b''
+                proc.terminate()
+                sleep(5)
+                proc.kill()
                 print(f'Timeout running {cur_cmd}',file=log_file)
                 
             os.remove(temp_input_path)
@@ -155,6 +159,9 @@ def run(sub:str):
                     out,err=proc.communicate(timeout=180)
                 except subprocess.TimeoutExpired:
                     out,err=b'',b''
+                    proc.terminate()
+                    sleep(5)
+                    proc.kill()
                     print(f'Timeout running {cur_cmd}',file=log_file)
 
                 os.remove(temp_input_path)
@@ -213,6 +220,9 @@ def run(sub:str):
                     out,err=proc.communicate(timeout=180)
                 except subprocess.TimeoutExpired:
                     out,err=b'',b''
+                    proc.terminate()
+                    sleep(5)
+                    proc.kill()
                     print(f'Timeout running {cur_cmd}',file=log_file)
                     
                 os.remove(temp_input_path)
