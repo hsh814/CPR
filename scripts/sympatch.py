@@ -265,7 +265,6 @@ def main(args: List[str]):
     "buggy": "Generate buggy patches from meta",
     "meta": "Generate patches as meta program",
     "reset": "Remove concrete/",
-    "val-build": "Build the validation program"
   }
   root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
   opt = args[1]
