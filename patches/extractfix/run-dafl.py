@@ -155,6 +155,11 @@ def run(sub:str):
 
                 os.remove(temp_input_path)
                 print(f'{input} returns {res.returncode} with patch {id}',file=log_file)
+                try:
+                    print(res.stderr.decode('utf-8'),file=log_file)
+                except UnicodeDecodeError:
+                    print('Error decoding stderr',file=log_file)
+
                 if res.returncode != 0 and res.returncode != 1:
                     # Filter out if the patch crashes
                     print(f'Program crashed with input {input} with patch {id}',file=log_file)
@@ -206,6 +211,11 @@ def run(sub:str):
                     
                 os.remove(temp_input_path)
                 print(f'{input} returns {res.returncode} with patch {id}',file=log_file)
+                try:
+                    print(res.stderr.decode('utf-8'),file=log_file)
+                except UnicodeDecodeError:
+                    print('Error decoding stderr',file=log_file)
+                    
                 if res.returncode != 0 and res.returncode != 1 and orig_returncode[input] != res.returncode:
                     # Filter out if the patch still crashes and change the behavior
                     print(f'Program crashed with input {input} with patch {id}',file=log_file)
