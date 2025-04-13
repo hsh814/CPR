@@ -98,7 +98,11 @@ def run(sub:str):
             cur_cmd=cmd.replace('<exploit>', temp_input_path)
 
             print(cur_cmd,file=log_file)
-            res=subprocess.run(cur_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=sub, env=env,shell=True)
+            try:
+                res=subprocess.run(cur_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=sub, env=env,shell=True,timeout=180)
+            except subprocess.TimeoutExpired:
+                print(f'Timeout running {cur_cmd}',file=log_file)
+                
             os.remove(temp_input_path)
             print(f'{input} returns {res.returncode} with patch 0',file=log_file)
             orig_returncode[input]=res.returncode
@@ -144,7 +148,11 @@ def run(sub:str):
                 cur_cmd=cmd.replace('<exploit>', temp_input_path)
 
                 print(cur_cmd,file=log_file)
-                res=subprocess.run(cur_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=sub, env=env,shell=True)
+                try:
+                    res=subprocess.run(cur_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=sub, env=env,shell=True,timeout=180)
+                except subprocess.TimeoutExpired:
+                    print(f'Timeout running {cur_cmd}',file=log_file)
+
                 os.remove(temp_input_path)
                 print(f'{input} returns {res.returncode} with patch {id}',file=log_file)
                 if res.returncode != 0 and res.returncode != 1:
@@ -191,7 +199,11 @@ def run(sub:str):
                 cur_cmd=cmd.replace('<exploit>', temp_input_path)
 
                 print(cur_cmd,file=log_file)
-                res=subprocess.run(cur_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=sub, env=env,shell=True)
+                try:
+                    res=subprocess.run(cur_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=sub, env=env,shell=True,timeout=180)
+                except subprocess.TimeoutExpired:
+                    print(f'Timeout running {cur_cmd}',file=log_file)
+                    
                 os.remove(temp_input_path)
                 print(f'{input} returns {res.returncode} with patch {id}',file=log_file)
                 if res.returncode != 0 and res.returncode != 1 and orig_returncode[input] != res.returncode:
