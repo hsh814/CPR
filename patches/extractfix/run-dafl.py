@@ -102,6 +102,7 @@ def run(sub:str):
             try:
                 out,err=proc.communicate(timeout=180)
             except subprocess.TimeoutExpired:
+                out,err='',''
                 print(f'Timeout running {cur_cmd}',file=log_file)
                 
             os.remove(temp_input_path)
@@ -153,6 +154,7 @@ def run(sub:str):
                 try:
                     out,err=proc.communicate(timeout=180)
                 except subprocess.TimeoutExpired:
+                    out,err='',''
                     print(f'Timeout running {cur_cmd}',file=log_file)
 
                 os.remove(temp_input_path)
@@ -210,6 +212,7 @@ def run(sub:str):
                 try:
                     out,err=proc.communicate(timeout=180)
                 except subprocess.TimeoutExpired:
+                    out,err='',''
                     print(f'Timeout running {cur_cmd}',file=log_file)
                     
                 os.remove(temp_input_path)
