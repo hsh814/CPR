@@ -78,7 +78,7 @@ def run(sub:str):
                 with open(f'{sub}/repair.conf','r') as f:
                     for line in f:
                         if line.startswith('test_input_list:'):
-                            cmd+=' '.join(line[17:].strip().replace('$POC','<exploit>').split())
+                            cmd+=' '.join(line[16:].strip().replace('$POC','<exploit>').split())
 
         # Run original program with inputs
         print(f'Running {sub} with {len(inputs)} inputs...')
