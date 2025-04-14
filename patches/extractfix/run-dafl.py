@@ -3,6 +3,7 @@ import subprocess
 import multiprocessing as mp
 import sys
 import os
+from time import sleep
 from typing import Dict, List, Set, Tuple
 import shutil
 
@@ -77,7 +78,7 @@ def run(sub:str):
                 with open(f'{sub}/repair.conf','r') as f:
                     for line in f:
                         if line.startswith('test_input_list:'):
-                            cmd+=' '.join(line[17:].strip().replace('$POC','<exploit>').split())
+                            cmd+=' '.join(line[16:].strip().replace('$POC','<exploit>').split())
 
         # Run original program with inputs
         print(f'Running {sub} with {len(inputs)} inputs...')
@@ -98,16 +99,25 @@ def run(sub:str):
             cur_cmd=cmd.replace('<exploit>', temp_input_path)
 
             print(cur_cmd,file=log_file)
-            res=subprocess.run(cur_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=sub, env=env,shell=True)
+            proc=subprocess.Popen(cur_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=sub, env=env,shell=True)
+            try:
+                out,err=proc.communicate(timeout=180)
+            except subprocess.TimeoutExpired:
+                out,err=b'',b''
+                proc.terminate()
+                sleep(5)
+                proc.kill()
+                print(f'Timeout running {cur_cmd}',file=log_file)
+                
             os.remove(temp_input_path)
-            print(f'{input} returns {res.returncode} with patch 0',file=log_file)
-            orig_returncode[input]=res.returncode
-            if res.returncode != 0 and res.returncode != 1: # If return code is 1, it is not a vulnerability
+            print(f'{input} returns {proc.returncode} with patch 0',file=log_file)
+            orig_returncode[input]=proc.returncode
+            if proc.returncode != 0 and proc.returncode != 1: # If return code is 1, it is not a vulnerability
                 print(f'Program crashed with input {input}',file=log_file)
             else:
                 print(f'Program executed successfully with input {input}',file=log_file)
             try:
-                print(res.stderr.decode('utf-8'),file=log_file)
+                print(err.decode('utf-8'),file=log_file)
             except UnicodeDecodeError:
                 print('Error decoding stderr',file=log_file)
 
@@ -144,10 +154,24 @@ def run(sub:str):
                 cur_cmd=cmd.replace('<exploit>', temp_input_path)
 
                 print(cur_cmd,file=log_file)
-                res=subprocess.run(cur_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=sub, env=env,shell=True)
+                proc=subprocess.Popen(cur_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=sub, env=env,shell=True)
+                try:
+                    out,err=proc.communicate(timeout=180)
+                except subprocess.TimeoutExpired:
+                    out,err=b'',b''
+                    proc.terminate()
+                    sleep(5)
+                    proc.kill()
+                    print(f'Timeout running {cur_cmd}',file=log_file)
+
                 os.remove(temp_input_path)
-                print(f'{input} returns {res.returncode} with patch {id}',file=log_file)
-                if res.returncode != 0 and res.returncode != 1:
+                print(f'{input} returns {proc.returncode} with patch {id}',file=log_file)
+                try:
+                    print(err.decode('utf-8'),file=log_file)
+                except UnicodeDecodeError:
+                    print('Error decoding stderr',file=log_file)
+
+                if proc.returncode != 0 and proc.returncode != 1:
                     # Filter out if the patch crashes
                     print(f'Program crashed with input {input} with patch {id}',file=log_file)
                     filtered_out_patches.add(id)
@@ -191,10 +215,24 @@ def run(sub:str):
                 cur_cmd=cmd.replace('<exploit>', temp_input_path)
 
                 print(cur_cmd,file=log_file)
-                res=subprocess.run(cur_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=sub, env=env,shell=True)
+                proc=subprocess.Popen(cur_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=sub, env=env,shell=True)
+                try:
+                    out,err=proc.communicate(timeout=180)
+                except subprocess.TimeoutExpired:
+                    out,err=b'',b''
+                    proc.terminate()
+                    sleep(5)
+                    proc.kill()
+                    print(f'Timeout running {cur_cmd}',file=log_file)
+                    
                 os.remove(temp_input_path)
-                print(f'{input} returns {res.returncode} with patch {id}',file=log_file)
-                if res.returncode != 0 and res.returncode != 1 and orig_returncode[input] != res.returncode:
+                print(f'{input} returns {proc.returncode} with patch {id}',file=log_file)
+                try:
+                    print(err.decode('utf-8'),file=log_file)
+                except UnicodeDecodeError:
+                    print('Error decoding stderr',file=log_file)
+
+                if proc.returncode != 0 and proc.returncode != 1 and orig_returncode[input] != proc.returncode:
                     # Filter out if the patch still crashes and change the behavior
                     print(f'Program crashed with input {input} with patch {id}',file=log_file)
                     filtered_out_patches.add(id)
@@ -212,8 +250,4 @@ def run(sub:str):
         log_file.close()
         print(f'Error running {sub}: {e}')
 
-pool=mp.Pool(int(sys.argv[1]))
-for sub in CORRECT_PATCHES.keys():
-    pool.apply_async(run, args=(sub,))
-pool.close()
-pool.join()
+run(sys.argv[1])
