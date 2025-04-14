@@ -105,6 +105,19 @@ class RunSingleVulmaster():
     if self.meta["bug_id"] == "CVE-2017-15025":
       # Use cases that passed filtering
       self.vids = [2, 3, 4]
+    else:
+      vids = []
+      for vid in self.vids:        
+        with open(os.path.join(os.path.join(ROOT_DIR, "patches", self.meta["benchmark"], self.meta["subject"], self.meta["bug_id"], "vulmaster-patched", f"filter_{vid}", "filtered.json")), "r") as f:
+          data = json.load(f)
+          if len(data["remaining"]) > 0:
+            vids.append(vid)
+            log_out(f"Vulmaster {vid} has remaining patches: {data['remaining']}")
+          else:
+            log_out(f"Vulmaster {vid} has no remaining patches")
+      self.vids = vids
+
+        
 
   def get_clean_cmd(self) -> List[str]:
     return [f"symvass.py clean {self.meta['bug_id']} --vulmaster-id={vid}" for vid in self.vids]
