@@ -365,7 +365,7 @@ class DataAnalyzer():
             meta_data[state] = meta.data
             meta_data[state]["sel-patch"] = False
             meta_data[state]["input"] = False
-            meta_data[state]["patches"] = list()
+            meta_data[state]["patches"] = None
             meta_data[state]["patch-eval"] = dict()
             meta_data[state]["reg"] = list()
             if state_type == "2": # Add base states, even if not tested
@@ -507,6 +507,8 @@ class DataAnalyzer():
             if state not in self.meta_data:
                 continue
             meta = self.meta_data[state]
+            if meta["patches"] is None:
+                continue
             patch_set = set(meta["patches"])
             has_valid = False
             for patch in patches:
@@ -1001,6 +1003,8 @@ class SymvassAnalyzer:
                 continue
             crash_id = base_meta["crashId"]
             base = base_meta["patches"]
+            if base is None:
+                continue
             base_reg = base_meta["reg"]
             is_crash = base_meta["isCrash"]
             if not is_crash:
@@ -1015,6 +1019,8 @@ class SymvassAnalyzer:
                 if not crash_meta["use"]:
                     continue
                 crash = crash_meta["patches"]
+                if crash is None:
+                    continue
                 crash_reg = crash_meta["reg"]
                 crashed = crash_meta["actuallyCrashed"]
                 # If input is feasible:
