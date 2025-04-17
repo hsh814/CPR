@@ -175,7 +175,6 @@ def compile(dir: str):
   lazy_compile(dir, cmd, "uni_klee_runtime_new.o", "libcpr_runtime_new.so")
   
   if not os.path.exists(os.path.join(dir, "uni_klee_runtime_vulmaster.c")):
-    print(f"\nWARNING!!! {dir}/uni_klee_runtime_vulmaster.c does not exist\n", file=sys.stderr)
     return
   cmd = "wllvm -g -fPIC -O0 -c -o uni_klee_runtime_vulmaster.o uni_klee_runtime_vulmaster.c -I{KLEE_INCLUDE_PATH}"
   lazy_compile(dir, cmd, "uni_klee_runtime_vulmaster.c", "uni_klee_runtime_vulmaster.o")

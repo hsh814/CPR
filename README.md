@@ -1,103 +1,105 @@
 # CPR Benchmark
-## Setup
+## Getting Started
+In `scripts` directory, there are 3 main scripts and 1 `experiments.py` script for parallel execution.
+Run `export PATH=/root/projects/CPR/scripts:$PATH` to use them.
+
+### 1. `sympatch.py`
+This script extract concrete patches from `CPR` generated patches and convert them into meta program. Extraction is already done, so you only need to run `compile`.
+Build patch of all subjects.
+```shell
+# sympatch.py <cmd> <patch-dir>
+sympatch.py compile patches
+```
+### 2. `symfeas.py`
+This script was for feasiblity check.
+```shell
+symradar.py <cmd> <subject> <options>
+```
+
+### 3. `symradar.py`
+This is the main script for `SymRadar`. It runs `uni-klee` with proper options and analyze the results.
+```shell
+symradar.py <cmd> <subject> <options>
+```
+
+In `symfeas.py` and `symradar.py`, you can enter `subject` only part of their name.
+For example, `3623` will be recognized as `CVE-2016-3623`.
+
+### 4. `experiments.py`
+This is the script for running experiments on all subjects. By default, it runs all 28 subjects in parallel.
+```shell
+experiments.py <cmd> <options>
+```
+
+### Example
+
 ```shell
 export PATH=/root/projects/CPR/scripts:$PATH
-# 1. Genenrate patches
-sympatch.py reset patches
-sympatch.py concrete patches
-sympatch.py meta patches
+# 1. Compile patches
+sympatch.py compile patches
 
-# 2. Build (for single)
-symfeas.py build 5321 # Run ./init.sh
-# 2. Build (for all)
+# 2. Build
+symfeas.py build 3623 # Or run ./init.sh
+
+# 3. Run filter
+symvass.py filter 3623
+# symvass.py analyze 3623 -p filter
+
+# 4. Run symradar
+symvass.py rerun 3623 --sym-level=high -s high
+symvass.py analyze 3623 -s high
+
+# 5. The output is in patches/extractfix/libtiff/CVE-2016-3623/patched/high-*/table_v3.sbsv
+```
+
+
+## Experiment Replication
+Use `experiments.py` to run experiments for all subjects in the benchmark.
+It just calls `python3 <script> <cmd> <subject>` in parallel.
+```shell
+export PATH=/root/projects/CPR/scripts:$PATH
+# 1. Compile patches
+sympatch.py compile patches
+
+# 2. Build
 experiments.py feas --extra build
 
-# 3. Run filter (for single)
-symvass.py filter 5321
-symvass.py analyze 5321 -p filter
-# 3. Run filter (for all)
+# 3. Run filter
 experiments.py filter
 experiments.py analyze --extra analyze -s filter
 
-# 4. Run test (for single)
-symvass.py rerun 5321
-symvass.py rerun 5321 --sym-level=high --prefix high
-symvass.py analyze 5321
-symvass.py analyze --prefix high
-# 4. Run test (for all)
-experiments.py exp
-experiments.py exp --extra high
-experiments.py analyze --extra analyze
+# 4. Run SymRadar
+experiments.py exp --extra high -s high
 experiments.py analyze --extra analyze -s high
-# Collect results (check ./out)
-experiments.py final
+
+# 5. Collect results (check ./out directory)
 experiments.py final -s high
-
-# 5. Run fuzzer (for single)
-symfeas.py fuzz-build 5321 # ./aflrun.sh
-symfeas.py fuzz 5321
-symfeas.py collect-inputs 5321
-# 5. Run fuzzer (for all)
-experiments.py feas --extra fuzz
-experiments.py feas --extra collect-inputs
-experiments.py feas --extra fuzz-build
-
-# 6. Symbolic input validation (for single)
-symvass.py symgroup 5321
-symvass.py symgroup 5321 -p high
-symfeas.py val-build 5321 -s high # ./val.sh, Some subjects requires uni-klee-out-dir/base-mem.symbolic-globals - Run symvass first to generate output directory and files
-symfeas.py val 5321
-symfeas.py val 5321 -s high
-symfeas.py feas 5321
-symfeas.py feas 5321 -s high
-# 6. Symbolic input validation (for all)
-experiments.py analyze --extra symgroup
-experiments.py analyze --extra symgroup -s high
-experiments.py feas --extra val-build -s high
-experiments.py feas --extra val
-experiments.py feas --extra val -s high
-exepriments.py feas --extra feas
-exepriments.py feas --extra feas -s high
-
-# 7. Analyze input validation: Check ./out directory and get results
-experiments.py feas --extra analyze --seq --output out.csv
-experiments.py feas --extra analyze -s high --seq --output out-high.csv
 ```
 
-## Test
-First, filter out patches that fails on test
-```shell
-python3 scripts/meta-program.py filter 5321
-```
-
-
-```shell
-python3 scripts/meta-test.py run 5321:0,1,2,3,4
-```
 
 [![Docker Pulls](https://img.shields.io/docker/pulls/rshariffdeen/cpr.svg)](https://hub.docker.com/r/rshariffdeen/cpr) [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.4668317.svg)](https://doi.org/10.5281/zenodo.4668317)
 
 # CPR - CardioPulmonary Resuscitation
 CPR: A new automated program repair technique based on concolic execution
-which works on patch abstraction with the sub-optimal goal of refining the patch to less over-fit 
-the initial test cases. 
+which works on patch abstraction with the sub-optimal goal of refining the patch to less over-fit
+the initial test cases.
 
-Automated program repair reduces the manual effort in fixing program errors. 
+Automated program repair reduces the manual effort in fixing program errors.
 However, existing repair techniques modify a buggy program such that it passes given tests.
 Such repair techniques do not discriminate between correct patches and patches that overfit
 the available tests and break untested but desired functionality. We attempt to solve this
-problem with a novel solution that make use of the duality of space exploration in Input 
+problem with a novel solution that make use of the duality of space exploration in Input
 Space and Program Space. We implemented our technique in the form of a tool called CPR and
-evaluated its efficacy in reducing the patch space by discarding overfitting patches from 
+evaluated its efficacy in reducing the patch space by discarding overfitting patches from
 a pool of plausible patches. Similar to Cardio-Pulmonary Resuscitation (CPR) does to a
-patient, our tool CPR resuscitate or recover programs via appropriate fixes. 
+patient, our tool CPR resuscitate or recover programs via appropriate fixes.
 
-In this work, we therefore propose and implement an integrated approach for detecting and discarding 
+In this work, we therefore propose and implement an integrated approach for detecting and discarding
 overfitting patches by exploiting the relationship between the patch space and input space.
-We leverage concolic path exploration to systematically traverse the input space 
+We leverage concolic path exploration to systematically traverse the input space
 (and generate inputs), while systematically ruling out significant parts of the patch space.
-Given a long enough time budget, this approach allows a significant reduction in the 
-pool of patch candidates, as shown by our experiments. 
+Given a long enough time budget, this approach allows a significant reduction in the
+pool of patch candidates, as shown by our experiments.
 
 CPR is a reconfigurable APR tool for C source-codes. CPR is:
 
@@ -126,7 +128,7 @@ Build and run a container:
 
 # Example
 We provide several examples you can run to test our tool, all test cases are included
-in the 'tests' directory. 
+in the 'tests' directory.
 
 Run examples:
 
@@ -138,7 +140,7 @@ Run examples:
 
 * [Getting Started](doc/GetStart.md)
 * [Example Usage](doc/Examples.md)
-* [Experiment Replication](experiments/README.md)  
+* [Experiment Replication](experiments/README.md)
 * [Manual](doc/Manual.md)
 
 
@@ -146,7 +148,7 @@ Run examples:
 CPR should be considered alpha-quality software. Bugs can be reported here:
 
     https://github.com/rshariffdeen/CPR/issues
-    
+
 # Contributions
 We welcome contributions to improve this work, see [details](doc/Contributing.md)
 
@@ -155,7 +157,7 @@ We welcome contributions to improve this work, see [details](doc/Contributing.md
 * Yannic Noller
 
 ## Contributors
-* Sergey Mechtaev 
+* Sergey Mechtaev
 
 ## Publication ##
 **Concolic Program Repair** <br>
@@ -164,10 +166,8 @@ Ridwan Shariffdeen, Yannic Noller, Lars Grunske, Abhik Roychoudhury <br>
 
 
 ## Acknowledgements ##
-This work was partially supported by the National Satellite of Excellence in Trustworthy Software Systems, funded by National Research Foundation (NRF) Singapore. 
+This work was partially supported by the National Satellite of Excellence in Trustworthy Software Systems, funded by National Research Foundation (NRF) Singapore.
 
 
 # License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details
-
-
