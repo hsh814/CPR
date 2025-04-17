@@ -17,855 +17,1207 @@ import sbsv
 import uni_klee
 import sympatch
 
+import enum
 
-def get_trace(dir: str, id: int):
-    dp = uni_klee.DataLogParser(dir)
-    dp.read_data_log("data.log")
-    result = dp.generate_table_v2(dp.cluster())
-    graph = result["graph"]
-    state_id = id
-    parent_states = dp.get_parent_states(graph, state_id)
-    state_filter = set(parent_states)
-    state_filter.add(state_id)
-    done = set()
-    prev = -1
-    trace = list()
-    with open(os.path.join(dir, "trace.log"), "r") as f:
-        lines = f.readlines()
-        for line in lines:
-            if line.startswith("[state"):
-                tokens = dp.parser_level_1(line)
-                if len(tokens) < 3:
-                    continue
-                state = dp.parse_state_id(tokens[0])
-                if tokens[1] == "B":
-                    continue
-                if state in state_filter:
-                    if state in done:
-                        continue
-                    if prev != state:
-                        if prev > state:
-                            continue
-                        trace.append(f"[state {prev}] -> [state {state}]")
-                        done.add(prev)
-                        prev = state
-                    trace.append(line.strip())
-    with open(os.path.join(dir, f"state-{id}.log"), "w") as f:
-        for line in trace:
-            f.write(line + "\n")
+import pysmt.environment
+from pysmt.shortcuts import Symbol, BVType, ArrayType, BV, Select, BVConcat, BVULT, Bool, Ite, And, Or, Symbol, Equals, Not, LE, LT, GE, GT, Int, is_sat
+import pysmt.shortcuts as smt
+from pysmt.smtlib.parser import SmtLibParser
+from pysmt.smtlib.script import SmtLibScript
+from pysmt.typing import BV32, BV8, BV64, INT
 
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-def convert_to_sbsv(dir: str):
-    with open(f"{dir}/run.stats", "r") as f:
-        lines = f.readlines()
-        header = lines[0].strip().replace("(", "").replace(")", "").split(",")
-        with open(f"{dir}/run.stats.sbsv", "w") as f:
-            for i in range(1, len(lines)):
-                line = lines[i].strip().replace("(", "").replace(")", "")
-                tokens = line.split(",")
-                f.write(
-                    f"[stats] [inst {tokens[0]}] [fb {tokens[1]}] [pb {tokens[2]}] [nb {tokens[3]}] [ut {tokens[4]}] [ns {tokens[5]}] [mu {tokens[6]}] [nq {tokens[7]}] [nqc {tokens[8]}] [no {tokens[9]}] [wt {tokens[10]}] [ci {tokens[11]}] [ui {tokens[12]}] [qt {tokens[13]}] [st {tokens[14]}] [cct {tokens[15]}] [ft {tokens[16]}] [rt {tokens[17]}] [qccm {tokens[18]}] [ccch {tokens[19]}]\n"
-                )
+def print_log(msg: str):
+    print(msg, file=sys.stderr)
 
+def print_out(msg: str):
+    print(msg, file=sys.stdout)
 
-class ConfigFiles(uni_klee.ConfigFiles):
-    def __init__(self):
-        self.root_dir = uni_klee.ROOT_DIR
-        self.global_config = uni_klee.global_config
+def parse_smt2_file(file_path: str):
+    pysmt.environment.push_env()
+    parser = SmtLibParser()
+    with open(file_path, "r") as f:
+        script = parser.get_script(f)
+    formulae = script.get_last_formula()
+    symbols = script.get_declared_symbols()
+    print_log("Formulae: ", formulae)
+    print_log("Symbols: ", symbols)
+    
+def parse_mem_result_file(file_path: str) -> sbsv.parser:
+    parser = sbsv.parser()
+    parser.add_schema("[mem] [index: int] [u-addr: int] [a-addr: int]")
+    parser.add_schema("[heap-check] [error] [no-mapping] [u-addr: int] [u-value: int]")
+    parser.add_schema("[heap-check] [error] [value-mismatch] [u-addr: int] [u-value: int] [a-addr: int] [a-value: int]")
+    parser.add_schema("[heap-check] [ok] [u-addr: int] [u-value: int] [a-addr: int] [a-value: int]")
+    parser.add_schema("[heap-check] [begin]")
+    parser.add_schema("[heap-check] [end]")
+    parser.add_schema("[val] [arg] [index: int] [value: str] [size: int] [name: str] [num: int]")
+    parser.add_schema("[val] [error] [no-mapping] [u-addr: int] [name: str]")
+    parser.add_schema("[val] [error] [null-pointer] [addr: int] [name: str]")
+    parser.add_schema("[val] [heap] [u-addr: int] [name: str] [value: str] [size: int] [num: int]")
+    parser.add_schema("[global] [sym: str] [value: str]")
+    parser.add_group("heap-check", "heap-check$begin", "heap-check$end")
+    with open(file_path, "r") as f:
+        try:
+            parser.load(f)
+            return parser
+        except Exception as e:
+            print_log(f"Error parsing file {file_path}: {e}")
+            traceback.print_exc()
+            return None
+            
 
-    def set(self, bug_info: dict):
-        patches_dir = os.path.join(self.root_dir, "patches")
-        self.bid = bug_info["bug_id"]
-        self.benchmark = bug_info["benchmark"]
-        self.subject = bug_info["subject"]
-        self.project_dir = os.path.join(
-            patches_dir, self.benchmark, self.subject, self.bid
-        )
-        self.work_dir = os.path.join(self.project_dir, "patched")
-        self.repair_conf = os.path.join(self.project_dir, "repair.conf")
-        self.meta_program = os.path.join(self.project_dir, "meta-program.json")
-        sympatch.compile(os.path.join(self.project_dir, "concrete"))
-        self.meta_patch_obj_file = os.path.join(
-            self.project_dir, "concrete", "libuni_klee_runtime_new.bca"
-        )
-
-
-class Config(uni_klee.Config):
-
-    def __init__(
-        self, cmd: str, query: str, debug: bool, sym_level: str, max_fork: str
-    ):
-        self.cmd = cmd
-        self.query = query
-        self.debug = debug
-        self.sym_level = sym_level
-        self.max_fork = max_fork
-        self.conf_files = ConfigFiles()
-
-    def append_snapshot_cmd(self, cmd: List[str]):
-        snapshot_dir = self.conf_files.snapshot_dir
-        patch_str = ",".join(self.snapshot_patch_ids)
-        if self.cmd == "filter":
-            cmd.append("--no-exit-on-error")
-            snapshot_dir = self.conf_files.filter_dir
-            all_patches = [str(patch["id"]) for patch in self.meta_program["patches"]]
-            patch_str = ",".join(all_patches)
-        cmd.append(f"--output-dir={snapshot_dir}")
-        cmd.append(f"--patch-id={patch_str}")
-
-    def append_cmd(self, cmd: List[str], patch_str: str, opts: List[str]):
-        out_dir = self.conf_files.out_dir
-        default_opts = [
-            "--no-exit-on-error",
-            "--simplify-sym-indices",
-            f"--symbolize-level={self.sym_level}",
-            f"--max-forks-per-phases={self.max_fork}",
-        ]
-        cmd.extend(default_opts)
-        cmd.extend(opts)
-        cmd.append(f"--output-dir={out_dir}")
-        cmd.append(f"--patch-id={patch_str}")
-        cmd.append(f"--snapshot={self.conf_files.snapshot_file}")
-
-    def get_cmd_opts(self, is_snapshot: bool) -> str:
-        target_function = self.bug_info["target"]
-        link_opt = f"--link-llvm-lib={self.conf_files.meta_patch_obj_file}"
-        result = [
-            "uni-klee",
-            "--libc=uclibc",
-            "--posix-runtime",
-            "--external-calls=all",
-            "--allocate-determ",
-            "--write-smt2s",
-            "--write-kqueries",
-            "--log-trace",
-            "--max-memory=0",
-            "--lazy-patch",
-            f"--target-function={target_function}",
-            link_opt,
-        ]
-        if "klee_flags" in self.project_conf:
-            link_opt = self.project_conf["klee_flags"]
-            result.append(link_opt)
-        if self.additional != "":
-            result.extend(self.additional.split(" "))
-        if is_snapshot:
-            self.append_snapshot_cmd(result)
+def find_num(dir: str, name: str) -> int:
+    result = 0
+    dirs = set(os.listdir(dir))
+    while True:
+        if f"{name}-{result}" in dirs:
+            result += 1
         else:
-            add_opts = list()
-            if self.cmd == "cmp":
-                add_opts.append("--start-from-snapshot")
-            self.append_cmd(result, ",".join(self.patch_ids), add_opts)
-        bin_file = os.path.basename(self.project_conf["binary_path"])
-        target = bin_file + ".bc"
-        result.append(target)
-        if "test_input_list" in self.project_conf:
-            poc_path = "exploit"
-            if "poc_path" in self.project_conf:
-                poc_path = self.project_conf["poc_path"]
-            target_cmd = self.project_conf["test_input_list"].replace("$POC", poc_path)
-            result.append(target_cmd)
-        return " ".join(result)
+            break
+    return result
 
-class SymvassDataLogSbsvParser():
-    dir: str
-    parser: sbsv.parser
-    data: Dict[str, List[dict]]
-
-    def __init__(self, dir: str, name: str = "data.log"):
-        self.dir = dir
-        self.parser = sbsv.parser()
-        self.set_schema(self.parser)
-        with open(os.path.join(dir, name), "r") as f:
-            self.data = self.parser.load(f)
-
-    def set_schema(self, parser: sbsv.parser):
-        parser.add_schema("[meta-data] [state: int] [crashId: int] [patchId: int] [stateType: str] [isCrash: bool] [actuallyCrashed: bool] [exitLoc: str] [exit: str]")
-        parser.add_schema("[fork] [state$from: int] [state$to: int]")
-        parser.add_schema("[fork-map] [fork] [state$from: int] [type$from: str] [base: int] [base-type: str] [state$to: int] [type$to: str] [fork-count: str]")
-        parser.add_schema("[fork-map] [sel-patch] [state$base: int] [state$base_after: int]")
-        parser.add_schema("[fork-map] [fork-parent] [state: int] [type: str]")
-        parser.add_schema("[fork-map] [merge] [state$base: int] [state$crash_test: int] [patch: int]")
-        parser.add_schema("[fork-loc] [br] [state$from: int] [loc$from: str] -> [state$to_a: int] [loc$to_a: str] [state$to_b: int] [loc$to_b: str]")
-        parser.add_schema("[fork-loc] [sw] [state$from: int] [loc$from: str] -> [state$to_a: int] [loc$to_a: str] [state$to_b: int] [loc$to_b: str]")
-        parser.add_schema("[fork-loc] [lazy] [state$from: int] [state$to: int] [loc: str] [name?: str]")
-        parser.add_schema("[patch-base] [trace] [state: int] [res: bool] [iter: int]")
-        parser.add_schema("[patch-base] [fork] [state$true: int] [state$false: int] [iter: int]")
-        parser.add_schema("[regression-trace] [state: int] [n: int] [res: bool] [loc: str]")
-        parser.add_schema("[patch] [trace] [state: int] [iter: int] [res: bool] [patches: str]")
-        parser.add_schema("[patch] [trace-rand] [state: int] [iter: int] [res: bool] [patches: str]")
-        parser.add_schema("[patch] [fork] [state$true: int] [state$false: int] [iter: int] [patches: str]")
-        parser.add_schema("[regression] [state: int] [reg?: str]")
-        parser.add_schema("[lazy-trace] [state: int] [reg?: str] [patches?: str]")
-        parser.add_schema("[stack-trace] [state: int] [reg?: str]")
-    
-    def get_data(self) -> Dict[str, List[dict]]:
-        return self.data
-
-
-class DataAnalyzer():
-    dp: SymvassDataLogSbsvParser
-    data: Dict[str, List[dict]]
-    meta_data: Dict[int, dict]
-    graph: nx.DiGraph
-    symbolic_inputs: Dict[int, List[int]]
-    
-    def __init__(self, dp: SymvassDataLogSbsvParser):
-        self.dp = dp
-        self.data = self.dp.get_data()
-        self.meta_data = dict()
-        self.graph = nx.DiGraph()
-        self.symbolic_inputs = dict()
-        
-    def analyze(self):
-        self.construct_graph()
-        self.draw_graph()
-
-    def to_list(self, s: str) -> List[int]:
-        ls = s.strip("[]").strip(", ")
-        ls = ls.split(", ")
-        result = list()
-        for x in ls:
-            try:
-                if len(x) > 0:
-                    result.append(int(x))
-            except:
-                pass
-        return result
-
-    def construct_graph(self):
-        meta_data = self.meta_data
-        graph = self.graph
-        for meta in self.data["meta-data"]:
-            state = meta["state"]
-            state_type = meta["stateType"]
-            graph.add_node(state, fork_parent=False)
-            meta_data[state] = meta.data
-            meta_data[state]["sel-patch"] = False
-            meta_data[state]["input"] = False
-            meta_data[state]["patches"] = list()
-            meta_data[state]["reg"] = list()
-        for lt in self.data["lazy-trace"]:
-            state = lt["state"]
-            reg = lt["reg"]
-            patches = lt["patches"]
-            if patches is None:
-                patches = list()
-            else:
-                patches = self.to_list(patches)
-            if reg is None:
-                reg = list()
-            else:
-                reg = self.to_list(reg)
-            meta_data[state]["patches"] = patches
-            meta_data[state]["reg"] = reg
-        for fp in self.data["fork-map"]["fork-parent"]:
-            state = fp["state"]
-            state_type = fp["type"]
-            graph.add_node(state, fork_parent=True)
-        # Add edges
-        for fork in self.data["fork-map"]["fork"]:
-            fork_from = fork["state$from"]
-            type_from = fork["type$from"]
-            fork_to = fork["state$to"]
-            type_to = fork["type$to"]
-            graph.add_edge(fork_from, fork_to, type="fork")
-        for sel in self.data["fork-map"]["sel-patch"]:
-            base = sel["state$base"]
-            base_after = sel["state$base_after"]
-            if base not in meta_data:
-                meta_data[base] = meta_data[base_after].copy()
-                meta_data[base]["state"] = base
-                meta_data[base]["stateType"] = "1"
-                meta_data[base]["sel-patch"] = True
-            graph.add_edge(base, base_after, type="sel-patch")
-        for merge in self.data["fork-map"]["merge"]:
-            base = merge["state$base"]
-            crash_test = merge["state$crash_test"]
-            patch = merge["patch"]
-            meta_data[base]["input"] = True
-            graph.add_edge(base, crash_test, type="merge", patch=patch)
-            if base not in self.symbolic_inputs:
-                self.symbolic_inputs[base] = list()
-            self.symbolic_inputs[base].append(crash_test)
-
-    def draw_graph(self):
-        dot = graphviz.Digraph()
-        for state in self.graph.nodes():
-            fillcolor = "white"
-            color = "black"
-            if state in self.meta_data:
-                meta = self.meta_data[state]
-                if meta["actuallyCrashed"]:
-                    color = "red"
-                else:
-                    color = "green"
-                if "early" in meta["exit"]:
-                    color = "grey"
-                    fillcolor = "grey"
-                else:
-                    if meta["sel-patch"]:
-                        fillcolor = "pink"
-                    elif meta["input"]:
-                        fillcolor = "blue"
-                    elif meta["stateType"] == "1":
-                        fillcolor = "red"
-                    elif meta["stateType"] == "2":
-                        fillcolor = "skyblue"
-                    elif meta["stateType"] == "4":
-                        fillcolor = "yellow"
-            shape = "ellipse"
-            if "fork_parent" in self.graph.nodes[state]:
-                if self.graph.nodes[state]["fork_parent"]:
-                    shape = "box"
-            dot.node(str(state), shape=shape, style="filled", color=color, fillcolor=fillcolor)
-        
-        for edge in self.graph.edges():
-            src = edge[0]
-            dst = edge[1]
-            style = "solid"
-            color = "black"
-            if "type" in self.graph[src][dst]:
-                if self.graph[src][dst]["type"] == "merge":
-                    style = "dashed"
-                    color = "red"
-                if self.graph[src][dst]["type"] == "sel-patch":
-                    style = "dotted"
-                    color = "blue"
-            dot.edge(str(src), str(dst), style=style, color=color)
-        
-        dot.render("fork-graph", self.dp.dir, format="png")
-        dot.render("fork-graph", self.dp.dir, format="pdf")
-
-
-class PatchSorter:
-    # dir: str
-    # patch_ids: list
-    # meta_data: dict
-    dp: DataAnalyzer
-    dp_filter: DataAnalyzer
-    cluster: Dict[int, Dict[int, List[Tuple[int, bool]]]]
-    patch_ids: List[int]
-    patch_filter: Set[int]
-
-    def __init__(
-        self, dp: DataAnalyzer, dp_filter: DataAnalyzer = None
-    ):
-        # self.dir = dir
-        # self.patch_ids = patch_ids
-        # self.meta_data = config.bug_info
-        self.dp = dp
-        self.dp_filter = dp_filter
-        self.cluster = dict()
-        self.patch_ids = list()
-
-    def check_correctness(self, base: dict, patch: dict) -> bool:
-        if base["isCrash"]:
-            return not patch["actuallyCrashed"]
-        base_trace = base["lazyTrace"].split() if "lazyTrace" in base else []
-        patch_trace = patch["lazyTrace"].split() if "lazyTrace" in patch else []
-        return base_trace == patch_trace
-
-    def filter_patch(self) -> Dict[int, bool]:
-        self.patch_filter = dict()
-        result = dict()
-        for state_id, data in self.dp_filter.meta_data.items():
-            patch_id = data["patchId"]
-            if data["stateType"] == "3":
-                self.patch_filter[patch_id] = data
-                result[patch_id] = not data["actuallyCrashed"]
-        # original = self.patch_filter[0]
-        # if not original["actuallyCrashed"]:
-        #     print("Original patch does not crash")
-        return result
-
-    def analyze_cluster(self) -> Dict[int, Dict[int, List[Tuple[int, bool]]]]:
-        self.cluster: Dict[int, Dict[int, List[Tuple[int, bool]]]] = dict()
-        self.cluster[0] = dict()
-        filter_result = self.filter_patch()
-        patch_set = set()
-        for patch_id, result in filter_result.items():
-            if result:
-                patch_set.add(patch_id)
-            self.cluster[0][patch_id] = [(-1, result)]
-            print(f"Patch {patch_id} crashed: {result}")
-        temp_patches = set()
-        for crash_id, data_list in self.dp.cluster().items():
-            if crash_id == 0:
-                continue
-            self.cluster[crash_id] = dict()
-            base = data_list[0]
-            for data in data_list:
-                if data["stateType"] == "2":
-                    base = data
-                    break
-            for data in data_list:
-                if data["stateType"] == "2":
+def read_config_file(file_path: str) -> Dict[str, str]:
+    result = dict()
+    if os.path.exists(file_path):
+        with open(file_path, "r") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#"):
                     continue
-                patch = data["patchId"]
-                temp_patches.add(patch)
-                id = data["state"]
-                check = self.check_correctness(base, data)
-                if patch not in self.cluster[crash_id]:
-                    self.cluster[crash_id][patch] = list()
-                self.cluster[crash_id][patch].append((id, check))
-        if len(self.patch_ids) == 0:
-            self.patch_ids = list(temp_patches)
-            self.patch_ids.sort()
-        return self.cluster
+                parts = line.split("=")
+                if len(parts) == 2:
+                    result[parts[0].strip()] = parts[1].strip()
+    return result
 
-    def get_score(self, patch: int) -> float:
-        score = 0.0
-        for crash_id, patch_map in self.cluster.items():
-            patch_score = 0.0
-            if patch not in patch_map:
-                print(f"Patch {patch} not found in crash {crash_id}")
-                continue
-            for patch_result in patch_map[patch]:
-                if patch_result[1]:
-                    patch_score += 1.0
-            score += patch_score / len(patch_map[patch])
-        return score
+def get_metadata(subject_name: str) -> dict:
+    subject = None
+    for sub in uni_klee.global_config.get_meta_data_list():
+        if subject_name.lower() in sub["bug_id"].lower():
+            subject = sub
+            break
+    return subject
 
-    def sort(self) -> List[Tuple[int, float]]:
-        scores: List[Tuple[int, float]] = list()
-        for patch in self.patch_ids:
-            score = self.get_score(patch)
-            scores.append((patch, score))
-        scores.sort(key=lambda x: x[1], reverse=True)
-        return scores
-
-
-class SymvassAnalyzer:
-    dir: str
-    filter_dir: str
-
-    def __init__(self, dir: str):
-        self.dir = dir
-
-    def save_sorted_patches(
-        self,
-        dp: DataAnalyzer,
-        sorted_patches: List[Tuple[int, float]],
-        cluster: Dict[int, Dict[int, List[Tuple[int, bool]]]],
-    ):
-        patch_list = sorted([patch for patch, score in sorted_patches])
-        with open(os.path.join(self.dir, "patch-rank.md"), "w") as f:
-            f.write("## Patch Rank\n")
-            f.write(f"| Rank | Patch | Score |\n")
-            f.write(f"|------|-------|-------|\n")
-            rank = 1
-            patch_filter = set()
-            for patch_id, result in cluster[0].items():
-                if result[0][1]:
-                    patch_filter.add(patch_id)
-            for patch, score in sorted_patches:
-                if patch in patch_filter:
-                    f.write(f"| {rank} | {patch} | {score:.2f} |\n")
-                    rank += 1
-            f.write(f"\n## Removed patch list\n")
-            f.write(f"| Rank | Patch | Score |\n")
-            f.write(f"|------|-------|-------|\n")
-            rank = 1
-            for patch, score in sorted_patches:
-                if patch not in patch_filter:
-                    f.write(f"| {rank} | {patch} | {score:.2f} |\n")
-                    rank += 1
-            f.write("\n## Patch Result\n")
-            cluster_list = list(cluster.items())
-            cluster_list.sort(key=lambda x: x[0])
-            for crash_id, patch_map in cluster_list:
-                f.write(f"### Input {crash_id}\n")
-                f.write(f"| Input id | Patch id | state id | Correctness | crashed |\n")
-                f.write(f"|----------|----------|----------|-------------|---------|\n")
-                for patch in patch_list:
-                    result = patch_map[patch]
-                    local_input_id = 0
-                    for patch_result in result:
-                        state = patch_result[0]
-                        if state < 0:
-                            f.write(
-                                f"| {patch}-{local_input_id} | {patch} | {state} | {'O' if patch_result[1] else 'X'} | - |\n"
-                            )
-                        else:
-                            actually_crashed = dp.meta_data[state]["actuallyCrashed"]
-                            f.write(
-                                f"| {patch}-{local_input_id} | {patch} | {state} | {'O' if patch_result[1] else 'X'} | {actually_crashed} |\n"
-                            )
-                        local_input_id += 1
-        print(f"Saved to {os.path.join(self.dir, 'patch-rank.md')}")
-        
-    def cluster(self, analyzer: DataAnalyzer) -> Dict[int, Set[int]]:
-        cluster: Dict[int, Set[int]] = dict()
-        for crash_id in analyzer.symbolic_inputs:
-            cluster[crash_id] = set()
-            for crash_test in analyzer.symbolic_inputs[crash_id]:
-                successors = set(nx.dfs_preorder_nodes(analyzer.graph, crash_test))
-                cluster[crash_id].update(successors)
-        return cluster
-    
-    def get_predecessors(self, analyzer: DataAnalyzer, state: int):
-        trace = list()
-        state_type = set()
-        if state not in analyzer.meta_data:
-            return []
-        stop_type = ""
-        if analyzer.meta_data[state]["stateType"] == "4":
-            stop_type = "2"
-        stack = [state]
-        while stack:
-            node = stack.pop()
-            preds = analyzer.graph.predecessors(node)
-            stack += preds
-            if len(list(preds)) > 1:
-                print(f"[warn] [state {node}] [preds {preds}]")
-            for pred in preds:
-                if pred in analyzer.meta_data and analyzer.meta_data[pred]["stateType"] in state_type:
-                    trace.append(pred)
-        return trace
-    
-    def symbolic_trace(self, analyzer: DataAnalyzer) -> Dict[int, List[Tuple[bool, int, List[Tuple[int, str]]]]]:
-        patch_data = analyzer.dp.parser.get_result_in_order(["patch$trace", "patch$trace-rand", "patch$fork"])
-        trace_original = dict()
-        for patch in reversed(patch_data):
-            patches_str = patch["patches"]
-            patches_str = patches_str.strip("[]").strip(", ")
-            pairs = patches_str.split(", ")
-            patches_result = list()
-            for pair in pairs:
-                key, value = pair.split(":")
-                patches_result.append((int(key), value))
-            iter = patch["iter"]
-            if patch.get_name() == "patch$fork":
-                true_state = patch["state$true"]
-                false_state = patch["state$false"]
-                if true_state not in trace_original:
-                    trace_original[true_state] = list()
-                if false_state not in trace_original:
-                    trace_original[false_state] = list()
-                trace_original[true_state].append((True, iter, patches_result))
-                trace_original[false_state].append((False, iter, patches_result))
-            else:
-                res = patch["res"]
-                state = patch["state"]
-                if state not in trace_original:
-                    trace_original[state] = list()
-                trace_original[state].append((res, iter, patches_result))
-        trace = dict()
-        for state in trace_original:
-            trace[state] = list()
-            check_1 = False
-            for res, iter, patches in trace_original[state]:
-                if iter == 1:
-                    check_1 = True
-                    break
-            if check_1:
-                trace[state] = trace_original[state]
-            else:
-                pred = self.get_predecessors(analyzer, state)
-                cur_iter = -1
-                for p in pred:
-                    if p not in trace_original:
-                        continue
-                    for res, iter, patches in trace_original[p]:
-                        if cur_iter > 0 and iter >= cur_iter:
-                            continue
-                        if cur_iter > 0 and cur_iter != iter + 1:
-                            print(f"[warn] [error] [state {state}] [iter {cur_iter-1}] [actual {iter}]")
-                        cur_iter = iter
-                        trace[state].append((res, iter, patches))
-            # print(f"[state {state}] {trace[state]}")
-        return trace
-    
-    def buggy_trace(self, analyzer: DataAnalyzer):
-        trace_original = dict()
-        bt = analyzer.dp.parser.get_result_in_order(["patch-base$trace", "patch-base$fork"])
-        for patch_base in reversed(bt):
-            iter = patch_base["iter"]
-            if patch_base.get_name() == "patch-base$trace":
-                state = patch_base["state"]
-                res = patch_base["res"]
-                if state not in trace_original:
-                    trace_original[state] = list()
-                trace_original[state].append((res, iter))
-            else:
-                true_state = patch_base["state$true"]
-                false_state = patch_base["state$false"]
-                if true_state not in trace_original:
-                    trace_original[true_state] = list()
-                if false_state not in trace_original:
-                    trace_original[false_state] = list()
-                trace_original[true_state].append((True, iter))
-                trace_original[false_state].append((False, iter))
-        trace = dict()
-        for state in trace_original:
-            trace[state] = list()
-            check_1 = False
-            for res, iter in trace_original[state]:
-                if iter == 1:
-                    check_1 = True
-                    break
-            if check_1:
-                trace[state] = trace_original[state]
-            else:
-                pred = self.get_predecessors(analyzer, state)
-                cur_iter = -1
-                for p in pred:
-                    if p not in trace_original:
-                        continue
-                    for res, iter in trace_original[p]:
-                        if cur_iter > 0 and iter >= cur_iter:
-                            continue
-                        if cur_iter > 0 and cur_iter != iter + 1:
-                            print(f"[warn] [error] [state {state}] [iter {cur_iter-1}] [actual {iter}]")
-                        cur_iter = iter
-                        trace[state].append((res, iter))
-        print(trace)
-        return trace
-
-    def get_patch(self, state: int, st: List[Tuple[bool, int, List[Tuple[int, str]]]]) -> List[int]:
-        trace = dict()
-        patches = set()
-        for s in st:
-            trace[s[1]] = s[0]
-            for p in s[2]:
-                if s[0] and p[1] != "0":
-                    patches.add(p[0])
-                elif not s[0] and p[1] != "1":
-                    patches.add(p[0])
-        for s in st:
-            for p in s[2]:
-                if s[0] and p[1] == "0":
-                    patches.remove(p[0])
-                elif not s[0] and p[1] == "1":
-                    patches.remove(p[0])
-        l = list()
-        for i in range(len(trace)):
-            l.append(trace[i+1])
-        print(f"[state {state}] [trace {l}] [patches {patches}]")
-        return patches
-    
-    def generate_table(self, cluster: Dict[int, list], result: List[Tuple[int, int, int, List[int]]]) -> str:
-        with open(os.path.join(self.dir, "table.md"), "w") as md:
-            md.write("# Symvass Result\n")
-            md.write(f"| crashId | base | test | patches |\n")
-            md.write("| ------- | ---- | ---- | ------- |\n")
-            for res in result:
-                crash_id, base, test, patches = res
-                md.write(f"| {crash_id} | {base} | {test} | {patches} |\n")
-            md.write("\n")
-    
-    def analyze_v2(self):
-        dp = SymvassDataLogSbsvParser(self.dir)
-        analyzer = DataAnalyzer(dp)
-        analyzer.analyze()
-        cluster = self.cluster(analyzer)
-        # symbolic_trace = self.symbolic_trace(analyzer)
-        # buggy_trace = self.buggy_trace(analyzer)
-        result = list()
-        for crash_state in cluster:
-            base_meta = analyzer.meta_data[crash_state]
-            crash_id = base_meta["crashId"]
-            base = base_meta["patches"]
-            base_reg = base_meta["reg"]
-            is_crash = base_meta["isCrash"]
-            if not is_crash:
-                result.append((crash_id, base_meta["state"], base_meta["state"], base))
-            for crash_test in cluster[crash_state]:
-                if crash_test not in analyzer.meta_data:
-                    continue
-                crash_meta = analyzer.meta_data[crash_test]
-                crash = crash_meta["patches"]
-                crash_reg = crash_meta["reg"]
-                crashed = crash_meta["actuallyCrashed"]
-                # If input is feasible:
-                # crash -> not crash
-                # not crash -> not crash + preserve behavior
-                if is_crash:
-                    if not crashed:
-                        result.append((crash_id, base_meta["state"], crash_meta["state"], crash))
-                else:
-                    if not crashed and base_reg == crash_reg:
-                        result.append((crash_id, base_meta["state"], crash_meta["state"], crash))
-        self.generate_table(cluster, result)
-
-def arg_parser(argv: List[str]) -> Config:
-    # Remaining: c, e, g, h, i, j, n, q, t, u, v, w, x, y, z
-    parser = argparse.ArgumentParser(description="Test script for uni-klee")
-    parser.add_argument("cmd", help="Command to execute", choices=["run", "rerun", "snapshot", "clean", "kill", "filter", "analyze"])
-    parser.add_argument("query", help="Query for bugid and patch ids: <bugid>[:<patchid>] # ex) 5321:1,2,3,r5-10")
-    parser.add_argument("-a", "--additional", help="Additional arguments", default="")
-    parser.add_argument("-d", "--debug", help="Debug mode", action="store_true")
-    parser.add_argument("-o", "--outdir", help="Output directory", default="")
-    parser.add_argument("-p", "--outdir-prefix", help="Output directory prefix(\"out\" for out dir)", default="uni-m-out")
-    parser.add_argument("-b", "--snapshot-base-patch", help="Patches for snapshot", default="buggy")
-    parser.add_argument("-s", "--snapshot-prefix", help="Snapshot directory prefix", default="snapshot")
-    parser.add_argument("-f", "--filter-prefix", help="Filter directory prefix", default="filter")
-    parser.add_argument("-l", "--sym-level", help="Symbolization level", default="medium")
-    parser.add_argument("-m", "--max-fork", help="Max fork", default="64,64,64")
-    parser.add_argument("-k", "--lock", help="Handle lock behavior", default="i", choices=["i", "w", "f"])
-    parser.add_argument("-r", "--rerun", help="Rerun last command with same option", action="store_true")
-    parser.add_argument("-z", "--analyze", help="Analyze symvass data", action="store_true")
-    args = parser.parse_args(argv[1:])
-    conf = Config(args.cmd, args.query, args.debug, args.sym_level, args.max_fork)
-    if args.analyze:
-        conf.conf_files.out_dir = args.query
-        return conf
-    conf.init(args.snapshot_base_patch, args.rerun, args.additional, args.lock)
-    conf.conf_files.set_out_dir(args.outdir, args.outdir_prefix, conf.bug_info, args.snapshot_prefix, args.filter_prefix)
+def get_conf(subject: dict, subject_dir: str) -> Dict[str, str]:
+    conf = uni_klee.global_config.get_meta_data_info_by_id(subject["id"])["conf"]
+    config_for_fuzz = read_config_file(os.path.join(subject_dir, "config"))
+    if len(config_for_fuzz) > 0:
+        conf["test_input_list"] = config_for_fuzz["cmd"].replace("<exploit>", "$POC")
+        conf["poc_path"] = os.path.basename(config_for_fuzz["exploit"])
     return conf
 
 
-class Runner(uni_klee.Runner):
-    config: Config
+def run_fuzzer_multi(subject: dict, subject_dir: str, debug: bool = False):
+    # Find subject
+    conf = get_conf(subject, subject_dir)
+    print_log(conf)
+    runtime_dir = os.path.join(subject_dir, "runtime")
+    out_no = find_num(runtime_dir, "aflrun-multi-out")
+    out_dir = os.path.join(runtime_dir, f"aflrun-multi-out-{out_no}")
 
-    def __init__(self, conf: Config):
-        self.config = conf
-
-    def execute(self, cmd: str, dir: str, log_prefix: str, env: dict = None):
-        print(f"Change directory to {dir}")
-        print(f"Executing: {cmd}")
-        if env is None:
-            env = os.environ
-        proc = subprocess.run(cmd, shell=True, cwd=dir, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        if self.config.debug or proc.returncode != 0:
-            log_file = os.path.join(
-                self.config.conf_files.get_log_dir(), f"{log_prefix}.log"
-            )
-            if proc.returncode != 0:
-                print("!!!!! Error !!!!")
-                print("Save error log to " + log_file)
-            try:
-                print(proc.stderr.decode("utf-8", errors="ignore"))
-                os.makedirs(self.config.conf_files.get_log_dir(), exist_ok=True)
-                with open(log_file, "w") as f:
-                    f.write(proc.stderr.decode("utf-8", errors="ignore"))
-                    f.write("\n###############\n")
-                    f.write(proc.stdout.decode("utf-8", errors="ignore"))
-                print(
-                    f"Save error log to {self.config.conf_files.get_log_dir()}/{log_prefix}.log"
-                )
-            except:
-                pass
-        return proc.returncode
-
-    def execute_snapshot(self, cmd: str, dir: str, env: dict = None):
-        if self.config.cmd in ["rerun", "snapshot"]:
-            self.execute("rm -rf " + self.config.conf_files.snapshot_dir, dir, "rm")
-        if self.config.cmd == "filter":
-            self.execute("rm -rf " + self.config.conf_files.filter_dir, dir, "rm")
-            self.execute(cmd, dir, "filter", env)
-            return
-        if not os.path.exists(self.config.conf_files.snapshot_file):
-            if self.config.debug:
-                print(
-                    f"snapshot file {self.config.conf_files.snapshot_file} does not exist"
-                )
-            self.execute(cmd, dir, "snapshot", env)
+    in_dir = in_dir = os.path.join(subject_dir, "seed")
+    if not os.path.exists(in_dir): # Single seed
+        in_dir = os.path.join(runtime_dir, "in")
+        if os.path.exists(in_dir):
+            os.system(f"rm -rf {in_dir}")
+        os.makedirs(in_dir)
+        os.system(f"cp {os.path.join(subject_dir, conf['poc_path'])} {in_dir}/")
     
-    def print_list(self, l: List[Tuple[str, int]]):
-        for item, index in l:
-            print(f"{index}) {item}")
+    env = os.environ.copy()
+    env["AFL_NO_UI"] = "1"
+    bin = os.path.basename(conf["binary_path"])
+    opts = conf["test_input_list"].replace("$POC", "@@")
+    cmd = f"timeout 12h /root/projects/AFLRun/afl-fuzz -C -i {in_dir} -o {out_dir} -m none -t 2000ms -- {runtime_dir}/{bin}.aflrun {opts}"
+    print_log(f"Running fuzzer: {cmd}")
+    stdout = sys.stdout if debug else subprocess.DEVNULL
+    stderr = sys.stderr # if debug else subprocess.DEVNULL
+    proc = subprocess.run(cmd, shell=True, cwd=runtime_dir, env=env, stdout=stdout, stderr=stderr)
+    if proc.returncode != 0:
+        print_log(f"Fuzzer failed {proc.stderr}")
+    print_log("Fuzzer finished")
+    collect_val_runtime(subject_dir, out_dir)
 
-    def interactive_select(self, l: List[Tuple[str, int]], msg: str) -> Tuple[str, int]:
-        print("Select from here: ")
-        self.print_list(l)
-        default = l[-1][1]
-        while True:
-            tmp = input(f"Select {msg}(default: {default}): ").strip()
-            res = default
-            if tmp == "q":
-                return ("", -1)
-            if tmp != "":
-                res = int(tmp)
-            for item, index in l:
-                if res == index:
-                    return (item, index)
 
-    def get_dir(self):
-        print("Set_dir")
-        dir = self.config.conf_files.out_dir
-        # self.filter_dir = self.config.conf_files.filter_dir
-        if not os.path.exists(dir):
-            print(f"{dir} does not exist")
-            out_dirs = self.config.conf_files.find_all_nums(
-                self.config.conf_files.out_base_dir,
-                self.config.conf_files.out_dir_prefix,
-            )
-            out_dir = self.interactive_select(out_dirs, "dir")[0]
-            if out_dir == "":
-                print("Exit")
-                return
-            dir = os.path.join(self.config.conf_files.out_base_dir, out_dir)
-        print(f"Using {dir}")
-        return dir
+def run_fuzzer(subject: dict, subject_dir: str, debug: bool = False):
+    # Find subject
+    conf = get_conf(subject, subject_dir)
+    print_log(conf)
+    runtime_dir = os.path.join(subject_dir, "runtime")
+    out_no = find_num(runtime_dir, "aflrun-out")
+    out_dir = os.path.join(runtime_dir, f"aflrun-out-{out_no}")
 
-    def run(self):
-        if self.config.cmd == "analyze":
-            analyzer = SymvassAnalyzer(self.get_dir())
-            analyzer.analyze_v2()
-            return
-        if self.config.cmd in ["clean", "kill"]:
-            # 1. Find all processes
-            processes = uni_klee.global_config.get_current_processes()
-            for proc in processes:
-                if proc == self.config.bug_info["id"]:
-                    with open(uni_klee.global_config.get_lock_file(self.config.bug_info["bug_id"]),"r") as f:
-                        lines = f.readlines()
-                        if len(lines) > 1:
-                            print(f"Kill process {lines[0]}")
-                            try:
-                                os.kill(int(lines[0]), signal.SIGTERM)
-                            except OSError as e:
-                                print(e.errno)
-                    # 2. Remove lock file
-                    os.remove(
-                        uni_klee.global_config.get_lock_file(
-                            self.config.bug_info["bug_id"]
-                        )
-                    )
-            # 3. Remove output directory
-            if self.config.cmd == "clean":
-                out_dirs = self.config.conf_files.find_all_nums(
-                    self.config.conf_files.out_base_dir,
-                    self.config.conf_files.out_dir_prefix,
-                )
-                for out_dir in out_dirs:
-                    print(f"Remove {out_dir[0]}")
-                    os.system(
-                        f"rm -rf {os.path.join(self.config.conf_files.out_base_dir, out_dir[0])}"
-                    )
-            return
-        lock_file = uni_klee.global_config.get_lock_file(self.config.bug_info["bug_id"])
-        lock = uni_klee.acquire_lock(lock_file, self.config.lock, self.config.conf_files.out_dir)
+    in_dir = os.path.join(runtime_dir, "in")
+    if os.path.exists(in_dir):
+        os.system(f"rm -rf {in_dir}")
+    os.makedirs(in_dir)
+    os.system(f"cp {os.path.join(subject_dir, conf['poc_path'])} {in_dir}/")
+    
+    env = os.environ.copy()
+    env["AFL_NO_UI"] = "1"
+    bin = os.path.basename(conf["binary_path"])
+    opts = conf["test_input_list"].replace("$POC", "@@")
+    cmd = f"timeout 12h /root/projects/AFLRun/afl-fuzz -C -i {in_dir} -o {out_dir} -m none -t 2000ms -- {runtime_dir}/{bin}.aflrun {opts}"
+    print_log(f"Running fuzzer: {cmd}")
+    stdout = sys.stdout if debug else subprocess.DEVNULL
+    stderr = sys.stderr # if debug else subprocess.DEVNULL
+    proc = subprocess.run(cmd, shell=True, cwd=runtime_dir, env=env, stdout=stdout, stderr=stderr)
+    if proc.returncode != 0:
+        print_log(f"Fuzzer failed {proc.stderr}")
+    print_log("Fuzzer finished")
+    collect_val_runtime(subject_dir, out_dir)
+
+
+def collect_val_runtime(subject_dir: str, out_dir: str):
+    print_log(f"Collecting val runtime from {out_dir}")
+    # Collect results in val-runtime
+    conc_inputs_dir = os.path.join(subject_dir, "concrete-inputs")
+    if os.path.exists(conc_inputs_dir):
+        os.system(f"rm -rf {conc_inputs_dir}")
+    os.makedirs(conc_inputs_dir, exist_ok=True)
+    # Copy from crashes
+    os.system(f"rsync -az {out_dir}/default/crashes/ {conc_inputs_dir}/")
+    # Copy from queue
+    os.system(f"rsync -az {out_dir}/default/queue/ {conc_inputs_dir}/")
+    
+def clear_val(dir: str):
+    files = os.listdir(dir)
+    for f in files:
+        file = os.path.join(dir, f)
+        if f.startswith("core.") and os.path.isfile(file):
+            os.remove(file)
+
+def run_val(subject: dict, subject_dir: str, symvass_prefix: str, val_prefix: str, debug: bool = False):
+    conf = get_conf(subject, subject_dir)
+    val_runtime = os.path.join(subject_dir, "val-runtime")
+    val_bin = os.path.join(val_runtime, os.path.basename(conf["binary_path"]))
+    val_out_no = find_num(val_runtime, val_prefix)
+    val_out_dir = os.path.join(val_runtime, f"{val_prefix}-{val_out_no}")
+    
+    out_no = find_num(os.path.join(subject_dir, "patched"), symvass_prefix)
+    out_dir = os.path.join(subject_dir, "patched", f"{symvass_prefix}-{out_no - 1}")
+    if os.path.exists(os.path.join(out_dir, "base-mem.symbolic-globals")):
+        with open(os.path.join(out_dir, "base-mem.symbolic-globals")) as f:
+            globals = f.readlines()
+            if len(globals) > 1:
+                # with open("/root/projects/CPR/out/out.txt", "a") as f:
+                #     f.write(f"{subject_dir} {len(globals)}\n")
+                pass
+    symin_cluster_json = os.path.join(out_dir, "symin-cluster.json")
+    if not os.path.exists(symin_cluster_json):
+        print_log(f"symin-cluster.json not found in {out_dir}")
+        return
+    with open(symin_cluster_json, "r") as f:
+        data = json.load(f)
+    
+    os.makedirs(val_out_dir, exist_ok=True)
+    cluster = data["mem_cluster"]
+    
+    with open(os.path.join(val_out_dir, "val.json"), "w") as f:
+        save_obj = dict()
+        save_obj["uni_klee_out_dir"] = out_dir
+        save_obj["val_out_dir"] = val_out_dir
+        save_obj["cluster"] = cluster
+        json.dump(save_obj, f, indent=2)
+        
+    conc_inputs_dir = os.path.join(subject_dir, "concrete-inputs")
+    if val_prefix == "cludafl-queue":
+        conc_inputs_dir = os.path.join(val_runtime, "..", "runtime", "cludafl-queue", "queue")
+    elif val_prefix == "cludafl-memory":
+        conc_inputs_dir = os.path.join(val_runtime, "..", "runtime", "cludafl-memory", "input")
+    print_log(f"Conc inputs dir: {conc_inputs_dir}")
+    cinputs = os.listdir(conc_inputs_dir)
+    tmp_inputs_dir = os.path.join(val_out_dir, "inputs")
+    os.makedirs(tmp_inputs_dir, exist_ok=True)
+    
+    for i, c in enumerate(cluster):
+        print_log(f"Processing cluster {i}")
+        file = c["file"]
+        nodes = c["nodes"]
+        group_out_dir = os.path.join(val_out_dir, f"group-{i}")
+        os.makedirs(group_out_dir, exist_ok=True)
+        env = os.environ.copy()
+        env["UNI_KLEE_MEM_BASE_FILE"] = os.path.join(out_dir, "base-mem.graph")
+        env["UNI_KLEE_MEM_FILE"] = file
+        for cid, cinput in enumerate(cinputs):
+            original_file = os.path.join(conc_inputs_dir, cinput)
+            if os.path.isdir(original_file):
+                continue
+            if cinput == "README.txt":
+                continue
+            c_file = os.path.join(tmp_inputs_dir, f"val{cid}")
+            if os.path.exists(c_file):
+                os.unlink(c_file)
+            os.link(original_file, c_file)
+            env_local = env.copy()
+            local_out_file = os.path.join(group_out_dir, f"val-{cid}.txt")
+            env_local["UNI_KLEE_MEM_RESULT"] = local_out_file
+            env_str = f"UNI_KLEE_MEM_BASE_FILE={env['UNI_KLEE_MEM_BASE_FILE']} UNI_KLEE_MEM_FILE={env['UNI_KLEE_MEM_FILE']} UNI_KLEE_MEM_RESULT={local_out_file}"
+            if "test_input_list" in conf:
+                use_stdin = conf["test_input_list"].find("$POC") == -1
+                target_cmd = conf["test_input_list"].replace("$POC", c_file)
+                if use_stdin:
+                    target_cmd = f"cat {c_file} | {val_bin} {target_cmd}"
+                else:
+                    target_cmd = f"{val_bin} {target_cmd}"
+            else:
+                target_cmd = val_bin
+            try:
+                subprocess.run(target_cmd, shell=True, env=env_local, cwd=val_runtime, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
+            except subprocess.TimeoutExpired:
+                print_log(f"Timeout for {target_cmd}")
+                continue
+            except Exception as e:
+                print_log(f"Error for {target_cmd}: {e}")
+                continue
+            print_log(f"Finished {cid}: {env_str} {target_cmd}")
+            if os.path.exists(local_out_file):
+                with open(local_out_file, "a") as f:
+                    f.write(f"[input] [id {cid}] [symgroup {i}] [file {cinput}]")
+        clear_val(val_runtime)
+
+
+def load_smt_file(file_path: str) -> Tuple[SmtLibScript, pysmt.environment.Environment]:
+    pysmt.environment.push_env()
+    cur_env = pysmt.environment.get_env()
+    parser = SmtLibParser(cur_env)
+    with open(file_path, "r") as f:
+        script = parser.get_script(f)
+    return script, cur_env
+
+def get_var_from_script(script: SmtLibScript, name: str, cur_env: pysmt.environment.Environment):
+    # Access the parser's cache which contains declared variables
+    existing_symbol = None
+    for s in script.get_declared_symbols():
+        if s.symbol_name() == name:
+            existing_symbol = s
+            break
+    return existing_symbol
+
+
+def get_bv_const(cur_env: pysmt.environment.Environment, value: str, size: int):
+    bytes_data = bytearray.fromhex(value)
+    int_val = int.from_bytes(bytes_data, byteorder="little")
+    bv = cur_env.formula_manager.BV(int_val, size * 8)
+    return bv
+
+
+def read_val_out_file(parser: sbsv.parser, globals_list: List[Dict[str, str]], iter: int, index: Tuple[int, int], script: SmtLibScript, cur_env: pysmt.environment.Environment):
+    # Check error
+    if len(parser.get_result_by_index("heap-check$error$no-mapping", index)) > 0: #  or len(result["val"]["error"]["no-mapping"]) > 0
+        print_log("Memory mismatch")
+        return "MEM_MISMATCH"
+    if len(parser.get_result_by_index("val$error$null-pointer", index)) > 0:
+        print_log("Null pointer")
+        return "NULL_PTR"
+    if len(parser.get_result_by_index("heap-check$error$value-mismatch", index)) > 0:
+        print_log("Value mismatch")
+        return "VAL_MISMATCH"
+    
+    # Read values and check satisfiability
+    formula = script.get_last_formula()
+    for heap in parser.get_result_by_index("val$heap", index):
+        addr = heap["u-addr"]
+        name = heap["name"]
+        value = heap["value"]
+        size = heap["size"]
+        num = heap["num"]
+        print_log(f"Heap: {addr} {name} {value} {size} {num}")
+        # Build the bitvector formula
+        # value: hex string little endian
+        # size: number of bytes
+        # num: number of elements
+        # Get variable already declared in script
+        val = get_bv_const(cur_env, value, size)
+        var = get_var_from_script(script, name, cur_env)
+        if var is None:
+            print_log(f"Variable {name} not found")
+            continue
+        bv = None
+        for i in range(size):
+            index_bv = cur_env.formula_manager.BV(i, 32)
+            byte_bv = cur_env.formula_manager.Select(var, index_bv)
+            if bv is None:
+                bv = byte_bv
+            else:
+                bv = cur_env.formula_manager.BVConcat(byte_bv, bv)
+        # Add constraint
+        eq = Equals(bv, val)
+        formula = And(formula, eq)
+    
+    for arg in parser.get_result_by_index("val$arg", index):
+        index = arg["index"]
+        value = arg["value"]
+        size = arg["size"]
+        name = arg["name"]
+        print_log(f"Arg: {index} {value} {size} {name}")
+        val = get_bv_const(cur_env, value, size)
+        var = get_var_from_script(script, name, cur_env)
+        if var is None:
+            print_log(f"Variable {name} not found")
+            continue
+        bv = None
+        for i in range(size):
+            index_bv = cur_env.formula_manager.BV(i, 32)
+            byte_bv = cur_env.formula_manager.Select(var, index_bv)
+            if bv is None:
+                bv = byte_bv
+            else:
+                bv = cur_env.formula_manager.BVConcat(byte_bv, bv)
+        eq = cur_env.formula_manager.Equals(bv, val)
+        formula = cur_env.formula_manager.And(formula, eq)
+    
+    if len(globals_list) > iter:
+        for name, value in globals_list[iter].items():
+            var = get_var_from_script(script, name, cur_env)
+            if var is None:
+                print_log(f"Variable {name} not found")
+                continue
+            size = len(value) // 2
+            val = get_bv_const(cur_env, value, size)
+            bv = None
+            for i in range(size):
+                index_bv = cur_env.formula_manager.BV(i, 32)
+                byte_bv = cur_env.formula_manager.Select(var, index_bv)
+                if bv is None:
+                    bv = byte_bv
+                else:
+                    bv = cur_env.formula_manager.BVConcat(byte_bv, bv)
+            eq = cur_env.formula_manager.Equals(bv, val)
+            formula = cur_env.formula_manager.And(formula, eq)
+    
+    if is_sat(formula):
+        print_log("SAT")
+        return "SAT"
+    else:
+        print_log("UNSAT")
+        return "UNSAT"
+
+def parse_symvass_result(file_path: str) -> Dict[int, List[int]]:
+    result = dict()
+    parser = sbsv.parser()
+    parser.add_schema("[sym-in] [id: int] [base: int] [test: int] [cnt: int] [patches: str]")
+    # parser.add_schema("[sym-out] [best] [cnt: int] [patches: str]")
+    parser.add_schema("[meta-data] [default] [correct: int] [all-patches: int] [sym-input: int] [is-correct: bool] [patches: str]")
+    with open(file_path, "r") as f:
+        parser.load(f)
+    for sym_in in parser.get_result()["sym-in"]:
+        test = sym_in["test"]
+        patches = sym_in["patches"]
+        result[test] = eval(patches)
+    result[-1] = list(range(parser.get_result()["meta-data"]["default"][0]["all-patches"]))
+    return result
+        
+def parse_val_results(val_out_dir: str):
+    if not os.path.exists(val_out_dir) or not os.path.exists(os.path.join(val_out_dir, "val.json")):
+        print_log(f"Val out dir or {val_out_dir}/val.json not found")
+        return
+    with open(os.path.join(val_out_dir, "val.json"), "r") as f:
+        result = json.load(f)
+    uni_klee_out_dir = result["uni_klee_out_dir"]
+    val_out_dir = result["val_out_dir"]
+    cluster = result["cluster"]
+    result = dict()
+    result["uni_klee_out_dir"] = uni_klee_out_dir
+    result["val_out_dir"] = val_out_dir
+    result["val"] = list()
+    rf = open(os.path.join(val_out_dir, "result.sbsv"), "w")
+    remaining_base_states = list()
+    result["remaining_patches"] = list()
+    symvass_result = parse_symvass_result(os.path.join(uni_klee_out_dir, "table_v3.sbsv"))
+    for i, c in enumerate(cluster):
+        print_log(f"Processing cluster {i}")
+        nodes = c["nodes"]
+        group_out_dir = os.path.join(val_out_dir, f"group-{i}")
+        vals = os.listdir(group_out_dir)
+        group_result = dict()
+        group_result["group_id"] = i
+        group_result["nodes"] = nodes
+        group_result["nodes_result"] = list()
+        result["val"].append(group_result)
+        for node in nodes:
+            node_file = os.path.join(uni_klee_out_dir, f"test{node:06d}.smt2")
+            node_result = dict()
+            node_result["node_id"] = node
+            node_result["result"] = list()
+            group_result["nodes_result"].append(node_result)
+            succ = False
+            for val in vals:
+                local_out_file = os.path.join(group_out_dir, val)
+                parser = parse_mem_result_file(local_out_file)
+                if parser is None:
+                    continue
+                ends = parser.get_result_in_order(["heap-check$end"])
+                if len(ends) == 0:
+                    print_log(f"No heap-check end in {local_out_file}")
+                    continue
+                begins = parser.get_result_in_order(["heap-check$begin"])
+                indices = parser.get_group_index("heap-check")
+                if len(indices) == 0:
+                    print_log(f"No heap-check in {local_out_file}")
+                    node_result["result"].append({"val_file": val, "result": "NOT_DONE"})
+                    rf.write(f"[res] [c {i}] [n {node}] [res NOT_DONE] [val {val}]\n")
+                    continue
+                globals_list = list()
+                globals_map = dict()
+                for global_var in parser.get_result()["global"]:
+                    name = global_var["sym"]
+                    value = global_var["value"]
+                    if name in globals_map:
+                        globals_list.append(globals_map.copy())
+                        globals_map.clear()
+                    globals_map[name] = value
+                globals_list.append(globals_map)
+                if len(indices) > 1:
+                    print_log(f"Multiple heap-check ({len(indices)}) in {local_out_file}")
+                for iter, index in enumerate(indices):
+                    if succ:
+                        break
+                    script, cur_env = load_smt_file(node_file) # push_env
+                    res = read_val_out_file(parser, globals_list, iter, index, script, cur_env)
+                    pysmt.environment.pop_env()
+                    if res is not None:
+                        node_result["result"].append({"val_file": val, "result": res})
+                        rf.write(f"[res] [c {i}] [n {node}] [res {res}] [val {val}]\n")
+                        if res == "SAT":
+                            succ = True
+                            break
+                    else:
+                        node_result["result"].append({"val_file": val, "result": "ERROR"})
+                        rf.write(f"[res] [c {i}] [n {node}] [res ERROR] [val {val}]\n")
+            node_result["success"] = succ
+            if succ:
+                rf.write(f"[success] [c {i}] [n {node}]\n")
+                remaining_base_states.append(node)
+        print_log(f"Finished cluster {i}")
+        remaining_patches = set(symvass_result[-1])
+        remaining_sym_inputs = list()
+        for symin in remaining_base_states:
+            if symin in symvass_result:
+                remaining_patches = remaining_patches.intersection(set(symvass_result[symin]))
+                rf.write(f"[remaining] [input] [input {symin}] [patches {symvass_result[symin]}]\n")
+        result["remaining_patches"] = sorted(list(remaining_patches))
+        rf.write(f"[remaining] [patch] [patches {result['remaining_patches']}]\n")
+    rf.close()
+    with open(os.path.join(val_out_dir, "result.json"), "w") as f:
+        json.dump(result, f, indent=2)
+
+
+def analyze(subject: dict, val_out_dir: str, output: str):
+    subject_dir = os.path.join(ROOT_DIR, "patches", subject["benchmark"], subject["subject"], subject["bug_id"])
+    group_patches_json = os.path.join(subject_dir, "group-patches-original.json")
+    if not os.path.exists(group_patches_json):
+        print_log(f"Group patches file {group_patches_json} not found")
+        return
+    with open(group_patches_json, "r") as f:
+        group_patches = json.load(f)
+    filter_json = os.path.join(subject_dir, "patched", "filter", "filtered.json")
+    if not os.path.exists(filter_json):
+        print_log(f"Filter file {filter_json} not found")
+        return
+    with open(filter_json, "r") as f:
+        filter_data = json.load(f)
+    correct_patch = group_patches["correct_patch_id"]
+    patch_eq_map = dict()
+    patch_group_tmp = dict()
+    for patches in group_patches["equivalences"]:
+        representative = patches[0]
+        for patch in patches:
+            patch_group_tmp[patch] = representative
+    for patch in filter_data["remaining"]:
+        if patch in patch_group_tmp:
+            patch_eq_map[patch] = patch_group_tmp[patch]
+        else:
+            patch_eq_map[patch] = patch
+    all_patches = set()
+    for patch in filter_data["remaining"]:
+        if patch == patch_eq_map[patch]:
+            all_patches.add(patch)
+    correct_patch = patch_eq_map[correct_patch]
+    
+    result_file = os.path.join(val_out_dir, "result.sbsv")
+    if not os.path.exists(result_file):
+        print_log(f"Result file {result_file} not found")
+        return
+    parser = sbsv.parser()
+    parser.add_schema("[res] [c: int] [n: int] [res: str] [val: str]")
+    parser.add_schema("[success] [c: int] [n: int]")
+    parser.add_schema("[remaining] [input] [input: int] [patches: str]")
+    parser.add_schema("[remaining] [patch] [patches: str]")
+    with open(result_file, "r") as f:
+        result = parser.load(f)
+    remaining_inputs = len(result["remaining"]["input"])
+    if remaining_inputs == 0:
+        print_log("No remaining inputs")
+        found = correct_patch in all_patches
+        res = f"{subject['subject']}\t{subject['bug_id']}\t{remaining_inputs}\t{len(all_patches)}\t{found}\t{all_patches}"
+        if output != "":
+            with open(os.path.join(f"{ROOT_DIR}/out", output), "a") as f:
+                f.write(res + "\n")
+        else:
+            print_out(res)
+        return
+    
+    remaining_patches = eval(result["remaining"]["patch"][0]["patches"])
+    remaining_patches_filtered = list()
+    for patch in remaining_patches:
+        if patch in all_patches:
+            remaining_patches_filtered.append(patch)
+
+    correct_patch = subject["correct"]["no"]
+    found = correct_patch in remaining_patches_filtered
+    # val_inputs val_remaining_patches val_filtered val_found
+    res = f"{subject['subject']}\t{subject['bug_id']}\t{remaining_inputs}\t{len(remaining_patches_filtered)}\t{found}\t{remaining_patches_filtered}"
+    if output != "":
+        with open(os.path.join(f"{ROOT_DIR}/out", output), "a") as f:
+            f.write(res + "\n")
+    else:
+        print_out(res)
+
+class TokenType(enum.Enum):
+    IDENTIFIER = 'IDENTIFIER'
+    NUMBER = 'NUMBER'
+    LE = 'LE'          # <=
+    GE = 'GE'          # >=
+    LT = 'LT'          # <
+    GT = 'GT'          # >
+    EQ = 'EQ'          # ==
+    NE = 'NE'          # !=
+    AND = 'AND'        # &&
+    OR = 'OR'          # ||
+    # NOT = 'NOT'      # ! (optional)
+    LPAREN = 'LPAREN'  # (
+    RPAREN = 'RPAREN'  # )
+    PLUS = 'PLUS'      # +
+    MINUS = 'MINUS'    # -
+    MUL = 'MUL'        # *
+    DIV = 'DIV'        # / # Be careful with INT vs REAL division
+    EOF = 'EOF'        # End of File/Input
+
+# --- Token class (remains the same) ---
+class Token:
+    def __init__(self, type, value=None, lineno=1, col=1):
+        self.type = type
+        self.value = value
+        self.lineno = lineno
+        self.col = col
+    def __str__(self):
+        return f"Token({self.type.name}, {repr(self.value)}, L{self.lineno} C{self.col})"
+
+# --- Lexer class (assuming it correctly tokenizes +, -, *, / and handles negative numbers) ---
+# (Lexer code from the previous response should be sufficient)
+class Lexer:
+    def __init__(self, text):
+        self.text = text
+        self.pos = 0
+        self.current_char = self.text[self.pos] if self.pos < len(self.text) else None
+        self.lineno = 1
+        self.col = 1
+
+    def advance(self):
+        if self.current_char == '\n':
+            self.lineno += 1
+            self.col = 0
+        self.pos += 1
+        if self.pos < len(self.text):
+            self.current_char = self.text[self.pos]
+            self.col += 1
+        else:
+            self.current_char = None # EOF
+
+    def peek(self):
+        peek_pos = self.pos + 1
+        if peek_pos < len(self.text):
+            return self.text[peek_pos]
+        else:
+            return None
+
+    def skip_whitespace(self):
+        while self.current_char is not None and self.current_char.isspace():
+            self.advance()
+
+    def number(self):
+        result = ''
+        start_col = self.col
+        is_negative = False
+        # Handle potential negative sign ONLY at the start of the number sequence
+        if self.current_char == '-':
+             # Ensure it's followed by a digit to be a negative number, not just minus operator
+             peek_char = self.peek()
+             if peek_char is not None and peek_char.isdigit():
+                 is_negative = True
+                 result += self.current_char
+                 self.advance()
+             else:
+                 # If '-' is not followed by digit, it's likely a MINUS operator, handle in get_next_token
+                 self._error(f"Invalid character sequence starting with '-'")
+
+
+        if self.current_char is None or not self.current_char.isdigit():
+             # This error should ideally be caught before calling number() unless it's the negative sign case
+             self._error(f"Expected digit at L{self.lineno} C{self.col}")
+
+        while self.current_char is not None and self.current_char.isdigit():
+            result += self.current_char
+            self.advance()
+
+        # Check for decimal point if supporting Floats/Reals
+        # if self.current_char == '.':
+        #    ... handle floating point ...
+        #    return Token(TokenType.REAL_NUMBER, float(result), ...)
+
+        return Token(TokenType.NUMBER, int(result), self.lineno, start_col)
+
+
+    def identifier(self):
+        result = ''
+        start_col = self.col
+        while self.current_char is not None and (self.current_char.isalnum() or self.current_char == '_'):
+            result += self.current_char
+            self.advance()
+        # Check for keywords (like TRUE, FALSE if needed)
+        # type = KEYWORDS.get(result, TokenType.IDENTIFIER)
+        # return Token(type, result, ...)
+        return Token(TokenType.IDENTIFIER, result, self.lineno, start_col)
+
+    def _error(self, message="Invalid character"):
+        char = self.current_char if self.current_char is not None else 'EOF'
+        raise ValueError(f"{message}: '{char}' at L{self.lineno} C{self.col}")
+
+    def get_next_token(self):
+        while self.current_char is not None:
+            start_col = self.col
+
+            if self.current_char.isspace():
+                self.skip_whitespace()
+                continue
+
+            # Handle multi-character operators first
+            if self.current_char == '<':
+                if self.peek() == '=':
+                    self.advance()
+                    self.advance()
+                    return Token(TokenType.LE, '<=', self.lineno, start_col)
+                self.advance()
+                return Token(TokenType.LT, '<', self.lineno, start_col)
+            if self.current_char == '>':
+                if self.peek() == '=':
+                    self.advance()
+                    self.advance()
+                    return Token(TokenType.GE, '>=', self.lineno, start_col)
+                self.advance()
+                return Token(TokenType.GT, '>', self.lineno, start_col)
+            if self.current_char == '=':
+                if self.peek() == '=':
+                    self.advance()
+                    self.advance()
+                    return Token(TokenType.EQ, '==', self.lineno, start_col)
+                self._error("Expected '=' after '=' for '=='")
+            if self.current_char == '!':
+                if self.peek() == '=':
+                    self.advance()
+                    self.advance()
+                    return Token(TokenType.NE, '!=', self.lineno, start_col)
+                # Handle '!' (NOT) if needed
+                self._error("Expected '=' after '!' for '!=' (standalone '!' not supported)")
+            if self.current_char == '&':
+                if self.peek() == '&':
+                    self.advance()
+                    self.advance()
+                    return Token(TokenType.AND, '&&', self.lineno, start_col)
+                self._error("Expected '&' after '&' for '&&'")
+            if self.current_char == '|':
+                if self.peek() == '|':
+                    self.advance()
+                    self.advance()
+                    return Token(TokenType.OR, '||', self.lineno, start_col)
+                self._error("Expected '|' after '|' for '||'")
+
+            # Single character tokens & Numbers/Identifiers
+            if self.current_char == '+':
+                self.advance()
+                return Token(TokenType.PLUS, '+', self.lineno, start_col)
+            if self.current_char == '-':
+                 # Check if it starts a negative number
+                 peek_char = self.peek()
+                 if peek_char is not None and peek_char.isdigit():
+                     return self.number() # number() handles the '-' sign
+                 else:
+                     # Otherwise, it's the MINUS operator
+                     self.advance()
+                     return Token(TokenType.MINUS, '-', self.lineno, start_col)
+            if self.current_char == '*':
+                self.advance()
+                return Token(TokenType.MUL, '*', self.lineno, start_col)
+            if self.current_char == '/':
+                self.advance()
+                return Token(TokenType.DIV, '/', self.lineno, start_col)
+            if self.current_char == '(':
+                self.advance()
+                return Token(TokenType.LPAREN, '(', self.lineno, start_col)
+            if self.current_char == ')':
+                self.advance()
+                return Token(TokenType.RPAREN, ')', self.lineno, start_col)
+
+            if self.current_char.isdigit():
+                return self.number()
+
+            if self.current_char.isalpha() or self.current_char == '_':
+                return self.identifier()
+
+            # If character is unrecognized
+            self._error()
+
+        # End of file
+        return Token(TokenType.EOF, None, self.lineno, self.col)
+
+# --- Revised Parser Class ---
+class Parser:
+    def __init__(self, lexer, variable_type=INT):
+        self.lexer = lexer
+        self.current_token = self.lexer.get_next_token()
+        self.variable_type = variable_type # INT or REAL
+        self.variables = {} # Stores SMT variable objects keyed by name
+
+    def _get_or_create_variable(self, name):
+        if name not in self.variables:
+            self.variables[name] = smt.Symbol(name, self.variable_type)
+        return self.variables[name]
+
+    def _error(self, expected_type=None):
+        msg = f"Syntax error: Unexpected token {self.current_token}"
+        if expected_type:
+            msg += f" (expected {expected_type})"
+        lineno = self.current_token.lineno if self.current_token else '?'
+        col = self.current_token.col if self.current_token else '?'
+        raise SyntaxError(msg + f" at L{lineno} C{col}")
+
+    def eat(self, token_type):
+        if self.current_token.type == token_type:
+            # print(f"Eating: {self.current_token}") # Debugging
+            self.current_token = self.lexer.get_next_token()
+        else:
+            self._error(expected_type=token_type.name)
+
+    # --- Grammar Rules (Standard Precedence) ---
+    # expression    ::= logic_or
+    # logic_or      ::= logic_and ( OR logic_and )*
+    # logic_and     ::= comparison ( AND comparison )*    # Assuming AND higher precedence than OR
+    # comparison    ::= arith_expr ( COMPARISON_OP arith_expr )? # Optional comparison allows boolean results from primary
+    # arith_expr    ::= term ( (PLUS | MINUS) term )*
+    # term          ::= factor ( (MUL | DIV) factor )*
+    # factor        ::= PLUS factor | MINUS factor | primary # Unary operators
+    # primary       ::= NUMBER | IDENTIFIER | LPAREN expression RPAREN # Parentheses restart parsing
+
+    def parse_primary(self):
+        """ Parses the highest precedence items: literals, identifiers, parenthesized expressions. """
+        token = self.current_token
+        if token.type == TokenType.NUMBER:
+            self.eat(TokenType.NUMBER)
+            # Use Int() or Real() based on variable_type or token type if lexer distinguishes
+            if self.variable_type == INT:
+                return smt.Int(token.value)
+            else: # Assume REAL if not INT
+                return smt.Real(token.value) # Ensure number lexer can produce floats/reals if needed
+        elif token.type == TokenType.IDENTIFIER:
+            self.eat(TokenType.IDENTIFIER)
+            # Could be a boolean variable later, but for now assume numeric based on variable_type
+            return self._get_or_create_variable(token.value)
+        elif token.type == TokenType.LPAREN:
+            self.eat(TokenType.LPAREN)
+            # Crucially, parentheses restart parsing at the top expression level
+            node = self.parse_expression()
+            self.eat(TokenType.RPAREN)
+            return node
+        else:
+            self._error(expected_type="NUMBER, IDENTIFIER, or '('")
+
+    def parse_factor(self):
+        """ Parses unary plus/minus and then calls primary. """
+        token = self.current_token
+        if token.type == TokenType.PLUS: # Unary plus
+            self.eat(TokenType.PLUS)
+            # Unary plus usually has no effect in SMT
+            return self.parse_factor()
+        elif token.type == TokenType.MINUS: # Unary minus
+            self.eat(TokenType.MINUS)
+            node = self.parse_factor()
+            # Simplify if possible, e.g., -(5) -> -5
+            if node.is_constant():
+                 if self.variable_type == INT and node.is_int_constant():
+                      return smt.Int(-node.constant_value())
+            # General case: 0 - node or Times(-1, node)
+            # Times(-1, node) often preferred
+            if self.variable_type == INT:
+                return smt.Times(smt.Int(-1), node)
+                # return smt.Minus(smt.Int(0), node) # Alternative for INT
+            else: # REAL
+                 return smt.Times(smt.Real(-1), node)
+                 # return smt.Minus(smt.Real(0), node) # Alternative for REAL
+        else:
+            # No unary operator, parse the primary directly
+            return self.parse_primary()
+
+    def parse_term(self):
+        """ Parses multiplication and division. """
+        node = self.parse_factor()
+        while self.current_token.type in (TokenType.MUL, TokenType.DIV):
+            token = self.current_token
+            if token.type == TokenType.MUL:
+                self.eat(TokenType.MUL)
+                node = smt.Times(node, self.parse_factor())
+            elif token.type == TokenType.DIV:
+                self.eat(TokenType.DIV)
+                right_factor = self.parse_factor()
+                if self.variable_type == INT:
+                     # PySMT IntDiv might require specific versions or care.
+                     # Using smt.Div requires REALs.
+                     # Check pysmt.operators.op.DIV for integer division behavior, might truncate.
+                     # For true integer division, smt.IntDiv might be needed if available.
+                     # Let's use smt.Div and rely on pysmt's handling or raise error if types mismatch.
+                     # Safest might be to require REAL type for division.
+                     # Or raise specific error for Int division:
+                    #  node = smt.IntDiv(node, right_factor)
+                     raise NotImplementedError("Integer division '/' is ambiguous. Use Real type or ensure PySMT handles IntDiv appropriately.")
+                else: # Assume REAL
+                     node = smt.Div(node, right_factor)
+        return node
+
+    def parse_arith_expr(self):
+        """ Parses addition and subtraction. """
+        node = self.parse_term()
+        while self.current_token.type in (TokenType.PLUS, TokenType.MINUS):
+            token = self.current_token
+            if token.type == TokenType.PLUS:
+                self.eat(TokenType.PLUS)
+                node = smt.Plus(node, self.parse_term())
+            elif token.type == TokenType.MINUS:
+                self.eat(TokenType.MINUS)
+                node = smt.Minus(node, self.parse_term())
+        return node
+
+    def parse_comparison(self):
+        """ Parses comparison operators (==, !=, <, <=, >, >=).
+            If no comparison op is found, returns the result of the arith_expr,
+            which must evaluate to boolean contextually (e.g., from a parenthesized bool expr).
+        """
+        left_node = self.parse_arith_expr()
+
+        # Check if a comparison operator follows
+        if self.current_token.type in (TokenType.LE, TokenType.GE, TokenType.LT, TokenType.GT, TokenType.EQ, TokenType.NE):
+            op_token = self.current_token
+            self.eat(op_token.type)
+            right_node = self.parse_arith_expr() # Parse the right side arithmetic expression
+
+            op_type = op_token.type
+            if op_type == TokenType.LE:
+                return smt.LE(left_node, right_node)
+            elif op_type == TokenType.GE:
+                return smt.GE(left_node, right_node)
+            elif op_type == TokenType.LT:
+                return smt.LT(left_node, right_node)
+            elif op_type == TokenType.GT:
+                return smt.GT(left_node, right_node)
+            elif op_type == TokenType.EQ:
+                return smt.Equals(left_node, right_node)
+            elif op_type == TokenType.NE:
+                return smt.Not(smt.Equals(left_node, right_node))
+        else:
+            # No comparison operator found. The result is just the left node.
+            # This handles cases like `(x > 5)` being used in a logical context.
+            # The type system of the surrounding logic (AND/OR) must handle it.
+            # If left_node is Int/Real here, it might cause type errors later if used directly as Bool.
+            # This structure relies on parse_primary correctly returning boolean nodes
+            # when parsing parenthesized logical expressions like `(x < y)`.
+            return left_node
+
+    def parse_logic_and(self):
+        """ Parses logical AND (&&). """
+        # Assuming NOT would be handled at a higher precedence level if added (e.g., in factor/primary or a dedicated level)
+        node = self.parse_comparison()
+        while self.current_token.type == TokenType.AND:
+            self.eat(TokenType.AND)
+            # Ensure both sides are boolean compatible. PySMT handles this.
+            node = smt.And(node, self.parse_comparison())
+        return node
+
+    def parse_logic_or(self):
+        """ Parses logical OR (||). """
+        node = self.parse_logic_and() # Parse higher precedence first
+        while self.current_token.type == TokenType.OR:
+            self.eat(TokenType.OR)
+            # Ensure both sides are boolean compatible. PySMT handles this.
+            node = smt.Or(node, self.parse_logic_and())
+        return node
+
+    # The top-level rule for a full expression
+    def parse_expression(self):
+        """ Parses a full logical expression (starting point). """
+        return self.parse_logic_or() # Start with the lowest precedence operator
+
+    def parse(self):
+        """ Parses the entire input text. """
+        self.variables.clear() # Reset variables for a new parse
+        node = self.parse_expression()
+        if self.current_token.type != TokenType.EOF:
+            # If parsing stopped before EOF, there's extra input or a syntax error
+            self._error(expected_type="EOF or operator") # Be more specific if possible
+        return node
+
+    def get_parsed_variables(self):
+        """ Returns the SMT variables discovered during parsing. """
+        return self.variables
+
+def code_to_formula(code_str, variable_type=INT):
+    substitutions = {}
+    result_expr_str = None # Renamed to avoid confusion with SMT expr node
+
+    # Basic preprocessing for C-like assignments
+    for line in code_str.split(';'):
+        line = line.strip()
+        if not line: continue
+
+        if line.startswith('result'):
+            result_expr_str = line.split('=', 1)[1].strip().rstrip(';')
+        elif '=' in line:
+            # Simple textual substitution (use with caution)
+            var, value = map(str.strip, line.split('=', 1))
+            # Use word boundaries to avoid partial replacements
+            substitutions[r'\b' + re.escape(var) + r'\b'] = value
+
+    if result_expr_str is None:
+         print_log(f"Warning: No 'result =' line found in code: {code_str}")
+         return None # Indicate failure
+
+    # Apply substitutions textually
+    processed_expr_str = result_expr_str
+    if substitutions:
+        for pattern, val in substitutions.items():
+            processed_expr_str = re.sub(pattern, val, processed_expr_str)
+        print_log(f"Code (after substitutions): {processed_expr_str}")
+    else:
+         print_log(f"Code (no substitutions): {processed_expr_str}")
+
+    # Handle trivial cases after substitution
+    if processed_expr_str in ["(0)", "0"]:
+        return smt.Bool(False)
+    if processed_expr_str in ["(1)", "1"]:
+        return smt.Bool(True)
+
+    # --- Use the Revised Parser ---
+    lexer = Lexer(processed_expr_str)
+    parser = Parser(lexer, variable_type=variable_type)
+
+    try:
+        expr_node = parser.parse() # This is the SMT formula node
+        # parsed_vars = parser.get_parsed_variables() # Get variables if needed
+        # print_log(f"Parsed Variables: {parsed_vars}")
+        return expr_node
+    except (ValueError, SyntaxError, NotImplementedError) as e: # Catch lexer/parser errors
+        print_log(f"Error parsing expression '{processed_expr_str}': {e}")
+        return None # Indicate failure
+
+# --- group_patches function (should be compatible) ---
+# (Make sure it handles None return from code_to_formula gracefully)
+def group_patches(subject_dir: str):
+    meta_path = os.path.join(subject_dir, "meta-program-original.json")
+    equiv_path = os.path.join(subject_dir,  "group-patches-original.json")
+    os.makedirs(os.path.dirname(equiv_path), exist_ok=True)
+
+    try:
+        with open(meta_path, "r") as f:
+            meta = json.load(f)
+    except FileNotFoundError:
+        print_log(f"Error: Meta file not found at {meta_path}")
+        return
+    except json.JSONDecodeError:
+         print_log(f"Error: Could not decode JSON from {meta_path}")
+         return
+
+    patches_data = [] # Store parsed patch info: {id, formula, vars, name}
+    correct_patch_id = -1
+
+    print_log("Starting patch parsing...")
+    for patch in meta.get("patches", []):
+        id_ = patch.get("id")
+        code = patch.get("code")
+        name = patch.get("name")
+
+        if id_ is None or code is None:
+            print_log(f"Warning: Skipping patch with missing id or code: {patch}")
+            continue
+
+        if name == "correct":
+            correct_patch_id = id_
+
+        # --- Use the updated code_to_formula ---
+        # Specify INT type since the problem context implies integers
+        formula = code_to_formula(code, variable_type=INT)
+
+        if formula is None:
+            print_log(f"Warning: Failed to generate formula for Patch {id_}. Skipping.")
+            continue
+
+        # Get free variables *after* successful parsing
         try:
-            if lock < 0:
-                print(f"Cannot acquire lock {lock_file}")
-                return
-            cmd = self.config.get_cmd_opts(True)
-            self.execute_snapshot(cmd, self.config.workdir)
-            if self.config.cmd not in ["snapshot", "filter"]:
-                cmd = self.config.get_cmd_opts(False)
-                self.execute(cmd, self.config.workdir, "uni-klee")
-                analyzer = SymvassAnalyzer(self.get_dir())
-                analyzer.analyze_v2()
+             # Handle constant formulas explicitly
+             if formula.is_constant():
+                 free_vars = set()
+             else:
+                free_vars = formula.get_free_variables()
         except Exception as e:
-            print(f"Exception: {e}")
-            print(traceback.format_exc())
-        finally:
-            uni_klee.release_lock(lock_file, lock)
+             # This might happen if formula is not a standard FNode, though unlikely here
+             print_log(f"Error getting free variables for Patch {id_} formula: {e}")
+             free_vars = set() # Default to empty set on error
 
+        patches_data.append({"id": id_, "formula": formula, "vars": free_vars, "name": name})
+        print_log(f"Patch {id_}: Parsed successfully.") # Formula serialization can be long
 
-def main(argv: list) -> int:
-    os.chdir(uni_klee.ROOT_DIR)
-    cmd = argv[1]
-    if cmd != "trace":
-        conf = arg_parser(argv)
-        runner = Runner(conf)
-        runner.run()
-    elif cmd == "trace":
-        get_trace(argv[2], int(argv[3]))
+    print_log(f"\nParsed {len(patches_data)} patches successfully.")
+    print_log("Starting equivalence check...")
 
+    equivalences = {} # Map leader_id -> [list_of_equivalent_ids]
+    processed_ids = set()
+
+    for i in range(len(patches_data)):
+        patch1 = patches_data[i]
+        id1 = patch1["id"]
+        formula1 = patch1["formula"]
+        vars1 = patch1["vars"]
+
+        if id1 in processed_ids:
+            continue
+
+        # Start a new equivalence group with patch1 as the leader
+        current_equiv_group = [id1]
+        equivalences[id1] = current_equiv_group
+        processed_ids.add(id1)
+
+        for j in range(i + 1, len(patches_data)):
+            patch2 = patches_data[j]
+            id2 = patch2["id"]
+            formula2 = patch2["formula"]
+            vars2 = patch2["vars"]
+
+            if id2 in processed_ids:
+                continue
+
+            # --- Conditions for Equivalence Check ---
+            # 1. Same set of free variables
+
+            # 2. Formulas are logically equivalent (using SMT solver)
+            try:
+                 # Check trivial cases first
+                 if formula1.is_constant() and formula2.is_constant():
+                      are_equivalent = (formula1.constant_value() == formula2.constant_value())
+                 else:
+                    # Check F <=> G is valid (i.e., Not(F <=> G) is unsatisfiable)
+                    equivalence_formula = smt.Iff(formula1, formula2)
+                    # is_valid can be slow for complex formulas, might need a timeout
+                    are_equivalent = smt.is_valid(equivalence_formula)
+                    # Alternative using solver explicitly:
+                    # with smt.Solver() as solver:
+                    #    solver.add_assertion(smt.Not(equivalence_formula))
+                    #    are_equivalent = not solver.solve() # UNSAT means equivalent
+
+            except Exception as e:
+                 print_log(f"SMT Error checking equivalence between {id1} and {id2}: {e}")
+                 are_equivalent = False # Assume not equivalent on error
+
+            # --- Record Equivalence ---
+            if are_equivalent:
+                print_log(f"  Equivalence Found: {id1} == {id2} ({formula1.serialize()} == {formula2.serialize()})")
+                current_equiv_group.append(id2)
+                processed_ids.add(id2) # Mark id2 as processed
+
+    print_log(f"\nFinal Equivalence Groups Identified: {len(equivalences)}")
+
+    # Format output for JSON
+    result_list = list(equivalences.values())
+
+    output_obj = {
+        "equivalences": result_list,
+        "correct_patch_id": correct_patch_id
+    }
+
+    try:
+        with open(equiv_path, "w") as f:
+            json.dump(output_obj, f, indent=2)
+        print_log(f"Equivalences saved to {equiv_path}")
+    except IOError as e:
+         print_log(f"Error writing equivalences to {equiv_path}: {e}")
+    
+def main():
+    parser = argparse.ArgumentParser(description="Symbolic Input Feasibility Analysis")
+    parser.add_argument("cmd", help="Command to run", choices=["fuzz", "fuzz-seeds", "check", "fuzz-build", "val-build", "build", "extractfix-build", "vulmaster-build", "vulmaster-extractfix-build", "collect-inputs", "group-patches", "val", "feas", "analyze"])
+    parser.add_argument("subject", help="Subject to run", default="")
+    parser.add_argument("-i", "--input", help="Input file", default="")
+    parser.add_argument("-o", "--output", help="Output file", default="")
+    parser.add_argument("-d", "--debug", help="Debug mode", action="store_true")
+    parser.add_argument("-s", "--symvass-prefix", help="SymVass prefix", default="uni-m-out")
+    parser.add_argument("-v", "--val-prefix", help="Val prefix", default="")
+    parser.add_argument("-p", "--prefix", help="Prefix of fuzzer out: default aflrun-multi-out", default="aflrun-multi-out")
+    # parser.add_argument("-s", "--subject", help="Subject", default="")
+    args = parser.parse_args(sys.argv[1:])
+    subject = get_metadata(args.subject)
+    subject_dir = os.path.join(ROOT_DIR, "patches", subject["benchmark"], subject["subject"], subject["bug_id"])
+    val_prefix = args.val_prefix if args.val_prefix != "" else args.symvass_prefix
+    if args.cmd == "fuzz":
+        run_fuzzer(subject, subject_dir, args.debug)
+    elif args.cmd == "fuzz-seeds":
+        run_fuzzer_multi(subject, subject_dir, args.debug)
+    elif args.cmd == "check":
+        # parse_smt2_file(args.input)
+        out_no = find_num(os.path.join(subject_dir, "patched"), args.symvass_prefix) - 1
+        target_dir = os.path.join(ROOT_DIR, "patches", "tmp", subject["benchmark"], subject["subject"], subject["bug_id"], "patched")
+        os.system(f"mv {target_dir}/high-snapshot {target_dir}/snapshot-high")
+        # os.makedirs(target_dir, exist_ok=True)
+        # os.system(f"rsync -avzh {os.path.join(subject_dir, 'patched', f'{args.symvass_prefix}-{out_no}')}/ {target_dir}/high-0/")
+        # os.system(f"rsync -avzh {os.path.join(subject_dir, 'patched', f'snapshot-{args.symvass_prefix}')}/ {target_dir}/high-snapshot")
+        # os.system(f"rsync -avzh {os.path.join(subject_dir, 'patched', 'filter')} {target_dir}/")
+        # uc_no = find_num(os.path.join(subject_dir, "patched"), "uc") - 1
+        # os.system(f"rsync -avzh {os.path.join(subject_dir, 'patched', f'uc-{uc_no}')}/ {target_dir}/uc-0")
+    elif args.cmd == "fuzz-build":
+        subprocess.run(f"./aflrun.sh", cwd=subject_dir, shell=True)
+    elif args.cmd == "val-build":
+        symvass_prefix = args.symvass_prefix
+        if symvass_prefix == "":
+            print_log(f"SymVass prefix not found (use -s or --symvass-prefix)")
+            return 1
+        no = find_num(os.path.join(subject_dir, "patched"), symvass_prefix)
+        if no == 0:
+            print_log(f"SymVass output not found for {symvass_prefix}: did you run symvass?")
+            return 1
+        out_dir = os.path.join(subject_dir, "patched", f"{symvass_prefix}-{no - 1}")
+        env = os.environ.copy()
+        env["UNI_KLEE_SYMBOLIC_GLOBALS_FILE_OVERRIDE"] = os.path.join(out_dir, "base-mem.symbolic-globals")
+        subprocess.run(f"./val.sh", cwd=subject_dir, shell=True, env=env)
+    elif args.cmd == "build":
+        subprocess.run(f"./init.sh", cwd=subject_dir, shell=True)
+    elif args.cmd == "extractfix-build":
+        subprocess.run(f"./extractfix.sh", cwd=subject_dir, shell=True)
+    elif args.cmd == "vulmaster-build":
+        subprocess.run(f"./init-vulmaster.sh", cwd=subject_dir, shell=True)
+    elif args.cmd == "vulmaster-extractfix-build":
+        subprocess.run(f"./extractfix-vulmaster.sh", cwd=subject_dir, shell=True)
+    elif args.cmd == "collect-inputs":
+        out_no = find_num(os.path.join(subject_dir, "runtime"), "aflrun-out")
+        collect_val_runtime(subject_dir, os.path.join(subject_dir, "runtime", f"aflrun-out-{out_no - 1}"))
+    elif args.cmd == "group-patches":
+        # Group patches
+        group_patches(subject_dir)
+    elif args.cmd == "val":
+        run_val(subject, subject_dir, args.symvass_prefix, val_prefix, args.debug)
+    elif args.cmd == "feas":
+        val_dir = os.path.join(subject_dir, "val-runtime")
+        no = find_num(val_dir, val_prefix)
+        val_out_dir = os.path.join(val_dir, f"{val_prefix}-{no - 1}")
+        parse_val_results(val_out_dir)
+    elif args.cmd == "analyze":
+        val_dir = os.path.join(subject_dir, "val-runtime")
+        no = find_num(val_dir, val_prefix)
+        val_out_dir = os.path.join(val_dir, f"{val_prefix}-{no - 1}")
+        analyze(subject, val_out_dir, args.output)
 
 if __name__ == "__main__":
-    main(sys.argv)
+    main()

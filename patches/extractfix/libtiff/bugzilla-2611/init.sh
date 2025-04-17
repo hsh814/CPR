@@ -22,7 +22,7 @@ pushd src
   cp ../${patched_file} ${patched_dir}/${patched_file}
   ./autogen.sh
   LD=lld OJPEG_SUPPORT=true JPEG_SUPPORT=true CC=cpr-cc CXX=cpr-cxx ./configure --enable-static --disable-shared --enable-old-jpeg --with-jpeg-include-dir="${PWD}/jpeg-8d/build/include" --with-jpeg-lib-dir="${PWD}/jpeg-8d/build/lib"
-  OJPEG_SUPPORT=true JPEG_SUPPORT=true CC=cpr-cc CXX=cpr-cxx make CFLAGS="-static -O0 -g" CXXFLAGS="-static -O0 -g" -j16
+  OJPEG_SUPPORT=true JPEG_SUPPORT=true CC=cpr-cc CXX=cpr-cxx make CFLAGS="-static -O0 -g -fno-discard-value-names" CXXFLAGS="-static -O0 -g -fno-discard-value-names" -j16
   # cp
   cp ${patched_dir}/${patched_file} ../patched
   cp ${bin_dir}/${bin_file} ../patched
