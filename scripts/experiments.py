@@ -107,8 +107,13 @@ class RunSingleVulmaster():
       self.vids = [2, 3, 4]
     else:
       vids = []
-      for vid in self.vids:        
-        with open(os.path.join(os.path.join(ROOT_DIR, "patches", self.meta["benchmark"], self.meta["subject"], self.meta["bug_id"], "vulmaster-patched", f"filter_{vid}", "filtered.json")), "r") as f:
+      for vid in self.vids:
+        filter_result_file = os.path.join(ROOT_DIR, "patches", self.meta["benchmark"], self.meta["subject"], self.meta["bug_id"], "vulmaster-patched", f"filter_{vid}", "filtered.json")
+        if not os.path.exists(filter_result_file):
+          log_out(f"Filter result file not found: {filter_result_file}")
+          vids.append(vid)
+          continue
+        with open(filter_result_file, "r") as f:
           data = json.load(f)
           if len(data["remaining"]) > 0:
             vids.append(vid)
@@ -651,8 +656,6 @@ def final_analysis(meta_data: List[dict], output: str):
   for meta in meta_data:
     if not check_correct_exists(meta):
       continue
-    if meta["bug_id"] != "CVE-2018-14498":
-      continue
     if VULMASTER_MODE:
       symradar_final_result_vulmaster_v3(meta, result_f)
     else:
@@ -702,8 +705,6 @@ def run_cmd(opt: str, meta_data: List[dict], extra: str, additional: str):
   args_list = list()
   for meta in meta_data:
     if not check_correct_exists(meta):
-      continue
-    if meta["bug_id"] != "CVE-2017-15232":
       continue
     if VULMASTER_MODE:
       rsv = RunSingleVulmaster((meta["id"]))
