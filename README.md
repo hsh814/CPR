@@ -1,37 +1,14 @@
 # CPR Benchmark
-## Getting Started
-In `scripts` directory, there are 3 main scripts and 1 `experiments.py` script for parallel execution.
-Run `export PATH=/root/projects/CPR/scripts:$PATH` to use them.
+### Environment setting
+```shell
+cd /root/projects/CPR/lib
+make
 
-### 1. `sympatch.py`
-This script extract concrete patches from `CPR` generated patches and convert them into meta program. Extraction is already done, so you only need to run `compile`.
-Build patch of all subjects.
-```shell
-# sympatch.py <cmd> <patch-dir>
-sympatch.py compile patches
-```
-### 2. `symutil.py`
-This script was for feasiblity check.
-```shell
-symradar.py <cmd> <subject> <options>
+cd /root/projects/uni-klee/build
+make clean && make -j 32 install
 ```
 
-### 3. `symradar.py`
-This is the main script for `SymRadar`. It runs `uni-klee` with proper options and analyze the results.
-```shell
-symradar.py <cmd> <subject> <options>
-```
-
-In `symutil.py` and `symradar.py`, you can enter `subject` only part of their name.
-For example, `3623` will be recognized as `CVE-2016-3623`.
-
-### 4. `experiments.py`
-This is the script for running experiments on all subjects. By default, it runs all 28 subjects in parallel.
-```shell
-experiments.py <cmd> <options>
-```
-
-### Example
+## Simple Example
 
 ```shell
 export PATH=/root/projects/CPR/scripts:$PATH
@@ -76,6 +53,79 @@ experiments.py analyze --extra analyze -s high
 experiments.py final -s high
 ```
 
+## Script commands and options
+In `scripts` directory, there are 3 main scripts and 1 `experiments.py` script for parallel execution.
+Run `export PATH=/root/projects/CPR/scripts:$PATH` to use them.
+
+### 1. `sympatch.py`
+This script extract concrete patches from `CPR` generated patches and convert them into meta program. Extraction is already done, so you only need to run `compile`.
+Build patch of all subjects.
+```shell
+# sympatch.py <cmd> <patch-dir>
+sympatch.py compile patches
+```
+### 2. `symutil.py`
+This script has utilities for build subjects.
+```shell
+symutil.py build <subject>
+```
+
+### 3. `symradar.py`
+This is the main script for `SymRadar`. It runs `uni-klee` with proper options and analyze the results.
+```shell
+symradar.py <cmd> <subject> <options>
+symradar.py filter <subject>
+symradar.py rerun <subject> --sym-level=high -p high
+symradar.py analyze <subject> -p high
+```
+In `symutil.py` and `symradar.py`, you can enter `subject` only part of their name.
+For example, `3623` will be recognized as `CVE-2016-3623`.
+
+cmds:
+- filter: filter patches with concrete input.
+- run/rerun: run experiments. `run` reuses existing snapshot and `rerun` deletes existing snapshot.
+- analyze: analyze the experiment result.
+- uc: Use `UC-KLEE` mode.
+
+options:
+- `-p`: Output directory prefix.
+- `-s`: Snapshot directory prefix.
+- `--sym-level`: Symbolize level. In our experiment, we used `high`.
+- `-t`: Timeout given format as `12h`.
+- `--mode`: You can select symradar or extractfix.
+- `--vulmaster-id`: If given, use vulmaster mode. 
+
+### 4. `experiments.py`
+This is the script for running experiments on all subjects. By default, it runs all 28 subjects in parallel.
+```shell
+experiments.py <cmd> <options>
+```
+Main options:
+- `--extra`: used for most commands. Required values are different by each command.
+- `-s`: SymRadar output directory prefix.
+- `--mode`: Select mode between `symradar` and `extractfix`.
+- `--vulmaster`: Use vulmaster mode.
+
+cmds:
+* `util`: This command calls `symutil.py`.
+Options for `--extra`:
+    - build: Build target program
+    - extractfix-build: Build target program for `ExtractFix`
+    - vulmaster-build: Build target program for `VulMaster` patches
+    - vulmaster-extractfix-build: Build target program for `VulMaster` and use `ExtractFix` mode.
+
+* `filter`: This command calls `symradar.py`. You don't need an option `--extra`.
+
+* `run`/`exp`: These commands call `symradar.py`. `run` reuses existing snapshot and `exp` deletes existing snapshot and rerun the experiments.
+Options for `--extra`:
+    - `high`: We used this option.
+    - `none`: This one is used in `--mode=extractfix`.
+
+* `analyze`: This command calls `symradar.py`. In most cases, analysis is done automatically in `symradar.py run/rerun`. But in case of timeout, analysis may not be done. So, you should run this command before collecting final results.
+Options for `--extra`:
+    - `analyze`: This is used.
+
+* `final`: This command collects results generated from `analyze` into single file.
 
 [![Docker Pulls](https://img.shields.io/docker/pulls/rshariffdeen/cpr.svg)](https://hub.docker.com/r/rshariffdeen/cpr) [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.4668317.svg)](https://doi.org/10.5281/zenodo.4668317)
 
