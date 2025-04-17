@@ -10,7 +10,7 @@ Build patch of all subjects.
 # sympatch.py <cmd> <patch-dir>
 sympatch.py compile patches
 ```
-### 2. `symfeas.py`
+### 2. `symutil.py`
 This script was for feasiblity check.
 ```shell
 symradar.py <cmd> <subject> <options>
@@ -22,7 +22,7 @@ This is the main script for `SymRadar`. It runs `uni-klee` with proper options a
 symradar.py <cmd> <subject> <options>
 ```
 
-In `symfeas.py` and `symradar.py`, you can enter `subject` only part of their name.
+In `symutil.py` and `symradar.py`, you can enter `subject` only part of their name.
 For example, `3623` will be recognized as `CVE-2016-3623`.
 
 ### 4. `experiments.py`
@@ -39,7 +39,7 @@ export PATH=/root/projects/CPR/scripts:$PATH
 sympatch.py compile patches
 
 # 2. Build
-symfeas.py build 3623 # Or run ./init.sh
+symutil.py build 3623 # Or run ./init.sh
 
 # 3. Run filter
 symradar.py filter 3623

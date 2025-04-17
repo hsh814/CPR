@@ -29,7 +29,7 @@ def print_out(msg: str):
     print(msg, file=sys.stdout)
 
 def get_trace(dir: str, id: int):
-    # dp = SymvassDataLogSbsvParser(dir)
+    # dp = SymRadarDataLogSbsvParser(dir)
     # dp.read_data_log("data.log")
     # result = dp.generate_table_v2(dp.cluster())
     # graph = result["graph"]
@@ -182,7 +182,7 @@ class Config(uni_klee.Config):
                     if start < start_loc or start_loc == -1:
                         start_loc = start
         # Read data from snapshot
-        dp = SymvassDataLogSbsvParser(dir, schema=["[stack-trace] [state: int] [reg?: str] [passed-crash-loc: bool]"])
+        dp = SymRadarDataLogSbsvParser(dir, schema=["[stack-trace] [state: int] [reg?: str] [passed-crash-loc: bool]"])
         stack_trace_str = dp.data["stack-trace"][0]["reg"]
         stack_trace = stack_trace_str.split(",")
         for stack in stack_trace:
@@ -273,7 +273,7 @@ class Config(uni_klee.Config):
             return target_cmd
         return ""
 
-class SymvassDataLogSbsvParser():
+class SymRadarDataLogSbsvParser():
     dir: str
     parser: sbsv.parser
     data: Dict[str, List[dict]]
@@ -311,13 +311,13 @@ class SymvassDataLogSbsvParser():
 
 
 class DataAnalyzer():
-    dp: SymvassDataLogSbsvParser
+    dp: SymRadarDataLogSbsvParser
     data: Dict[str, List[dict]]
     meta_data: Dict[int, dict]
     graph: nx.DiGraph
     symbolic_inputs: Dict[int, List[int]]
     
-    def __init__(self, dp: SymvassDataLogSbsvParser):
+    def __init__(self, dp: SymRadarDataLogSbsvParser):
         self.dp = dp
         self.data = self.dp.get_data()
         self.meta_data = dict()
@@ -635,7 +635,7 @@ class PatchSorter:
         return scores
 
 
-class SymvassAnalyzer:
+class SymRadarAnalyzer:
     dir: str
     filter_dir: str
     bug_info: dict
@@ -887,7 +887,7 @@ class SymvassAnalyzer:
         all_patches = len(meta_data_info['meta_program']['patches'])
         sym_input_id = 0
         with open(os.path.join(self.dir, "table.md"), "w") as md:
-            md.write("# Symvass Result\n")
+            md.write("# SymRadar Result\n")
             md.write(f"| symbolic input | ")
             for p in range(all_patches):
                 md.write(f"p{p} | ")
@@ -909,7 +909,7 @@ class SymvassAnalyzer:
             md.write("\n")
     
     def analyze_v2(self):
-        dp = SymvassDataLogSbsvParser(self.dir)
+        dp = SymRadarDataLogSbsvParser(self.dir)
         analyzer = DataAnalyzer(dp)
         analyzer.analyze()
         cluster = self.cluster(analyzer)
@@ -959,7 +959,7 @@ class SymvassAnalyzer:
         if not os.path.exists(os.path.join(self.filter_dir, "filtered.json")):
             print_log(f"[error] {os.path.join(self.filter_dir, 'filtered.json')} not found")
             exit(1)
-        dp_filter = SymvassDataLogSbsvParser(self.filter_dir)
+        dp_filter = SymRadarDataLogSbsvParser(self.filter_dir)
         with open(os.path.join(self.filter_dir, "filtered.json"), "r") as f:
             filtered = json.load(f)
         subject_dir = os.path.join(uni_klee.ROOT_DIR, "patches", self.bug_info["benchmark"], self.bug_info["subject"], self.bug_info["bug_id"])
@@ -992,7 +992,7 @@ class SymvassAnalyzer:
         exit_loc = filter_metadata["exitLoc"]
         exit_res = filter_metadata["exit"]
         # Analyze
-        dp = SymvassDataLogSbsvParser(self.dir)
+        dp = SymRadarDataLogSbsvParser(self.dir)
         analyzer = DataAnalyzer(dp)
         analyzer.analyze()
         cluster = self.cluster(analyzer)
@@ -1262,7 +1262,7 @@ class SymvassAnalyzer:
         config.timeout = timeout
     
     def analyze_filtered(self):
-        dp = SymvassDataLogSbsvParser(self.dir)
+        dp = SymRadarDataLogSbsvParser(self.dir)
         if VULMASTER_MODE:
             analyzer = DataAnalyzer(dp)
             analyzer.analyze()
@@ -1348,7 +1348,7 @@ def arg_parser(argv: List[str]) -> Config:
     parser.add_argument("-t", "--timeout", help="Timeout", default="12h")
     parser.add_argument("-k", "--lock", help="Handle lock behavior", default="i", choices=["i", "w", "f"])
     parser.add_argument("-r", "--rerun", help="Rerun last command with same option", action="store_true")
-    parser.add_argument("-z", "--analyze", help="Analyze symvass data", action="store_true")
+    parser.add_argument("-z", "--analyze", help="Analyze SymRadar data", action="store_true")
     parser.add_argument("-g", "--use-last", help="Use last output directory", action="store_true")
     parser.add_argument("--mode", help="mode", choices=["symradar", "extractfix"], default="symradar")
     parser.add_argument("--vulmaster-id", help="Vulmaster id", type=int, default=0)
@@ -1493,10 +1493,10 @@ class Runner(uni_klee.Runner):
 
         if self.config.cmd in ["analyze", "symgroup", "symval"]:
             if self.config.conf_files.out_dir_prefix.startswith("filter"):
-                analyzer = SymvassAnalyzer(self.config.conf_files.filter_dir, self.config.conf_files.filter_dir, self.config.bug_info)
+                analyzer = SymRadarAnalyzer(self.config.conf_files.filter_dir, self.config.conf_files.filter_dir, self.config.bug_info)
                 analyzer.analyze_filtered()
                 return
-            analyzer = SymvassAnalyzer(self.get_dir(), self.config.conf_files.filter_dir, self.config.bug_info)
+            analyzer = SymRadarAnalyzer(self.get_dir(), self.config.conf_files.filter_dir, self.config.bug_info)
             if self.config.cmd == "analyze":
                 analyzer.analyze_v3()
             elif self.config.cmd == "symgroup":
@@ -1550,10 +1550,10 @@ class Runner(uni_klee.Runner):
             if self.config.cmd not in ["snapshot", "filter"]:
                 cmd = self.config.get_cmd_opts(False)
                 self.execute(cmd, self.config.workdir, "uni-klee")
-                analyzer = SymvassAnalyzer(self.get_dir(), self.config.conf_files.filter_dir, self.config.bug_info)
+                analyzer = SymRadarAnalyzer(self.get_dir(), self.config.conf_files.filter_dir, self.config.bug_info)
                 analyzer.analyze_v3()
             elif self.config.cmd == "filter":
-                analyzer = SymvassAnalyzer(self.config.conf_files.filter_dir, self.config.conf_files.filter_dir, self.config.bug_info)
+                analyzer = SymRadarAnalyzer(self.config.conf_files.filter_dir, self.config.conf_files.filter_dir, self.config.bug_info)
                 analyzer.analyze_filtered()
         except Exception as e:
             print_log(f"Exception: {e}")

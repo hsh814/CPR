@@ -175,9 +175,9 @@ class RunSingleVulmaster():
       result.append(cmd)
     return result
 
-  def get_feas_cmd(self, extra: str) -> List[str]:
+  def get_util_cmd(self, extra: str) -> List[str]:
     if extra in ["fuzz", "build", "val-build", "fuzz-build", "extractfix-build", "vulmaster-build", "vulmaster-extractfix-build", "fuzz-seeds", "collect-inputs", "group-patches", "val", "feas", "analyze", "check"]:
-      return [f"symfeas.py {extra} {self.meta['bug_id']} -s {SYMRADAR_PREFIX}"]
+      return [f"symutil.py {extra} {self.meta['bug_id']} -s {SYMRADAR_PREFIX}"]
     log_out(f"Unknown extra: {extra}")
     exit(1)
     
@@ -198,8 +198,8 @@ class RunSingleVulmaster():
       return self.get_uc_cmd(extra)
     if opt == "analyze":
       return self.get_analyze_cmd(extra)
-    if opt == "feas": # clean with rm -r patches/*/*/*/runtime/aflrun-out-*
-      return self.get_feas_cmd(extra)
+    if opt == "util": # clean with rm -r patches/*/*/*/runtime/aflrun-out-*
+      return self.get_util_cmd(extra)
     log_out(f"Unknown opt: {opt}")
     return []
 
@@ -279,11 +279,11 @@ class RunSingle():
     cmd = f"symradar.py uc {self.meta['bug_id']}:0 --outdir-prefix={SYMRADAR_PREFIX} --snapshot-prefix=snapshot-{SYMRADAR_PREFIX} " # --max-fork=1024,1024,1024
     return cmd
 
-  def get_feas_cmd(self, extra: str) -> str:
+  def get_util_cmd(self, extra: str) -> str:
     if extra == "exp":
-      return f"symfeas.py fuzz {self.meta['bug_id']}"
+      return f"symutil.py fuzz {self.meta['bug_id']}"
     if extra in ["fuzz", "build", "val-build", "fuzz-build", "extractfix-build", "fuzz-seeds", "collect-inputs", "group-patches", "val", "feas", "analyze", "check"]:
-      return f"symfeas.py {extra} {self.meta['bug_id']} -s {SYMRADAR_PREFIX}"
+      return f"symutil.py {extra} {self.meta['bug_id']} -s {SYMRADAR_PREFIX}"
     log_out(f"Unknown extra: {extra}")
     exit(1)
     
@@ -304,8 +304,8 @@ class RunSingle():
       return self.get_uc_cmd(extra)
     if opt == "analyze":
       return self.get_analyze_cmd(extra)
-    if opt == "feas": # clean with rm -r patches/*/*/*/runtime/aflrun-out-*
-      return self.get_feas_cmd(extra)
+    if opt == "util": # clean with rm -r patches/*/*/*/runtime/aflrun-out-*
+      return self.get_util_cmd(extra)
     log_out(f"Unknown opt: {opt}")
     return None
 
@@ -703,7 +703,7 @@ def run_cmd(opt: str, meta_data: List[dict], extra: str, additional: str):
   for meta in meta_data:
     if not check_correct_exists(meta):
       continue
-    if meta["bug_id"] != "CVE-2018-14498":
+    if meta["bug_id"] != "CVE-2017-15232":
       continue
     if VULMASTER_MODE:
       rsv = RunSingleVulmaster((meta["id"]))
@@ -746,7 +746,7 @@ def run_cmd_seq(opt: str, meta_data: List[dict], extra: str, additional: str, ou
 
 def main(argv: List[str]):
   parser = argparse.ArgumentParser(description="Run SymRadar experiments")
-  parser.add_argument("cmd", type=str, help="Command to run", choices=["filter", "exp", "run", "uc", "analyze", "final", "feas", "clean"], default="exp")
+  parser.add_argument("cmd", type=str, help="Command to run", choices=["filter", "exp", "run", "uc", "analyze", "final", "util", "clean"], default="exp")
   parser.add_argument("-e", "--extra", type=str, help="Subcommand", default="exp")
   parser.add_argument("-o", "--output", type=str, help="Output file", default="", required=False)
   parser.add_argument("-p", "--prefix", type=str, help="Output prefix", default="", required=False)
