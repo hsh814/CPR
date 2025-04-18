@@ -7,6 +7,7 @@ make
 cd /root/projects/uni-klee/build
 make clean && make -j 32 install
 ```
+You should build [`uni-klee`](../uni-klee).
 
 ## Simple Example
 
@@ -88,7 +89,7 @@ Note: For `symutil.py` and `symradar.py`, you can specify a subject using only a
 #### `symradar.py` Commands (`<cmd>`):
 - filter: Filters patches using concrete inputs.
 - run/rerun: Executes the main SymRadar analysis. run reuses an existing KLEE state snapshot if available, while rerun always starts fresh (deleting any existing snapshot).
-- analyze: Analyzes the results from a run or rerun execution.
+- analyze: Analyzes the results (`data.log` in output directory) from a run or rerun execution.
 - uc: Enables UC-KLEE mode (details assumed specific to the project).
 
 #### `symradar.py` Options (`[options]`):
@@ -197,97 +198,89 @@ experiments.py analyze -s vulmaster-extractfix --vulmaster --mode=extractfix
 experiments.py final -s vulmaster-extractfix --vulmaster --mode=extractfix
 ```
 
-[![Docker Pulls](https://img.shields.io/docker/pulls/rshariffdeen/cpr.svg)](https://hub.docker.com/r/rshariffdeen/cpr) [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.4668317.svg)](https://doi.org/10.5281/zenodo.4668317)
+## Environment Setup
+```shell
+python3 -m pip install -r requirements.txt
+apt-get update && apt-get install -y  \
+    autopoint \
+    automake \
+    bison \
+    flex \
+    gettext \
+    gperf \
+    libass-dev \
+    libfreetype6 \
+    libfreetype6-dev \
+    libjpeg-dev \
+    libtool \
+    libxml2-dev \
+    liblzma-dev \
+    nasm \
+    pkg-config \
+    texinfo \
+    yasm \
+    xutils-dev \
+    libpciaccess-dev \
+    libpython2-dev \
+    libpython3-dev \
+    libx11-dev \
+    libxcb-xfixes0-dev \
+    libxcb1-dev \
+    libxcb-shm0-dev \
+    libsdl1.2-dev  \
+    libvdpau-dev \
+    libnuma-dev
+```
 
-# CPR - CardioPulmonary Resuscitation
-CPR: A new automated program repair technique based on concolic execution
-which works on patch abstraction with the sub-optimal goal of refining the patch to less over-fit
-the initial test cases.
+### lib
+They are pre-built in lib/.
 
-Automated program repair reduces the manual effort in fixing program errors.
-However, existing repair techniques modify a buggy program such that it passes given tests.
-Such repair techniques do not discriminate between correct patches and patches that overfit
-the available tests and break untested but desired functionality. We attempt to solve this
-problem with a novel solution that make use of the duality of space exploration in Input
-Space and Program Space. We implemented our technique in the form of a tool called CPR and
-evaluated its efficacy in reducing the patch space by discarding overfitting patches from
-a pool of plausible patches. Similar to Cardio-Pulmonary Resuscitation (CPR) does to a
-patient, our tool CPR resuscitate or recover programs via appropriate fixes.
+zlib
+```shell
+wget https://zlib.net/zlib-1.3.tar.gz
+tar -xzvf zlib-1.3.tar.gz
+cd zlib-1.3
+mkdir build && cd build
+cmake -DCMAKE_BUILD_TYPE=DEBUG -DCMAKE_C_COMPILER=wllvm ..
+make -j 32
+extract-bc libz.a
+cp libz.bca ../..
+```
 
-In this work, we therefore propose and implement an integrated approach for detecting and discarding
-overfitting patches by exploiting the relationship between the patch space and input space.
-We leverage concolic path exploration to systematically traverse the input space
-(and generate inputs), while systematically ruling out significant parts of the patch space.
-Given a long enough time budget, this approach allows a significant reduction in the
-pool of patch candidates, as shown by our experiments.
+liblzma
+```shell
+git clone https://github.com/kobolabs/liblzma.git
+cd liblzma
+git checkout 87b7682ce4b1c849504e2b3641cebaad62aaef87
+CC=wllvm CXX=wllvm++ CFLAGS="-O0 -g" ./configure --disable-nls --disable-shared --disable-threads
+make -j 32
+cd src/liblzma/.libs
+extract-bc liblzma.a
+cp liblzma.bca ../../../..
+```
 
-CPR is a reconfigurable APR tool for C source-codes. CPR is:
+glibc
+```shell
+git clone https://sourceware.org/git/glibc.git
+cd glibc
+git switch release/2.34/master
 
-* Extensible: CPR is designed so that it can be easily extended to plug in any component to replace existing
-* Efficient: CPR utilize parallel computing to improve performance
+```
 
+openlibm
+```shell
+git clone https://github.com/JuliaMath/openlibm.git
+cd openlibm
+git checkout 12f5ffcc990e16f4120d4bf607185243f5affcb8
+```
 
+#### 8.3. Environment variables
+```shell
+export LLVM_COMPILER=clang
+export CPR_CC=/root/projects/CPR/tools/cpr-cc
+export CPR_CXX=/root/projects/CPR/tools/cpr-cxx
+export PATH=$PATH:/root/projects/uni-klee/scripts:/root/projects/CPR/scripts:/root/projects/CPR/tools
+export LD_LIBRARY_PATH=/root/projects/CPR/lib:/root/projects/uni-klee/build/lib:$LD_LIBRARY_PATH
+```
+Add this to the `~/.bashrc`.
 
-
-## Build and Dependencies
-We provide a ready-made container which includes all necessary envrionment set-up
-to deploy and run our tool. Dependencies include:
-
-* LLVM 3.4
-* KLEE 1.4
-* Python 3.7
-* Z3 SMT Solver
-* MathSAT Solver
-* Docker
-
-Build and run a container:
-
-    docker build -t cpr .
-    docker run --rm -ti cpr /bin/bash
-
-
-# Example
-We provide several examples you can run to test our tool, all test cases are included
-in the 'tests' directory.
-
-Run examples:
-
-    pypy3 CPR.py --conf=tests/bug-types/div-zero/div-zero-1/repair.conf
-    pypy3 CPR.py --conf=tests/bug-types/div-zero/div-zero-2/repair.conf
-
-
-## Documentation ##
-
-* [Getting Started](doc/GetStart.md)
-* [Example Usage](doc/Examples.md)
-* [Experiment Replication](experiments/README.md)
-* [Manual](doc/Manual.md)
-
-
-## Bugs ##
-CPR should be considered alpha-quality software. Bugs can be reported here:
-
-    https://github.com/rshariffdeen/CPR/issues
-
-# Contributions
-We welcome contributions to improve this work, see [details](doc/Contributing.md)
-
-## Developers
-* Ridwan Shariffdeen
-* Yannic Noller
-
-## Contributors
-* Sergey Mechtaev
-
-## Publication ##
-**Concolic Program Repair** <br>
-Ridwan Shariffdeen, Yannic Noller, Lars Grunske, Abhik Roychoudhury <br>
-42nd ACM SIGPLAN Conference on Programming Language Design and Implementation (PLDI), 2021
-
-
-## Acknowledgements ##
-This work was partially supported by the National Satellite of Excellence in Trustworthy Software Systems, funded by National Research Foundation (NRF) Singapore.
-
-
-# License
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details
