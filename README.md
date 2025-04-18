@@ -18,20 +18,20 @@ export PATH=/root/projects/CPR/scripts:$PATH
 sympatch.py compile patches
 
 # 2. Build the target program
-symutil.py build 3623 # Or run ./init.sh
+symutil.py build 14498 # Or run ./init.sh
 
 # 3. Run the filter step
-symradar.py filter 3623
-# (Optional) Analyze filter results: symradar.py analyze 3623 -p filter
+symradar.py filter 14498
+# (Optional) Analyze filter results: symradar.py analyze 14498 -p filter
 
 # 4. Run SymRadar analysis
-symradar.py rerun 3623 --sym-level=high -s high
-symradar.py analyze 3623 -s high
+symradar.py rerun 14498 --sym-level=high -s high
+symradar.py analyze 14498 -s high
 
 # 5. The output table can be found in:
-#    patches/extractfix/libtiff/CVE-2016-3623/patched/high-*/table_v3.sbsv
+#    patches/extractfix/libjpeg/CVE-2018-14498/patched/high-*/table_v3.sbsv
 ```
-
+Click [here](../uni-klee/OUTPUT.md) for how to interpret result.
 
 ## Experiment Replication
 Use `experiments.py` to run experiments for all subjects in the benchmark in parallel.
@@ -84,7 +84,7 @@ symradar.py rerun <subject> --sym-level=high -p high
 symradar.py uc <subject> -p uc
 symradar.py analyze <subject> -p high
 ```
-Note: For `symutil.py` and `symradar.py`, you can specify a subject using only a unique part of its name (e.g., 3623 will be recognized as CVE-2016-3623).
+Note: For `symutil.py` and `symradar.py`, you can specify a subject using only a unique part of its name (e.g., 14498 will be recognized as CVE-2018-14498).
 
 #### `symradar.py` Commands (`<cmd>`):
 - filter: Filters patches using concrete inputs.
