@@ -129,7 +129,7 @@ class RunSingleVulmaster():
   def get_filter_cmd(self) -> List[str]:
     return [f"symradar.py filter {self.meta['bug_id']} --mode={MODE} --vulmaster-id={vid}" for vid in self.vids]
   def get_analyze_cmd(self, extra: str = "") -> List[str]:
-    if extra != "":
+    if extra != "" and extra != "exp":
       return [f"symradar.py {extra} {self.meta['bug_id']} --mode={MODE} --use-last -p {SYMRADAR_PREFIX} --vulmaster-id={vid}" for vid in self.vids]
     return [f"symradar.py analyze {self.meta['bug_id']} --mode={MODE} --use-last -p {SYMRADAR_PREFIX} --vulmaster-id={vid}" for vid in self.vids]
   
@@ -222,7 +222,7 @@ class RunSingle():
   def get_filter_cmd(self) -> str:
     return f"symradar.py filter {self.meta['bug_id']} --mode={MODE}"
   def get_analyze_cmd(self, extra: str = "") -> str:
-    if extra != "":
+    if extra != "" and extra != "exp":
       return f"symradar.py {extra} {self.meta['bug_id']} --mode={MODE} --use-last -p {SYMRADAR_PREFIX}"
     return f"symradar.py analyze {self.meta['bug_id']} --mode={MODE} --use-last -p {SYMRADAR_PREFIX}"
   def get_exp_cmd(self, opt: str, extra: str = "") -> str:
