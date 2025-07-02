@@ -686,7 +686,7 @@ def run_clean(meta_data: List[dict]):
   for meta in meta_data:
     if not check_correct_exists(meta):
       continue
-    runtime = os.path.join(ROOT_DIR, "patches", "extractfix", meta["subject"], meta["bug_id"], "runtime")
+    runtime = os.path.join(ROOT_DIR, "patches", meta["benchmark"], meta["subject"], meta["bug_id"], "runtime")
     files = os.listdir(runtime)
     for file in files:
       full_name = os.path.join(runtime, file)
