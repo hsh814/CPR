@@ -621,6 +621,11 @@ target = "target_specific_reloc_handling"
   [meta_data.buggy]
   code = "(0)"
   id = "buggy"
+  [meta_data.correct]
+  code = "(x + z + m >= y)"
+  id = "correct"
+  no = 123
+  incomplete = true
 
 [[meta_data]]
 id = 51
@@ -636,7 +641,7 @@ target = "elf_x86_64_get_synthetic_symtab"
   [meta_data.correct]
   code = "(x < 0)"
   id = "correct"
-  no = 97
+  no = 693
   incomplete = false
 
 [[meta_data]]
@@ -650,11 +655,11 @@ target = "jas_image_create"
   [meta_data.buggy]
   code = "(0)"
   id = "buggy"
-  [meta_data.correct]
-  code = "(x * y * (z + 7) < 9223372036854775807L *2UL+1UL)"
-  id = "correct"
-  no = 97
-  incomplete = false
+  # [meta_data.correct]
+  # code = "(x * y * (z + 7) < 9223372036854775807L *2UL+1UL)"
+  # id = "correct"
+  # no = 97
+  # incomplete = false
 
 
 [[meta_data]]
@@ -683,12 +688,12 @@ target = "printMP3Headers"
   [meta_data.correct]
   code = "(x < 0 || x > 2)"
   id = "correct"
-  no = 97
+  no = 693
   incomplete = false
 
 [[meta_data]]
 id = 55
-bug_id = "CVE-2016-8691"
+bug_id = "CVE-2016-9532"
 benchmark = "vulnloc"
 subject = "libtiff"
 vars = [ "x", "y", "z", "m", "n" ]
@@ -697,11 +702,11 @@ target = "writeBufferToSeparateStrips"
   [meta_data.buggy]
   code = "(0)"
   id = "buggy"
-  [meta_data.correct]
-  code = "(x * y * (z + 1) < n)"
-  id = "correct"
-  no = 97
-  incomplete = true
+  # [meta_data.correct]
+  # code = "(x * y * (z + 1) < n)"
+  # id = "correct"
+  # no = 97
+  # incomplete = true
 
 
 [[meta_data]]
@@ -718,7 +723,7 @@ target = "zzip_mem_entry_new"
   [meta_data.correct]
   code = "(n > z)"
   id = "correct"
-  no = 97
+  no = 3923
   incomplete = false
 
 [[meta_data]]
@@ -735,5 +740,5 @@ target = "zzip_mem_entry_new"
   [meta_data.correct]
   code = "(m == n)"
   id = "correct"
-  no = 97
+  no = 662
   incomplete = false
