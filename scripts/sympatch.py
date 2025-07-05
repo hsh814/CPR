@@ -310,7 +310,7 @@ def main(args: List[str]):
       with open(f"{outdir}/meta-program-original.json", "w") as f:
         print(f"Writing to {outdir}/meta-program-original.json")
         json.dump(meta_program, f, indent=2)
-        continue
+        # continue
       write_meta_program(meta_program, os.path.join(outdir, "concrete"))
       # with open(f"{outdir}/meta-program.json", "w") as f:
       #   print(f"Writing to {outdir}/meta-program.json")

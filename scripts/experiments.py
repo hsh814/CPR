@@ -17,13 +17,13 @@ import re
 # PARENT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # import module from uni_klee.py
 import uni_klee
-import symvass
+import symradar
 
 ROOT_DIR = uni_klee.ROOT_DIR
 GLOBAL_LOG_DIR = os.path.join(ROOT_DIR, "logs")
 OUTPUT_DIR = "out"
 PREFIX = ""
-SYMVASS_PREFIX = "uni-m-out"
+SYMRADAR_PREFIX = "uni-m-out"
 SNAPSHOT_PREFIX = ""
 MODE = "symradar"
 VULMASTER_MODE = False
@@ -120,13 +120,13 @@ class RunSingleVulmaster():
         
 
   def get_clean_cmd(self) -> List[str]:
-    return [f"symvass.py clean {self.meta['bug_id']} --vulmaster-id={vid}" for vid in self.vids]
+    return [f"symradar.py clean {self.meta['bug_id']} --vulmaster-id={vid}" for vid in self.vids]
   def get_filter_cmd(self) -> List[str]:
-    return [f"symvass.py filter {self.meta['bug_id']} --mode={MODE} --vulmaster-id={vid}" for vid in self.vids]
+    return [f"symradar.py filter {self.meta['bug_id']} --mode={MODE} --vulmaster-id={vid}" for vid in self.vids]
   def get_analyze_cmd(self, extra: str = "") -> List[str]:
     if extra != "":
-      return [f"symvass.py {extra} {self.meta['bug_id']} --mode={MODE} --use-last -p {SYMVASS_PREFIX} --vulmaster-id={vid}" for vid in self.vids]
-    return [f"symvass.py analyze {self.meta['bug_id']} --mode={MODE} --use-last -p {SYMVASS_PREFIX} --vulmaster-id={vid}" for vid in self.vids]
+      return [f"symradar.py {extra} {self.meta['bug_id']} --mode={MODE} --use-last -p {SYMRADAR_PREFIX} --vulmaster-id={vid}" for vid in self.vids]
+    return [f"symradar.py analyze {self.meta['bug_id']} --mode={MODE} --use-last -p {SYMRADAR_PREFIX} --vulmaster-id={vid}" for vid in self.vids]
   
   def get_exp_cmd(self, opt: str, extra: str) -> List[str]:
     if "correct" not in self.meta:
@@ -136,12 +136,12 @@ class RunSingleVulmaster():
     query = self.meta["bug_id"] + ":0" # ",".join([str(x) for x in patches])
     for vid in self.vids:
       if extra == "snapshot":
-        cmd = f"symvass.py snapshot {query} --outdir-prefix={SYMVASS_PREFIX} --mode={MODE} --vulmaster-id={vid}"
+        cmd = f"symradar.py snapshot {query} --outdir-prefix={SYMRADAR_PREFIX} --mode={MODE} --vulmaster-id={vid}"
         result.append(cmd)
         continue
-      cmd = f"symvass.py rerun {query} --lock=f --outdir-prefix={SYMVASS_PREFIX} --mode={MODE} --vulmaster-id={vid}"
+      cmd = f"symradar.py rerun {query} --lock=f --outdir-prefix={SYMRADAR_PREFIX} --mode={MODE} --vulmaster-id={vid}"
       if opt == "run":
-        cmd = f"symvass.py run {query} --lock=f --outdir-prefix={SYMVASS_PREFIX} --mode={MODE} --vulmaster-id={vid}"
+        cmd = f"symradar.py run {query} --lock=f --outdir-prefix={SYMRADAR_PREFIX} --mode={MODE} --vulmaster-id={vid}"
         if SNAPSHOT_PREFIX != "":
           cmd += f" --snapshot-prefix={SNAPSHOT_PREFIX}"
       if extra == "k2-high":
@@ -171,13 +171,13 @@ class RunSingleVulmaster():
       return None
     result = list()
     for vid in self.vids:
-      cmd = f"symvass.py uc {self.meta['bug_id']}:0 --lock=f --outdir-prefix={SYMVASS_PREFIX} --snapshot-prefix=snapshot-{SYMVASS_PREFIX} --mode={MODE} --vulmaster-id={vid}"
+      cmd = f"symradar.py uc {self.meta['bug_id']}:0 --lock=f --outdir-prefix={SYMRADAR_PREFIX} --snapshot-prefix=snapshot-{SYMRADAR_PREFIX} --mode={MODE} --vulmaster-id={vid}"
       result.append(cmd)
     return result
 
   def get_feas_cmd(self, extra: str) -> List[str]:
     if extra in ["fuzz", "build", "val-build", "fuzz-build", "extractfix-build", "vulmaster-build", "vulmaster-extractfix-build", "fuzz-seeds", "collect-inputs", "group-patches", "val", "feas", "analyze", "check"]:
-      return [f"symfeas.py {extra} {self.meta['bug_id']} -s {SYMVASS_PREFIX}"]
+      return [f"symfeas.py {extra} {self.meta['bug_id']} -s {SYMRADAR_PREFIX}"]
     log_out(f"Unknown extra: {extra}")
     exit(1)
     
@@ -213,13 +213,13 @@ class RunSingle():
     self.meta_program = res["meta_program"]
     self.conf = res["conf"]
   def get_clean_cmd(self) -> str:
-    return f"symvass.py clean {self.meta['bug_id']} --lock=w"
+    return f"symradar.py clean {self.meta['bug_id']} --lock=w"
   def get_filter_cmd(self) -> str:
-    return f"symvass.py filter {self.meta['bug_id']} --mode={MODE} --lock=f"
+    return f"symradar.py filter {self.meta['bug_id']} --mode={MODE} --lock=f"
   def get_analyze_cmd(self, extra: str = "") -> str:
     if extra != "":
-      return f"symvass.py {extra} {self.meta['bug_id']} --mode={MODE} --use-last -p {SYMVASS_PREFIX}"
-    return f"symvass.py analyze {self.meta['bug_id']} --mode={MODE} --use-last -p {SYMVASS_PREFIX}"
+      return f"symradar.py {extra} {self.meta['bug_id']} --mode={MODE} --use-last -p {SYMRADAR_PREFIX}"
+    return f"symradar.py analyze {self.meta['bug_id']} --mode={MODE} --use-last -p {SYMRADAR_PREFIX}"
   def get_exp_cmd(self, opt: str, extra: str = "") -> str:
     if "correct" not in self.meta:
       log_out("No correct patch")
@@ -247,9 +247,9 @@ class RunSingle():
     #     break
     # log_out(patches)
     query = self.meta["bug_id"] + ":0" # ",".join([str(x) for x in patches])
-    cmd = f"symvass.py rerun {query} --lock=f --outdir-prefix={SYMVASS_PREFIX} --mode={MODE}"
+    cmd = f"symradar.py rerun {query} --lock=f --outdir-prefix={SYMRADAR_PREFIX} --mode={MODE}"
     if opt == "run":
-      cmd = f"symvass.py run {query} --lock=f --outdir-prefix={SYMVASS_PREFIX} --mode={MODE}"
+      cmd = f"symradar.py run {query} --lock=f --outdir-prefix={SYMRADAR_PREFIX} --mode={MODE}"
       if SNAPSHOT_PREFIX != "":
         cmd += f" --snapshot-prefix={SNAPSHOT_PREFIX}"
     if extra == "k2-high":
@@ -276,14 +276,14 @@ class RunSingle():
     if "no" not in self.meta["correct"]:
       log_out("No correct patch")
       return None
-    cmd = f"symvass.py uc {self.meta['bug_id']}:0 --lock=f --outdir-prefix={SYMVASS_PREFIX} --snapshot-prefix=snapshot-{SYMVASS_PREFIX} " # --max-fork=1024,1024,1024
+    cmd = f"symradar.py uc {self.meta['bug_id']}:0 --lock=f --outdir-prefix={SYMRADAR_PREFIX} --snapshot-prefix=snapshot-{SYMRADAR_PREFIX} " # --max-fork=1024,1024,1024
     return cmd
 
   def get_feas_cmd(self, extra: str) -> str:
     if extra == "exp":
       return f"symfeas.py fuzz {self.meta['bug_id']}"
     if extra in ["fuzz", "build", "val-build", "fuzz-build", "extractfix-build", "fuzz-seeds", "collect-inputs", "group-patches", "val", "feas", "analyze", "check"]:
-      return f"symfeas.py {extra} {self.meta['bug_id']} -s {SYMVASS_PREFIX}"
+      return f"symfeas.py {extra} {self.meta['bug_id']} -s {SYMRADAR_PREFIX}"
     log_out(f"Unknown extra: {extra}")
     exit(1)
     
@@ -317,7 +317,7 @@ def check_correct_exists(meta: dict) -> bool:
   return True
 
 def check_use_high_level(meta: dict) -> bool:
-  conf = symvass.Config("analyze", meta["bug_id"], False, "high", "64,64,64")
+  conf = symradar.Config("analyze", meta["bug_id"], False, "high", "64,64,64")
   conf.init("snapshot", False, "", "f")
   conf.conf_files.set_out_dir("", "uni-m-out", conf.bug_info, "snapshot", "filter", True)
   if not os.path.exists(conf.conf_files.out_dir):
@@ -337,9 +337,9 @@ def check_use_high_level(meta: dict) -> bool:
   return True
 
 def collect_result(meta: dict):
-  conf = symvass.Config("analyze", meta["bug_id"], False, "high", "64,64,64")
+  conf = symradar.Config("analyze", meta["bug_id"], False, "high", "64,64,64")
   conf.init("snapshot", False, "", "f")
-  conf.conf_files.set_out_dir("", SYMVASS_PREFIX, conf.bug_info, "snapshot", "filter", True)
+  conf.conf_files.set_out_dir("", SYMRADAR_PREFIX, conf.bug_info, "snapshot", "filter", True)
   save_dir = os.path.join(OUTPUT_DIR, PREFIX, meta["subject"], meta["bug_id"])
   os.makedirs(save_dir, exist_ok=True)
   if not os.path.exists(conf.conf_files.out_dir):
@@ -405,14 +405,14 @@ def find_num(dir: str, prefix: str) -> int:
       break
   return result
 
-def symvass_final_result(meta: dict, result_f: TextIO):
+def symradar_final_result(meta: dict, result_f: TextIO):
   subject = meta["subject"]
   bug_id = meta["bug_id"]
   incomplete = meta["correct"]["incomplete"]
   subject_dir = os.path.join(ROOT_DIR, "patches", meta["benchmark"], subject, bug_id)
   patched_dir = os.path.join(subject_dir, "patched")
-  out_dir_no = find_num(patched_dir, SYMVASS_PREFIX) - 1
-  out_file = os.path.join(patched_dir, f"{SYMVASS_PREFIX}-{out_dir_no}", "table.sbsv")
+  out_dir_no = find_num(patched_dir, SYMRADAR_PREFIX) - 1
+  out_file = os.path.join(patched_dir, f"{SYMRADAR_PREFIX}-{out_dir_no}", "table.sbsv")
   if not os.path.exists(out_file):
     log_out(f"File not found: {out_file}")
     result_f.write("\t\t\t\t\t\t\t\t\t\n")
@@ -522,11 +522,11 @@ def symvass_final_result(meta: dict, result_f: TextIO):
   result_f.write(f"{subject}\t{bug_id}\t{correct_patch}\t{all_patches}\t{incomplete}\t{sym_inputs}\t{default}\t{default_filtered}\t{default_found}\t{best_inputs}\t{best}\t{best_filtered}\t{best_found}\t{sym_in_new_num}\t{len(default_patches_new)}\t{default_patches_new_filtered_num}\t{default_patches_new_found}\n")
 
 
-def symvass_res_to_str(res: dict) -> str:
+def symradar_res_to_str(res: dict) -> str:
   patches = str_to_list(res["patches"])
   return f"{res['sym-input']}\t{len(patches)}\t{res['is-correct']}"
 
-def symvass_final_result_vulmaster_v3(meta: dict, result_f: TextIO):
+def symradar_final_result_vulmaster_v3(meta: dict, result_f: TextIO):
   subject = meta["subject"]
   bug_id = meta["bug_id"]
   incomplete = meta["correct"]["incomplete"]
@@ -534,7 +534,7 @@ def symvass_final_result_vulmaster_v3(meta: dict, result_f: TextIO):
   patched_dir = os.path.join(subject_dir, "vulmaster-patched")
   rsv = RunSingleVulmaster(meta["id"])
   for vid in rsv.vids:
-    prefix = f"{SYMVASS_PREFIX}_{vid}"
+    prefix = f"{SYMRADAR_PREFIX}_{vid}"
     out_dir_no = find_num(patched_dir, prefix) - 1
     out_file = os.path.join(patched_dir, f"{prefix}-{out_dir_no}", "table_v3.sbsv")
     if not os.path.exists(out_file):
@@ -564,10 +564,10 @@ def symvass_final_result_vulmaster_v3(meta: dict, result_f: TextIO):
     meta_data_strict_remove_crash = result["meta-data"]["strict-remove-crash"]
     all_patches = meta_data_default[0]["all-patches"]
 
-    default_str = symvass_res_to_str(meta_data_default[0])
-    default_remove_crash_str = symvass_res_to_str(meta_data_default_remove_crash[0])
-    strict_str = symvass_res_to_str(meta_data_strict[0])
-    strict_remove_crash_str = symvass_res_to_str(meta_data_strict_remove_crash[0])
+    default_str = symradar_res_to_str(meta_data_default[0])
+    default_remove_crash_str = symradar_res_to_str(meta_data_default_remove_crash[0])
+    strict_str = symradar_res_to_str(meta_data_strict[0])
+    strict_remove_crash_str = symradar_res_to_str(meta_data_strict_remove_crash[0])
     
     stat = result["stat"]["states"][0]
     
@@ -596,14 +596,14 @@ def get_all_patches(file: str) -> Tuple[Set[int], int]:
       correct_patch = patch_eq_map[correct_patch]      
     return all_patches, correct_patch
 
-def symvass_final_result_v3(meta: dict, result_f: TextIO):
+def symradar_final_result_v3(meta: dict, result_f: TextIO):
   subject = meta["subject"]
   bug_id = meta["bug_id"]
   incomplete = meta["correct"]["incomplete"]
   subject_dir = os.path.join(ROOT_DIR, "patches", meta["benchmark"], subject, bug_id)
   patched_dir = os.path.join(subject_dir, "patched")
-  out_dir_no = find_num(patched_dir, SYMVASS_PREFIX) - 1
-  out_file = os.path.join(patched_dir, f"{SYMVASS_PREFIX}-{out_dir_no}", "table_v3.sbsv")
+  out_dir_no = find_num(patched_dir, SYMRADAR_PREFIX) - 1
+  out_file = os.path.join(patched_dir, f"{SYMRADAR_PREFIX}-{out_dir_no}", "table_v3.sbsv")
   if not os.path.exists(out_file):
     log_out(f"File not found: {out_file}")
     result_f.write("\t\t\t\t\t\t\t\t\t\n")
@@ -631,10 +631,10 @@ def symvass_final_result_v3(meta: dict, result_f: TextIO):
   meta_data_strict_remove_crash = result["meta-data"]["strict-remove-crash"]
   # all_patches = meta_data_default[0]["all-patches"]
 
-  default_str = symvass_res_to_str(meta_data_default[0])
-  default_remove_crash_str = symvass_res_to_str(meta_data_default_remove_crash[0])
-  strict_str = symvass_res_to_str(meta_data_strict[0])
-  strict_remove_crash_str = symvass_res_to_str(meta_data_strict_remove_crash[0])
+  default_str = symradar_res_to_str(meta_data_default[0])
+  default_remove_crash_str = symradar_res_to_str(meta_data_default_remove_crash[0])
+  strict_str = symradar_res_to_str(meta_data_strict[0])
+  strict_remove_crash_str = symradar_res_to_str(meta_data_strict_remove_crash[0])
   
   stat = result["stat"]["states"][0]
   
@@ -643,7 +643,7 @@ def symvass_final_result_v3(meta: dict, result_f: TextIO):
 
 def final_analysis(meta_data: List[dict], output: str):
   if output == "":
-    output = f"{PREFIX}_{SYMVASS_PREFIX}_final.csv"
+    output = f"{PREFIX}_{SYMRADAR_PREFIX}_final.csv"
   meta_data = sorted(meta_data, key=lambda x: f"{x['subject']}/{x['bug_id']}")
   result_f = open(os.path.join(OUTPUT_DIR, output), "w")
   # result_f.write(f"project\tbug\tcorrect_patch\tall_patches\tincomplete\tinputs\tdefault_remaining_patches\tdefault_filtered_patches\tdefault_found\tbest_inputs\tbest_remaining_patches\tbest_filtered_patches\tbest_found\tdefault_inputs_new\tdefault_patches_new\tdefault_patches_new_filtered\tdefault_patches_new_found\n")
@@ -652,13 +652,13 @@ def final_analysis(meta_data: List[dict], output: str):
     if not check_correct_exists(meta):
       continue
     if VULMASTER_MODE:
-      symvass_final_result_vulmaster_v3(meta, result_f)
+      symradar_final_result_vulmaster_v3(meta, result_f)
     else:
-      symvass_final_result_v3(meta, result_f)
+      symradar_final_result_v3(meta, result_f)
     # print(f"{meta['subject']}\t{meta['bug_id']}")
     # sub_dir = os.path.join(ROOT_DIR, "patches", meta["benchmark"], meta["subject"], meta['bug_id'], "patched")
-    # no = find_num(sub_dir, SYMVASS_PREFIX) - 1
-    # symbolic_global = os.path.join(sub_dir, f"{SYMVASS_PREFIX}-{no}", "base-mem.symbolic-globals")
+    # no = find_num(sub_dir, SYMRADAR_PREFIX) - 1
+    # symbolic_global = os.path.join(sub_dir, f"{SYMRADAR_PREFIX}-{no}", "base-mem.symbolic-globals")
     # if os.path.exists(symbolic_global):
     #   with open(symbolic_global, 'r') as f:
     #     print(f.read())
@@ -741,19 +741,19 @@ def run_cmd_seq(opt: str, meta_data: List[dict], extra: str, additional: str, ou
   log_out(f"{opt} done")
 
 def main(argv: List[str]):
-  parser = argparse.ArgumentParser(description="Run symvass experiments")
+  parser = argparse.ArgumentParser(description="Run symradar experiments")
   parser.add_argument("cmd", type=str, help="Command to run", choices=["filter", "exp", "run", "uc", "analyze", "final", "feas", "clean"], default="exp")
   parser.add_argument("-e", "--extra", type=str, help="Subcommand", default="exp")
   parser.add_argument("-o", "--output", type=str, help="Output file", default="", required=False)
   parser.add_argument("-p", "--prefix", type=str, help="Output prefix", default="", required=False)
-  parser.add_argument("-s", "--symvass-prefix", type=str, help="Symvass prefix", default="", required=False)
+  parser.add_argument("-s", "--symradar-prefix", type=str, help="Symvass prefix", default="", required=False)
   parser.add_argument("--snapshot-prefix", type=str, help="Snapshot prefix", default="", required=False)
   parser.add_argument("-a", "--additional", type=str, help="Additional arguments", default="", required=False)
   parser.add_argument("-m", "--mode", type=str, help="Mode", choices=["symradar", "extractfix"], default="symradar")
   parser.add_argument("-v", "--vulmaster", action="store_true", help="Run vulmaster", default=False)
   parser.add_argument("--seq", action="store_true", help="Run sequentially", default=False)
   args = parser.parse_args(argv)
-  global OUTPUT_DIR, PREFIX, SYMVASS_PREFIX, MODE, VULMASTER_MODE, SNAPSHOT_PREFIX
+  global OUTPUT_DIR, PREFIX, SYMRADAR_PREFIX, MODE, VULMASTER_MODE, SNAPSHOT_PREFIX
   VULMASTER_MODE = args.vulmaster
   MODE = args.mode
   SNAPSHOT_PREFIX = args.snapshot_prefix
@@ -766,13 +766,13 @@ def main(argv: List[str]):
     PREFIX = time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime())
   if args.cmd == "exp":
     if args.extra != "exp":
-      SYMVASS_PREFIX = args.extra
+      SYMRADAR_PREFIX = args.extra
   if args.cmd == "filter":
-    SYMVASS_PREFIX = "filter"
+    SYMRADAR_PREFIX = "filter"
   if args.cmd == "uc":
-    SYMVASS_PREFIX = "uc"
-  if args.symvass_prefix != "":
-    SYMVASS_PREFIX = args.symvass_prefix
+    SYMRADAR_PREFIX = "uc"
+  if args.symradar_prefix != "":
+    SYMRADAR_PREFIX = args.symradar_prefix
   meta_data = uni_klee.global_config.get_meta_data_list()
   if args.cmd == "final":
     final_analysis(meta_data, args.output)

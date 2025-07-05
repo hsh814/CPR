@@ -1348,7 +1348,7 @@ def arg_parser(argv: List[str]) -> Config:
     parser.add_argument("-t", "--timeout", help="Timeout", default="12h")
     parser.add_argument("-k", "--lock", help="Handle lock behavior", default="i", choices=["i", "w", "f"])
     parser.add_argument("-r", "--rerun", help="Rerun last command with same option", action="store_true")
-    parser.add_argument("-z", "--analyze", help="Analyze symvass data", action="store_true")
+    parser.add_argument("-z", "--analyze", help="Analyze symradar data", action="store_true")
     parser.add_argument("-g", "--use-last", help="Use last output directory", action="store_true")
     parser.add_argument("--mode", help="mode", choices=["symradar", "extractfix"], default="symradar")
     parser.add_argument("--vulmaster-id", help="Vulmaster id", type=int, default=0)

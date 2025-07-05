@@ -42,12 +42,12 @@ sympatch.py compile patches
 symfeas.py build 3623 # Or run ./init.sh
 
 # 3. Run filter
-symvass.py filter 3623
-# symvass.py analyze 3623 -p filter 
+symradar.py filter 3623
+# symradar.py analyze 3623 -p filter 
 
 # 4. Run symradar
-symvass.py rerun 3623 --sym-level=high -s high
-symvass.py analyze 3623 -s high
+symradar.py rerun 3623 --sym-level=high -s high
+symradar.py analyze 3623 -s high
 
 # 5. The output is in patches/extractfix/libtiff/CVE-2016-3623/patched/high-*/table_v3.sbsv
 ```
@@ -87,9 +87,9 @@ experiments.py feas --extra collect-inputs
 experiments.py feas --extra fuzz-build
 
 # 6. Symbolic input validation (for single)
-symvass.py symgroup 5321
-symvass.py symgroup 5321 -p high
-symfeas.py val-build 5321 -s high # ./val.sh, Some subjects requires uni-klee-out-dir/base-mem.symbolic-globals - Run symvass first to generate output directory and files
+symradar.py symgroup 5321
+symradar.py symgroup 5321 -p high
+symfeas.py val-build 5321 -s high # ./val.sh, Some subjects requires uni-klee-out-dir/base-mem.symbolic-globals - Run symradar first to generate output directory and files
 symfeas.py val 5321
 symfeas.py val 5321 -s high
 symfeas.py feas 5321

@@ -187,15 +187,15 @@ def clear_val(dir: str):
         if f.startswith("core.") and os.path.isfile(file):
             os.remove(file)
 
-def run_val(subject: dict, subject_dir: str, symvass_prefix: str, val_prefix: str, debug: bool = False):
+def run_val(subject: dict, subject_dir: str, symradar_prefix: str, val_prefix: str, debug: bool = False):
     conf = get_conf(subject, subject_dir)
     val_runtime = os.path.join(subject_dir, "val-runtime")
     val_bin = os.path.join(val_runtime, os.path.basename(conf["binary_path"]))
     val_out_no = find_num(val_runtime, val_prefix)
     val_out_dir = os.path.join(val_runtime, f"{val_prefix}-{val_out_no}")
     
-    out_no = find_num(os.path.join(subject_dir, "patched"), symvass_prefix)
-    out_dir = os.path.join(subject_dir, "patched", f"{symvass_prefix}-{out_no - 1}")
+    out_no = find_num(os.path.join(subject_dir, "patched"), symradar_prefix)
+    out_dir = os.path.join(subject_dir, "patched", f"{symradar_prefix}-{out_no - 1}")
     if os.path.exists(os.path.join(out_dir, "base-mem.symbolic-globals")):
         with open(os.path.join(out_dir, "base-mem.symbolic-globals")) as f:
             globals = f.readlines()
@@ -393,7 +393,7 @@ def read_val_out_file(parser: sbsv.parser, globals_list: List[Dict[str, str]], i
         print_log("UNSAT")
         return "UNSAT"
 
-def parse_symvass_result(file_path: str) -> Dict[int, List[int]]:
+def parse_symradar_result(file_path: str) -> Dict[int, List[int]]:
     result = dict()
     parser = sbsv.parser()
     parser.add_schema("[sym-in] [id: int] [base: int] [test: int] [cnt: int] [patches: str]")
@@ -424,7 +424,7 @@ def parse_val_results(val_out_dir: str):
     rf = open(os.path.join(val_out_dir, "result.sbsv"), "w")
     remaining_base_states = list()
     result["remaining_patches"] = list()
-    symvass_result = parse_symvass_result(os.path.join(uni_klee_out_dir, "table_v3.sbsv"))
+    symradar_result = parse_symradar_result(os.path.join(uni_klee_out_dir, "table_v3.sbsv"))
     for i, c in enumerate(cluster):
         print_log(f"Processing cluster {i}")
         nodes = c["nodes"]
@@ -490,12 +490,12 @@ def parse_val_results(val_out_dir: str):
                 rf.write(f"[success] [c {i}] [n {node}]\n")
                 remaining_base_states.append(node)
         print_log(f"Finished cluster {i}")
-        remaining_patches = set(symvass_result[-1])
+        remaining_patches = set(symradar_result[-1])
         remaining_sym_inputs = list()
         for symin in remaining_base_states:
-            if symin in symvass_result:
-                remaining_patches = remaining_patches.intersection(set(symvass_result[symin]))
-                rf.write(f"[remaining] [input] [input {symin}] [patches {symvass_result[symin]}]\n")
+            if symin in symradar_result:
+                remaining_patches = remaining_patches.intersection(set(symradar_result[symin]))
+                rf.write(f"[remaining] [input] [input {symin}] [patches {symradar_result[symin]}]\n")
         result["remaining_patches"] = sorted(list(remaining_patches))
         rf.write(f"[remaining] [patch] [patches {result['remaining_patches']}]\n")
     rf.close()
@@ -1154,41 +1154,41 @@ def main():
     parser.add_argument("-i", "--input", help="Input file", default="")
     parser.add_argument("-o", "--output", help="Output file", default="")
     parser.add_argument("-d", "--debug", help="Debug mode", action="store_true")
-    parser.add_argument("-s", "--symvass-prefix", help="SymVass prefix", default="uni-m-out")
+    parser.add_argument("-s", "--symradar-prefix", help="SymVass prefix", default="uni-m-out")
     parser.add_argument("-v", "--val-prefix", help="Val prefix", default="")
     parser.add_argument("-p", "--prefix", help="Prefix of fuzzer out: default aflrun-multi-out", default="aflrun-multi-out")
     # parser.add_argument("-s", "--subject", help="Subject", default="")
     args = parser.parse_args(sys.argv[1:])
     subject = get_metadata(args.subject)
     subject_dir = os.path.join(ROOT_DIR, "patches", subject["benchmark"], subject["subject"], subject["bug_id"])
-    val_prefix = args.val_prefix if args.val_prefix != "" else args.symvass_prefix
+    val_prefix = args.val_prefix if args.val_prefix != "" else args.symradar_prefix
     if args.cmd == "fuzz":
         run_fuzzer(subject, subject_dir, args.debug)
     elif args.cmd == "fuzz-seeds":
         run_fuzzer_multi(subject, subject_dir, args.debug)
     elif args.cmd == "check":
         # parse_smt2_file(args.input)
-        out_no = find_num(os.path.join(subject_dir, "patched"), args.symvass_prefix) - 1
+        out_no = find_num(os.path.join(subject_dir, "patched"), args.symradar_prefix) - 1
         target_dir = os.path.join(ROOT_DIR, "patches", "tmp", subject["benchmark"], subject["subject"], subject["bug_id"], "patched")
         os.system(f"mv {target_dir}/high-snapshot {target_dir}/snapshot-high")
         # os.makedirs(target_dir, exist_ok=True)
-        # os.system(f"rsync -avzh {os.path.join(subject_dir, 'patched', f'{args.symvass_prefix}-{out_no}')}/ {target_dir}/high-0/")
-        # os.system(f"rsync -avzh {os.path.join(subject_dir, 'patched', f'snapshot-{args.symvass_prefix}')}/ {target_dir}/high-snapshot")
+        # os.system(f"rsync -avzh {os.path.join(subject_dir, 'patched', f'{args.symradar_prefix}-{out_no}')}/ {target_dir}/high-0/")
+        # os.system(f"rsync -avzh {os.path.join(subject_dir, 'patched', f'snapshot-{args.symradar_prefix}')}/ {target_dir}/high-snapshot")
         # os.system(f"rsync -avzh {os.path.join(subject_dir, 'patched', 'filter')} {target_dir}/")
         # uc_no = find_num(os.path.join(subject_dir, "patched"), "uc") - 1
         # os.system(f"rsync -avzh {os.path.join(subject_dir, 'patched', f'uc-{uc_no}')}/ {target_dir}/uc-0")
     elif args.cmd == "fuzz-build":
         subprocess.run(f"./aflrun.sh", cwd=subject_dir, shell=True)
     elif args.cmd == "val-build":
-        symvass_prefix = args.symvass_prefix
-        if symvass_prefix == "":
-            print_log(f"SymVass prefix not found (use -s or --symvass-prefix)")
+        symradar_prefix = args.symradar_prefix
+        if symradar_prefix == "":
+            print_log(f"SymVass prefix not found (use -s or --symradar-prefix)")
             return 1
-        no = find_num(os.path.join(subject_dir, "patched"), symvass_prefix)
+        no = find_num(os.path.join(subject_dir, "patched"), symradar_prefix)
         if no == 0:
-            print_log(f"SymVass output not found for {symvass_prefix}: did you run symvass?")
+            print_log(f"SymVass output not found for {symradar_prefix}: did you run symradar?")
             return 1
-        out_dir = os.path.join(subject_dir, "patched", f"{symvass_prefix}-{no - 1}")
+        out_dir = os.path.join(subject_dir, "patched", f"{symradar_prefix}-{no - 1}")
         env = os.environ.copy()
         env["UNI_KLEE_SYMBOLIC_GLOBALS_FILE_OVERRIDE"] = os.path.join(out_dir, "base-mem.symbolic-globals")
         subprocess.run(f"./val.sh", cwd=subject_dir, shell=True, env=env)
@@ -1207,7 +1207,7 @@ def main():
         # Group patches
         group_patches(subject_dir)
     elif args.cmd == "val":
-        run_val(subject, subject_dir, args.symvass_prefix, val_prefix, args.debug)
+        run_val(subject, subject_dir, args.symradar_prefix, val_prefix, args.debug)
     elif args.cmd == "feas":
         val_dir = os.path.join(subject_dir, "val-runtime")
         no = find_num(val_dir, val_prefix)

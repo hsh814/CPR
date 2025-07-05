@@ -615,7 +615,7 @@ id = 50
 bug_id = "CVE-2017-6965"
 benchmark = "vulnloc"
 subject = "binutils"
-vars = [ "x", "y",]
+vars = [ "x", "y", "z", "m" ]
 target = "target_specific_reloc_handling"
 
   [meta_data.buggy]
