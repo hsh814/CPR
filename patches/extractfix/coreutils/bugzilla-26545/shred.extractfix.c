@@ -296,7 +296,7 @@ for(i = 3; (__cpr_choice("L290", "bool", (long long[]){size, i}, (char*[]){"size
     memcpy (r + i, r, i);
 CPR_OUTPUT("obs", "i32", i - (size/2));
 
-klee_assert(i > size / 2 );
+klee_assert(i <= size / 2 );
 
   if (i < size)
     memcpy (r + i, r, size - i);
