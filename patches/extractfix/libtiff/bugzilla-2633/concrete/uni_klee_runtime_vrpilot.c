@@ -29,9 +29,9 @@ int __cpr_choice(char* lid, char* typestr,
                      int** lvals, char** lvals_ids, int lvals_size){
   // int patch_results[4096];
   int result;
-  long long nc = rvals[0];
-  long long samplesperpixel = rvals[1];
-  long long tf_bytesperrow = rvals[2];
+  long long nc = rvals[2];
+  long long samplesperpixel = rvals[3];
+  long long tf_bytesperrow = rvals[4];
   long long constant_a;
   int patch_results[132];
   // Patch buggy # 0
