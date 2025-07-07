@@ -1,0 +1,56 @@
+#include "uni_klee_runtime.h"
+#include <stdlib.h>
+#include <stdio.h>
+
+int uni_klee_patch_id;
+
+void klee_select_patch(int *patch_id) {
+  *patch_id = atoi(getenv("DAFL_PATCH_ID"));
+}
+
+void uni_klee_add_patch(int *patch_results, int patch_id, int result) {
+  patch_results[patch_id] = result;
+}
+
+int uni_klee_choice(int *patch_results, int patch_id) {
+  FILE *fp=fopen(getenv("DAFL_RESULT_FILE"),"a");
+  if (fp == NULL) {
+    fprintf(stderr, "Error opening file!\n");
+    exit(1);
+  }
+  fprintf(fp, "%d ", patch_results[patch_id]);
+  fclose(fp);
+  return patch_results[patch_id];
+}
+
+// UNI_KLEE_START
+int __cpr_choice(char* lid, char* typestr,
+                     long long* rvals, char** rvals_ids, int rvals_size,
+                     int** lvals, char** lvals_ids, int lvals_size){
+  // int patch_results[4096];
+  int result;
+  long long nc = rvals[0];
+  long long samplesperpixel = rvals[1];
+  long long tf_bytesperrow = rvals[2];
+  long long constant_a;
+  int patch_results[132];
+  // Patch buggy # 0
+  result = (0);
+  uni_klee_add_patch(patch_results, 0, result);
+  // Patch 1
+  result = (nc < 0 || nc > samplesperpixel);
+  uni_klee_add_patch(patch_results, 1, result);
+  // Patch 2
+  result = (tf_bytesperrow <= 0 || tf_bytesperrow > (1 << 30) || nc <= 0 || nc > samplesperpixel);
+  uni_klee_add_patch(patch_results, 2, result);
+  // Patch correct # 131
+  // result = (x <= 0);
+  // uni_klee_add_patch(patch_results, 131, result);
+  klee_select_patch(&uni_klee_patch_id);
+  return uni_klee_choice(patch_results, uni_klee_patch_id);
+}
+// UNI_KLEE_END
+
+int __cpr_output(char* id, char* typestr, int value){
+  return value;
+}
