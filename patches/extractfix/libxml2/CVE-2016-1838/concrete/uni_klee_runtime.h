@@ -9,6 +9,9 @@
 #define CPR_OUTPUT(id, typestr, value) \
   __cpr_output(id, typestr, value);
 
+#ifdef DAFL_ASSERT
+#define klee_assert(x) assert(x)
+#endif
 
 int __cpr_choice(char* lid, char* typestr,
                     long long* rvals, char** rvals_ids, int rvals_size,

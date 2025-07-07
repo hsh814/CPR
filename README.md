@@ -1,38 +1,82 @@
 # CPR Benchmark
-## Setup
+## Getting Started
+In `scripts` directory, there are 3 main scripts and 1 `experiments.py` script for parallel execution.
+Run `export PATH=/root/projects/CPR/scripts:$PATH` to use them.
+
+### 1. `sympatch.py`
+This script extract concrete patches from `CPR` generated patches and convert them into meta program. Extraction is already done, so you only need to run `compile`.
+Build patch of all subjects.
+```shell
+# sympatch.py <cmd> <patch-dir>
+sympatch.py compile patches
+```
+### 2. `symfeas.py`
+This script was for feasiblity check.
+```shell
+symradar.py <cmd> <subject> <options>
+```
+
+### 3. `symradar.py`
+This is the main script for `SymRadar`. It runs `uni-klee` with proper options and analyze the results.
+```shell
+symradar.py <cmd> <subject> <options>
+```
+
+In `symfeas.py` and `symradar.py`, you can enter `subject` only part of their name.
+For example, `3623` will be recognized as `CVE-2016-3623`.
+
+### 4. `experiments.py`
+This is the script for running experiments on all subjects. By default, it runs all 28 subjects in parallel.
+```shell
+experiments.py <cmd> <options>
+```
+
+### Example
+
 ```shell
 export PATH=/root/projects/CPR/scripts:$PATH
-# 1. Genenrate patches
-sympatch.py reset patches
-sympatch.py concrete patches
-sympatch.py meta patches
+# 1. Compile patches
+sympatch.py compile patches
 
-# 2. Build (for single)
-symfeas.py build 5321 # Run ./init.sh
-# 2. Build (for all)
+# 2. Build
+symfeas.py build 3623 # Or run ./init.sh
+
+# 3. Run filter
+symradar.py filter 3623
+# symradar.py analyze 3623 -p filter 
+
+# 4. Run symradar
+symradar.py rerun 3623 --sym-level=high -s high
+symradar.py analyze 3623 -s high
+
+# 5. The output is in patches/extractfix/libtiff/CVE-2016-3623/patched/high-*/table_v3.sbsv
+```
+
+
+## Experiment Replication
+Use `experiments.py` to run experiments for all subjects in benchmark in parallel.
+```shell
+export PATH=/root/projects/CPR/scripts:$PATH
+# 1. Compile patches
+sympatch.py compile patches
+
+# 2. Build
 experiments.py feas --extra build
 
-# 3. Run filter (for single)
-symvass.py filter 5321
-symvass.py analyze 5321 -p filter
-# 3. Run filter (for all)
+# 3. Run filter
 experiments.py filter
 experiments.py analyze --extra analyze -s filter
 
-# 4. Run test (for single)
-symvass.py rerun 5321
-symvass.py rerun 5321 --sym-level=high --prefix high
-symvass.py analyze 5321
-symvass.py analyze --prefix high
-# 4. Run test (for all)
-experiments.py exp
+# 4. Run SymRadar
 experiments.py exp --extra high
-experiments.py analyze --extra analyze
 experiments.py analyze --extra analyze -s high
-# Collect results (check ./out)
-experiments.py final
-experiments.py final -s high
 
+# 5. Collect results (check ./out directory)
+experiments.py final -s high
+```
+
+Old
+```
 # 5. Run fuzzer (for single)
 symfeas.py fuzz-build 5321 # ./aflrun.sh
 symfeas.py fuzz 5321
@@ -43,9 +87,9 @@ experiments.py feas --extra collect-inputs
 experiments.py feas --extra fuzz-build
 
 # 6. Symbolic input validation (for single)
-symvass.py symgroup 5321
-symvass.py symgroup 5321 -p high
-symfeas.py val-build 5321 -s high # ./val.sh, Some subjects requires uni-klee-out-dir/base-mem.symbolic-globals - Run symvass first to generate output directory and files
+symradar.py symgroup 5321
+symradar.py symgroup 5321 -p high
+symfeas.py val-build 5321 -s high # ./val.sh, Some subjects requires uni-klee-out-dir/base-mem.symbolic-globals - Run symradar first to generate output directory and files
 symfeas.py val 5321
 symfeas.py val 5321 -s high
 symfeas.py feas 5321

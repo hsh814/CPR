@@ -265,7 +265,6 @@ def main(args: List[str]):
     "buggy": "Generate buggy patches from meta",
     "meta": "Generate patches as meta program",
     "reset": "Remove concrete/",
-    "val-build": "Build the validation program"
   }
   root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
   opt = args[1]
@@ -308,10 +307,10 @@ def main(args: List[str]):
     if opt == "meta":
       patch_list = get_abstract_patches(f"{outdir}/patch-set-gen")
       meta_program = to_meta_program(patch_list, meta)
-      # with open(f"{outdir}/meta-program-original.json", "w") as f:
-      #   print(f"Writing to {outdir}/meta-program-original.json")
-      #   json.dump(meta_program, f, indent=2)
-      #   continue
+      with open(f"{outdir}/meta-program-original.json", "w") as f:
+        print(f"Writing to {outdir}/meta-program-original.json")
+        json.dump(meta_program, f, indent=2)
+        # continue
       write_meta_program(meta_program, os.path.join(outdir, "concrete"))
       # with open(f"{outdir}/meta-program.json", "w") as f:
       #   print(f"Writing to {outdir}/meta-program.json")

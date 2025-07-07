@@ -609,3 +609,136 @@ benchmark = "manybugs"
 subject = "libtiff"
 vars = [ "x", "y", "z",]
 
+
+[[meta_data]]
+id = 50
+bug_id = "CVE-2017-6965"
+benchmark = "vulnloc"
+subject = "binutils"
+vars = [ "x", "y", "z", "m" ]
+target = "target_specific_reloc_handling"
+
+  [meta_data.buggy]
+  code = "(0)"
+  id = "buggy"
+  [meta_data.correct]
+  code = "(x + z + m >= y)"
+  id = "correct"
+  no = 123
+  incomplete = true
+
+[[meta_data]]
+id = 51
+bug_id = "CVE-2017-14745"
+benchmark = "vulnloc"
+subject = "binutils"
+vars = [ "x", "y", "z", "m", "n"]
+target = "elf_x86_64_get_synthetic_symtab"
+
+  [meta_data.buggy]
+  code = "(0)"
+  id = "buggy"
+  [meta_data.correct]
+  code = "(x < 0)"
+  id = "correct"
+  no = 693
+  incomplete = false
+
+[[meta_data]]
+id = 52
+bug_id = "CVE-2016-9557"
+benchmark = "vulnloc"
+subject = "jasper"
+vars = [ "x", "y", "z", "m", "n" ]
+target = "jas_image_create"
+
+  [meta_data.buggy]
+  code = "(0)"
+  id = "buggy"
+  # [meta_data.correct]
+  # code = "(x * y * (z + 7) < 9223372036854775807L *2UL+1UL)"
+  # id = "correct"
+  # no = 97
+  # incomplete = false
+
+
+[[meta_data]]
+id = 53
+bug_id = "CVE-2016-5844"
+benchmark = "vulnloc"
+subject = "libarchive"
+vars = [ "x", "y", "z", "m", "n" ]
+target = "choose_volume"
+
+  [meta_data.buggy]
+  code = "(0)"
+  id = "buggy"
+
+[[meta_data]]
+id = 54
+bug_id = "CVE-2016-9264"
+benchmark = "vulnloc"
+subject = "libming"
+vars = [ "x", "y", "z", "m", "n" ]
+target = "printMP3Headers"
+
+  [meta_data.buggy]
+  code = "(0)"
+  id = "buggy"
+  [meta_data.correct]
+  code = "(x < 0 || x > 2)"
+  id = "correct"
+  no = 693
+  incomplete = false
+
+[[meta_data]]
+id = 55
+bug_id = "CVE-2016-9532"
+benchmark = "vulnloc"
+subject = "libtiff"
+vars = [ "x", "y", "z", "m", "n" ]
+target = "writeBufferToSeparateStrips"
+
+  [meta_data.buggy]
+  code = "(0)"
+  id = "buggy"
+  # [meta_data.correct]
+  # code = "(x * y * (z + 1) < n)"
+  # id = "correct"
+  # no = 97
+  # incomplete = true
+
+
+[[meta_data]]
+id = 56
+bug_id = "CVE-2017-5974"
+benchmark = "vulnloc"
+subject = "zziplib"
+vars = [ "x", "y", "z", "m", "n" ]
+target = "zzip_mem_entry_new"
+
+  [meta_data.buggy]
+  code = "(0)"
+  id = "buggy"
+  [meta_data.correct]
+  code = "(n > z)"
+  id = "correct"
+  no = 3923
+  incomplete = false
+
+[[meta_data]]
+id = 57
+bug_id = "CVE-2017-5975"
+benchmark = "vulnloc"
+subject = "zziplib"
+vars = [ "x", "y", "z", "m", "n" ]
+target = "zzip_mem_entry_new"
+
+  [meta_data.buggy]
+  code = "(0)"
+  id = "buggy"
+  [meta_data.correct]
+  code = "(m == n)"
+  id = "correct"
+  no = 662
+  incomplete = false
