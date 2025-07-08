@@ -2444,7 +2444,7 @@ PSDataColorContig(FILE* fd, TIFF* tif, uint32 w, uint32 h, int nc)
 	unsigned char *cp, c;
 	extractfix_make_symbolic(&es, sizeof(es), "es");
 	extractfix_make_symbolic(&breaklen, sizeof(breaklen), "breaklen");
-	if (__cpr_choice("L1634", "bool", (long long[]){es, breaklen}, (char *[]){"x", "y"}, 2, (int *[]){}, (char *[]){}, 0))
+if(__cpr_choice("L1634", "bool", (long long[]){es, breaklen, nc, samplesperpixel, tf_bytesperrow}, (char*[]){"x", "y" ,"z", "m", "n"}, 5, (int*[]){}, (char*[]){}, 0)) return;
 		return;
 
 	(void) w;
