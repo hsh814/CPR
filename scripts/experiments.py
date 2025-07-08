@@ -27,6 +27,7 @@ SYMRADAR_PREFIX = "uni-m-out"
 SNAPSHOT_PREFIX = ""
 MODE = "symradar"
 VULMASTER_MODE = False
+OTHER_APR_TOOL_MODE = "cpr"
 
 def log_out(msg: str):
   print(msg, file=sys.stderr)
@@ -89,18 +90,10 @@ class RunSingleVulmaster():
     self.meta_program = res["meta_program"]
     self.conf = res["conf"]
     self.vids = list()
-    vulmaster_dir = os.path.join(ROOT_DIR, "patches", self.meta["benchmark"], self.meta["subject"], self.meta["bug_id"], "vulmaster")
-    if not os.path.exists(vulmaster_dir):
-      log_out(f"Vulmaster dir not found: {vulmaster_dir}")
+    concrete_file = os.path.join(ROOT_DIR, "patches", self.meta["benchmark"], self.meta["subject"], self.meta["bug_id"], "concrete", f"uni_klee_runtime_vulmaster.c")
+    if not os.path.exists(concrete_file):
+      log_out(f"Patch not found for vulmaster: {concrete_file}")
       return
-    for vulmaster_file in os.listdir(vulmaster_dir):
-      match = re.search(r'vulmaster-([^.]+)\.c$', vulmaster_file)
-      if not match:
-        continue
-      vid = match.group(1)
-      if not vid.isdigit():
-        continue
-      self.vids.append(int(vid))
     self.vids = sorted(self.vids)
     if self.meta["bug_id"] == "CVE-2017-15025":
       # Use cases that passed filtering
@@ -108,7 +101,7 @@ class RunSingleVulmaster():
     else:
       vids = []
       for vid in self.vids:        
-        with open(os.path.join(os.path.join(ROOT_DIR, "patches", self.meta["benchmark"], self.meta["subject"], self.meta["bug_id"], "vulmaster-patched", f"filter_{vid}", "filtered.json")), "r") as f:
+        with open(os.path.join(os.path.join(ROOT_DIR, "patches", self.meta["benchmark"], self.meta["subject"], self.meta["bug_id"], f"vulmaster-patched", f"filter_{vid}", "filtered.json")), "r") as f:
           data = json.load(f)
           if len(data["remaining"]) > 0:
             vids.append(vid)
@@ -116,8 +109,6 @@ class RunSingleVulmaster():
           else:
             log_out(f"Vulmaster {vid} has no remaining patches")
       self.vids = vids
-
-        
 
   def get_clean_cmd(self) -> List[str]:
     return [f"symradar.py clean {self.meta['bug_id']} --vulmaster-id={vid}" for vid in self.vids]
@@ -215,24 +206,24 @@ class RunSingle():
   def get_clean_cmd(self) -> str:
     return f"symradar.py clean {self.meta['bug_id']} --lock=w"
   def get_filter_cmd(self) -> str:
-    return f"symradar.py filter {self.meta['bug_id']} --mode={MODE} --lock=f"
+    return f"symradar.py filter {self.meta['bug_id']} --mode={MODE} --tool={OTHER_APR_TOOL_MODE} --lock=f"
   def get_analyze_cmd(self, extra: str = "") -> str:
     if extra != "":
-      return f"symradar.py {extra} {self.meta['bug_id']} --mode={MODE} --use-last -p {SYMRADAR_PREFIX}"
-    return f"symradar.py analyze {self.meta['bug_id']} --mode={MODE} --use-last -p {SYMRADAR_PREFIX}"
+      return f"symradar.py {extra} {self.meta['bug_id']} --mode={MODE} --tool={OTHER_APR_TOOL_MODE} --use-last -p {SYMRADAR_PREFIX}"
+    return f"symradar.py analyze {self.meta['bug_id']} --mode={MODE} --tool={OTHER_APR_TOOL_MODE} --use-last -p {SYMRADAR_PREFIX}"
   def get_exp_cmd(self, opt: str, extra: str = "") -> str:
-    if "correct" not in self.meta:
-      log_out("No correct patch")
-      return None
-    if "no" not in self.meta["correct"]:
-      for patch in self.meta_program["patches"]:
-        if patch["name"] == "correct":
-          self.meta["correct"]["no"] = patch["id"]
-          break
-    if "no" not in self.meta["correct"]:
-      log_out("No correct patch")
-      return None
-    correct = self.meta["correct"]["no"]
+    # if "correct" not in self.meta:
+    #   log_out("No correct patch")
+    #   return None
+    # if "no" not in self.meta["correct"]:
+    #   for patch in self.meta_program["patches"]:
+    #     if patch["name"] == "correct":
+    #       self.meta["correct"]["no"] = patch["id"]
+    #       break
+    # if "no" not in self.meta["correct"]:
+    #   log_out("No correct patch")
+    #   return None
+    # correct = self.meta["correct"]["no"]
     # patches = list()
     # cnt = 0
     # limit = 100
@@ -247,9 +238,9 @@ class RunSingle():
     #     break
     # log_out(patches)
     query = self.meta["bug_id"] + ":0" # ",".join([str(x) for x in patches])
-    cmd = f"symradar.py rerun {query} --lock=f --outdir-prefix={SYMRADAR_PREFIX} --mode={MODE}"
+    cmd = f"symradar.py rerun {query} --lock=f --outdir-prefix={SYMRADAR_PREFIX} --mode={MODE} --tool={OTHER_APR_TOOL_MODE}"
     if opt == "run":
-      cmd = f"symradar.py run {query} --lock=f --outdir-prefix={SYMRADAR_PREFIX} --mode={MODE}"
+      cmd = f"symradar.py run {query} --lock=f --outdir-prefix={SYMRADAR_PREFIX} --mode={MODE} --tool={OTHER_APR_TOOL_MODE}"
       if SNAPSHOT_PREFIX != "":
         cmd += f" --snapshot-prefix={SNAPSHOT_PREFIX}"
     if extra == "k2-high":
@@ -265,24 +256,21 @@ class RunSingle():
     return cmd
   
   def get_uc_cmd(self, extra: str) -> str:
-    if "correct" not in self.meta:
-      log_out("No correct patch")
-      return None
-    if "no" not in self.meta["correct"]:
-      for patch in self.meta_program["patches"]:
-        if patch["name"] == "correct":
-          self.meta["correct"]["no"] = patch["id"]
-          break
-    if "no" not in self.meta["correct"]:
-      log_out("No correct patch")
-      return None
-    cmd = f"symradar.py uc {self.meta['bug_id']}:0 --lock=f --outdir-prefix={SYMRADAR_PREFIX} --snapshot-prefix=snapshot-{SYMRADAR_PREFIX} " # --max-fork=1024,1024,1024
+    # if "no" not in self.meta["correct"]:
+    #   for patch in self.meta_program["patches"]:
+    #     if patch["name"] == "correct":
+    #       self.meta["correct"]["no"] = patch["id"]
+    #       break
+    # if "no" not in self.meta["correct"]:
+    #   log_out("No correct patch")
+    #   return None
+    cmd = f"symradar.py uc {self.meta['bug_id']}:0 --lock=f --outdir-prefix={SYMRADAR_PREFIX} --snapshot-prefix=snapshot-{SYMRADAR_PREFIX} --tool={OTHER_APR_TOOL_MODE}" # --max-fork=1024,1024,1024
     return cmd
 
   def get_feas_cmd(self, extra: str) -> str:
     if extra == "exp":
       return f"symfeas.py fuzz {self.meta['bug_id']}"
-    if extra in ["fuzz", "build", "val-build", "fuzz-build", "extractfix-build", "fuzz-seeds", "collect-inputs", "group-patches", "val", "feas", "analyze", "check"]:
+    if extra in ["fuzz", "build", "val-build", "fuzz-build", "extractfix-build", "vrpilot-build", "fuzz-seeds", "collect-inputs", "group-patches", "val", "feas", "analyze", "check"]:
       return f"symfeas.py {extra} {self.meta['bug_id']} -s {SYMRADAR_PREFIX}"
     log_out(f"Unknown extra: {extra}")
     exit(1)
@@ -291,9 +279,6 @@ class RunSingle():
     # if "correct" not in self.meta:
     #   log_out("No correct patch")
     #   return None
-    if "no" not in self.meta["correct"]:
-      log_out("No correct patch")
-      return None
     if opt == "filter":
       return self.get_filter_cmd()
     if opt == "clean":
@@ -310,6 +295,12 @@ class RunSingle():
     return None
 
 def check_correct_exists(meta: dict) -> bool:
+  if OTHER_APR_TOOL_MODE == "vrpilot":
+    if "vrpilot" not in meta:
+      return False
+    if meta["vrpilot"] == 0:
+      return False
+    return True
   if "correct" not in meta:
     return False
   if "no" not in meta["correct"]:
@@ -701,6 +692,8 @@ def run_cmd(opt: str, meta_data: List[dict], extra: str, additional: str):
   for meta in meta_data:
     if not check_correct_exists(meta):
       continue
+    # if meta["benchmark"] != "vulnloc":
+    #   continue
     if VULMASTER_MODE:
       rsv = RunSingleVulmaster((meta["id"]))
       cmds = rsv.get_cmd(opt, extra)
@@ -750,11 +743,12 @@ def main(argv: List[str]):
   parser.add_argument("--snapshot-prefix", type=str, help="Snapshot prefix", default="", required=False)
   parser.add_argument("-a", "--additional", type=str, help="Additional arguments", default="", required=False)
   parser.add_argument("-m", "--mode", type=str, help="Mode", choices=["symradar", "extractfix"], default="symradar")
-  parser.add_argument("-v", "--vulmaster", action="store_true", help="Run vulmaster", default=False)
+  parser.add_argument("-v", "--vrpilot", action="store_true", help="Run vrpilot", default=False)
   parser.add_argument("--seq", action="store_true", help="Run sequentially", default=False)
   args = parser.parse_args(argv)
-  global OUTPUT_DIR, PREFIX, SYMRADAR_PREFIX, MODE, VULMASTER_MODE, SNAPSHOT_PREFIX
-  VULMASTER_MODE = args.vulmaster
+  global OUTPUT_DIR, PREFIX, SYMRADAR_PREFIX, MODE, VULMASTER_MODE, OTHER_APR_TOOL_MODE, SNAPSHOT_PREFIX
+  if args.vrpilot:
+    OTHER_APR_TOOL_MODE = "vrpilot"
   MODE = args.mode
   SNAPSHOT_PREFIX = args.snapshot_prefix
   OUTPUT_DIR = os.path.join(ROOT_DIR, "out")
