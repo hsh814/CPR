@@ -21,6 +21,7 @@ import psutil
 VULMASTER_MODE = False
 VULMASTER_ID = 0
 EXTRACTFIX_MODE = False
+NAIVE_MODE = False
 
 def print_log(msg: str):
     print(msg, file=sys.stderr)
@@ -154,7 +155,7 @@ class Config(uni_klee.Config):
             if VULMASTER_MODE:
                 cmd.append(f"--patch-filtering")
         cmd.append(f"--output-dir={snapshot_dir}")
-        cmd.append(f"--patch-id={patch_str}")
+        cmd.append(f"--patch-id=0")
     
     def find_last_loc(self, dir: str, target_function: str) -> int:
         # parse cfg.sbsv to get instruction range of target function
@@ -235,11 +236,12 @@ class Config(uni_klee.Config):
             "--write-kqueries",
             "--log-trace",
             "--max-memory=0",
-            "--lazy-patch",
             "--max-solver-time=10s",
             f"--target-function={target_function}",
             link_opt,
         ]
+        if not NAIVE_MODE:
+            result.append("--lazy-patch",)
         if "klee_flags" in self.project_conf:
             link_opt = self.project_conf["klee_flags"]
             result.append(link_opt)
@@ -1350,10 +1352,13 @@ def arg_parser(argv: List[str]) -> Config:
     parser.add_argument("-r", "--rerun", help="Rerun last command with same option", action="store_true")
     parser.add_argument("-z", "--analyze", help="Analyze symradar data", action="store_true")
     parser.add_argument("-g", "--use-last", help="Use last output directory", action="store_true")
+    parser.add_argument("--naive", help="Naive approach for patch handling", action="store_true")
     parser.add_argument("--mode", help="mode", choices=["symradar", "extractfix"], default="symradar")
     parser.add_argument("--vulmaster-id", help="Vulmaster id", type=int, default=0)
     args = parser.parse_args(argv[1:])
-    global VULMASTER_MODE, VULMASTER_ID, EXTRACTFIX_MODE
+    global VULMASTER_MODE, VULMASTER_ID, EXTRACTFIX_MODE, NAIVE_MODE
+    if args.naive:
+        NAIVE_MODE = True
     if args.mode == "extractfix":
         EXTRACTFIX_MODE = True
     if args.vulmaster_id > 0:

@@ -271,6 +271,15 @@ class Config:
   timeout: str
   
   def get_patch_ids(self, patch_ids: List[str]) -> List[str]:
+    plausible_file = os.path.join(self.conf_files.project_dir, "plausible.json")
+    if os.path.exists(plausible_file):
+      with open(plausible_file, "r") as f:
+        data = json.load(f)
+        result = list()
+        for patch in data["plausible_patches"]:
+          result.append(str(patch))
+        return result
+    print_log(f"WARNING!!!: No such file {plausible_file}")
     self.meta_program = self.conf_files.read_meta_program()
     result = list()
     for patch_id in patch_ids:
