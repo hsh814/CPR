@@ -275,7 +275,7 @@ class Config:
     if os.path.exists(plausible_file):
       with open(plausible_file, "r") as f:
         data = json.load(f)
-        result = list()
+        result = ["0"]
         for patch in data["plausible_patches"]:
           result.append(str(patch))
         return result

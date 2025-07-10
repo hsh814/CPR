@@ -202,7 +202,6 @@ class Config(uni_klee.Config):
         out_dir = self.conf_files.out_dir
         default_opts = [
             "--no-exit-on-error",
-            "--simplify-sym-indices",
             f"--symbolize-level={self.sym_level}",
             f"--max-forks-per-phases={self.max_fork}",
         ]
