@@ -669,6 +669,7 @@ benchmark = "vulnloc"
 subject = "libarchive"
 vars = [ "x", "y", "z", "m", "n" ]
 target = "choose_volume"
+poc = 1
 
   [meta_data.buggy]
   code = "(0)"
@@ -708,9 +709,49 @@ target = "writeBufferToSeparateStrips"
   # no = 97
   # incomplete = true
 
-
 [[meta_data]]
 id = 56
+bug_id = "CVE-2016-10092"
+benchmark = "vulnloc"
+subject = "libtiff"
+vars = [ "x", "y", "z", "m", "n" ]
+target = "readContigStripsIntoBuffer"
+poc = 1
+
+  [meta_data.buggy]
+  code = "(0)"
+  id = "buggy"
+
+
+[[meta_data]]
+id = 57
+bug_id = "CVE-2016-10272"
+benchmark = "vulnloc"
+subject = "libtiff"
+vars = [ "x", "y", "z", "m", "n" ]
+target = "readContigStripsIntoBuffer"
+poc = 1
+
+  [meta_data.buggy]
+  code = "(0)"
+  id = "buggy"
+
+
+[[meta_data]]
+id = 58
+bug_id = "CVE-2017-5225"
+benchmark = "vulnloc"
+subject = "libtiff"
+vars = [ "x", "y", "z", "m", "n" ]
+target = "cpContig2SeparateByRow"
+poc = 1
+
+  [meta_data.buggy]
+  code = "(0)"
+  id = "buggy"
+
+[[meta_data]]
+id = 59
 bug_id = "CVE-2017-5974"
 benchmark = "vulnloc"
 subject = "zziplib"
@@ -727,7 +768,7 @@ target = "zzip_mem_entry_new"
   incomplete = false
 
 [[meta_data]]
-id = 57
+id = 60
 bug_id = "CVE-2017-5975"
 benchmark = "vulnloc"
 subject = "zziplib"

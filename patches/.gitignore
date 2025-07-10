@@ -18,6 +18,8 @@ concrete-inputs/
 */*/*/pc-src
 */*/*/pc-runtime
 */*/*/val-*
+*/*/*/poc-*
+*/*/*/vrpilot-*
 */*/*/*-bak
 */*/*/repair-out
 */*/*/runtime
