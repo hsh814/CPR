@@ -22,6 +22,7 @@ VULMASTER_MODE = False
 VULMASTER_ID = 0
 EXTRACTFIX_MODE = False
 NAIVE_MODE = False
+OTHER_APR_TOOL_MODE = "cpr"
 
 def print_log(msg: str):
     print(msg, file=sys.stderr)
@@ -92,14 +93,13 @@ class ConfigFiles(uni_klee.ConfigFiles):
         )
         if VULMASTER_MODE:
             self.work_dir = os.path.join(self.project_dir, "vulmaster-patched")
-            self.meta_patch_obj_file = os.path.join(
-                self.project_dir, "concrete", "libuni_klee_runtime_vulmaster.bca"
-            )
+            self.meta_patch_obj_file = os.path.join(self.project_dir, "concrete", "libuni_klee_runtime_vulmaster.bca")
+        elif OTHER_APR_TOOL_MODE != "cpr":
+            self.work_dir = os.path.join(self.project_dir, f"{OTHER_APR_TOOL_MODE}-patched")
+            self.meta_patch_obj_file = os.path.join(self.project_dir, "concrete", f"libuni_klee_runtime_{OTHER_APR_TOOL_MODE}.bca")
         else:
             self.work_dir = os.path.join(self.project_dir, "patched")
-            self.meta_patch_obj_file = os.path.join(
-                self.project_dir, "concrete", "libuni_klee_runtime_new.bca"
-            )
+            self.meta_patch_obj_file = os.path.join(self.project_dir, "concrete", "libuni_klee_runtime_new.bca")
         self.repair_conf = os.path.join(self.project_dir, "repair.conf")
         self.meta_program = os.path.join(self.project_dir, "meta-program-original.json")
         sympatch.compile(os.path.join(self.project_dir, "concrete"))
@@ -150,10 +150,10 @@ class Config(uni_klee.Config):
         if self.cmd == "filter":
             cmd.append("--no-exit-on-error")
             snapshot_dir = self.conf_files.filter_dir
-            all_patches = [str(patch["id"]) for patch in self.meta_program["patches"]]
-            patch_str = ",".join(all_patches)
-            if VULMASTER_MODE:
-                cmd.append(f"--patch-filtering")
+            # all_patches = [str(patch["id"]) for patch in self.meta_program["patches"]]
+            # patch_str = ",".join(all_patches)
+            # if VULMASTER_MODE:
+            #     cmd.append(f"--patch-filtering")
         cmd.append(f"--output-dir={snapshot_dir}")
         cmd.append(f"--patch-id=0")
     
@@ -1353,11 +1353,12 @@ def arg_parser(argv: List[str]) -> Config:
     parser.add_argument("-g", "--use-last", help="Use last output directory", action="store_true")
     parser.add_argument("--naive", help="Naive approach for patch handling", action="store_true")
     parser.add_argument("--mode", help="mode", choices=["symradar", "extractfix"], default="symradar")
+    parser.add_argument("--tool", help="Other apr tool", choices=["cpr", "vrpilot"], default="symardar")
     parser.add_argument("--vulmaster-id", help="Vulmaster id", type=int, default=0)
     args = parser.parse_args(argv[1:])
-    global VULMASTER_MODE, VULMASTER_ID, EXTRACTFIX_MODE, NAIVE_MODE
-    if args.naive:
-        NAIVE_MODE = True
+    global VULMASTER_MODE, VULMASTER_ID, EXTRACTFIX_MODE, NAIVE_MODE, OTHER_APR_TOOL_MODE
+    OTHER_APR_TOOL_MODE = args.tool
+    NAIVE_MODE = args.naive
     if args.mode == "extractfix":
         EXTRACTFIX_MODE = True
     if args.vulmaster_id > 0:

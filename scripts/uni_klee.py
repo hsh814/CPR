@@ -244,6 +244,8 @@ class ConfigFiles:
   def read_meta_data(self) -> dict:
     return self.global_config.meta_data
   def read_meta_program(self) -> dict:
+    if not os.path.exists(self.meta_program):
+      return {}
     with open(self.meta_program, "r") as f:
       return json.load(f)
   def get_log_dir(self) -> str:

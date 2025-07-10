@@ -174,18 +174,25 @@ def compile(dir: str):
   cmd = "wllvm -fPIC -shared -o libcpr_runtime_new.so uni_klee_runtime_new.o"
   lazy_compile(dir, cmd, "uni_klee_runtime_new.o", "libcpr_runtime_new.so")
   
-  if not os.path.exists(os.path.join(dir, "uni_klee_runtime_vulmaster.c")):
-    print(f"\nWARNING!!! {dir}/uni_klee_runtime_vulmaster.c does not exist\n", file=sys.stderr)
-    return
-  cmd = "wllvm -g -fPIC -O0 -c -o uni_klee_runtime_vulmaster.o uni_klee_runtime_vulmaster.c -I{KLEE_INCLUDE_PATH}"
-  lazy_compile(dir, cmd, "uni_klee_runtime_vulmaster.c", "uni_klee_runtime_vulmaster.o")
-  cmd = "llvm-ar rcs libuni_klee_runtime_vulmaster.a uni_klee_runtime_vulmaster.o"
-  lazy_compile(dir, cmd, "uni_klee_runtime_vulmaster.o", "libuni_klee_runtime_vulmaster.a")
-  cmd = "extract-bc libuni_klee_runtime_vulmaster.a"
-  lazy_compile(dir, cmd, "libuni_klee_runtime_vulmaster.a", "libuni_klee_runtime_vulmaster.bca")
-  cmd = "wllvm -fPIC -shared -o libcpr_runtime_vulmaster.so uni_klee_runtime_vulmaster.o"
-  lazy_compile(dir, cmd, "uni_klee_runtime_vulmaster.o", "libcpr_runtime_vulmaster.so")
+  if os.path.exists(os.path.join(dir, "uni_klee_runtime_vulmaster.c")):
+    cmd = "wllvm -g -fPIC -O0 -c -o uni_klee_runtime_vulmaster.o uni_klee_runtime_vulmaster.c -I{KLEE_INCLUDE_PATH}"
+    lazy_compile(dir, cmd, "uni_klee_runtime_vulmaster.c", "uni_klee_runtime_vulmaster.o")
+    cmd = "llvm-ar rcs libuni_klee_runtime_vulmaster.a uni_klee_runtime_vulmaster.o"
+    lazy_compile(dir, cmd, "uni_klee_runtime_vulmaster.o", "libuni_klee_runtime_vulmaster.a")
+    cmd = "extract-bc libuni_klee_runtime_vulmaster.a"
+    lazy_compile(dir, cmd, "libuni_klee_runtime_vulmaster.a", "libuni_klee_runtime_vulmaster.bca")
+    cmd = "wllvm -fPIC -shared -o libcpr_runtime_vulmaster.so uni_klee_runtime_vulmaster.o"
+    lazy_compile(dir, cmd, "uni_klee_runtime_vulmaster.o", "libcpr_runtime_vulmaster.so")
   
+  if os.path.exists(os.path.join(dir, "uni_klee_runtime_vrpilot.c")):
+    cmd = "wllvm -g -fPIC -O0 -c -o uni_klee_runtime_vrpilot.o uni_klee_runtime_vrpilot.c -I{KLEE_INCLUDE_PATH}"
+    lazy_compile(dir, cmd, "uni_klee_runtime_vrpilot.c", "uni_klee_runtime_vrpilot.o")
+    cmd = "llvm-ar rcs libuni_klee_runtime_vrpilot.a uni_klee_runtime_vrpilot.o"
+    lazy_compile(dir, cmd, "uni_klee_runtime_vrpilot.o", "libuni_klee_runtime_vrpilot.a")
+    cmd = "extract-bc libuni_klee_runtime_vrpilot.a"
+    lazy_compile(dir, cmd, "libuni_klee_runtime_vrpilot.a", "libuni_klee_runtime_vrpilot.bca")
+    cmd = "wllvm -fPIC -shared -o libcpr_runtime_vrpilot.so uni_klee_runtime_vrpilot.o"
+    lazy_compile(dir, cmd, "uni_klee_runtime_vrpilot.o", "libcpr_runtime_vrpilot.so")
   
 def move_files(meta_data: dict, experiments: str, patches: str):
   for meta in meta_data:
