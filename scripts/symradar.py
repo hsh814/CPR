@@ -94,15 +94,19 @@ class ConfigFiles(uni_klee.ConfigFiles):
         if VULMASTER_MODE:
             self.work_dir = os.path.join(self.project_dir, "vulmaster-patched")
             self.meta_patch_obj_file = os.path.join(self.project_dir, "concrete", "libuni_klee_runtime_vulmaster.bca")
-        elif OTHER_APR_TOOL_MODE != "cpr":
-            self.work_dir = os.path.join(self.project_dir, f"{OTHER_APR_TOOL_MODE}-patched")
-            self.meta_patch_obj_file = os.path.join(self.project_dir, "concrete", f"libuni_klee_runtime_{OTHER_APR_TOOL_MODE}.bca")
+        elif OTHER_APR_TOOL_MODE == "vrpilot":
+            self.work_dir = os.path.join(self.project_dir, f"vrpilot-patched")
+            self.meta_patch_obj_file = os.path.join(self.project_dir, "concrete", f"libuni_klee_runtime_vrpilot.bca")
+        elif OTHER_APR_TOOL_MODE == "poc":
+            self.work_dir = os.path.join(self.project_dir, f"poc-patched")
+            self.meta_patch_obj_file = ""
         else:
             self.work_dir = os.path.join(self.project_dir, "patched")
             self.meta_patch_obj_file = os.path.join(self.project_dir, "concrete", "libuni_klee_runtime_new.bca")
         self.repair_conf = os.path.join(self.project_dir, "repair.conf")
         self.meta_program = os.path.join(self.project_dir, "meta-program-original.json")
-        sympatch.compile(os.path.join(self.project_dir, "concrete"))
+        if OTHER_APR_TOOL_MODE != "poc":
+            sympatch.compile(os.path.join(self.project_dir, "concrete"))
         
 
     def set_out_dir(self, out_dir: str, out_dir_prefix: str, bug_info: dict, snapshot_prefix: str, filter_prefix: str, use_last: bool):
@@ -172,12 +176,12 @@ class Config(uni_klee.Config):
             if "vrpilot" not in self.bug_info:
                 print_log(f"WARNING!!!: No vrpilot patch info in {self.bug_info}")
                 exit(1)
-            return [str(patch_id) for patch_id in range(self.bug_info["vrpilot"])]
+            return [str(patch_id) for patch_id in range(self.bug_info["vrpilot"] + 1)]
         elif OTHER_APR_TOOL_MODE == "poc":
             if "poc" not in self.bug_info:
                 print_log(f"WARNING!!!: No poc patch info in {self.bug_info}")
                 exit(1)
-            return [str(patch_id) for patch_id in range(self.bug_info["poc"])]
+            return [str(patch_id) for patch_id in range(self.bug_info["poc"] + 1)]
         plausible_file = os.path.join(self.conf_files.project_dir, "plausible.json")
         if os.path.exists(plausible_file):
             with open(plausible_file, "r") as f:
@@ -185,7 +189,7 @@ class Config(uni_klee.Config):
                 result = ["0"]
                 for patch in data["plausible_patches"]:
                     result.append(str(patch))
-                    return result
+                return result
         print_log(f"WARNING!!!: No such file {plausible_file}")
         self.meta_program = self.conf_files.read_meta_program()
         result = list()
@@ -204,7 +208,6 @@ class Config(uni_klee.Config):
 
     def append_snapshot_cmd(self, cmd: List[str]):
         snapshot_dir = self.conf_files.snapshot_dir
-        patch_str = ",".join(self.snapshot_patch_ids)
         if self.cmd == "filter":
             cmd.append("--no-exit-on-error")
             snapshot_dir = self.conf_files.filter_dir
@@ -212,8 +215,15 @@ class Config(uni_klee.Config):
             # patch_str = ",".join(all_patches)
             # if VULMASTER_MODE:
             #     cmd.append(f"--patch-filtering")
+            patch_str = ",".join(self.patch_ids)
+            cmd.append(f"--patch-id={patch_str}")
+            if OTHER_APR_TOOL_MODE == "poc":
+                cmd.append(f"--non-cond-patch")
+                cmd.append(f"--patch-filtering")
+        else:
+            cmd.append(f"--patch-id=0")
         cmd.append(f"--output-dir={snapshot_dir}")
-        cmd.append(f"--patch-id=0")
+        
     
     def find_last_loc(self, dir: str, target_function: str) -> int:
         # parse cfg.sbsv to get instruction range of target function
@@ -282,7 +292,6 @@ class Config(uni_klee.Config):
 
     def get_cmd_opts(self, is_snapshot: bool) -> str:
         target_function = self.bug_info["target"]
-        link_opt = f"--link-llvm-lib={self.conf_files.meta_patch_obj_file}"
         result = [
             "uni-klee",
             "--libc=uclibc",
@@ -295,8 +304,10 @@ class Config(uni_klee.Config):
             "--max-memory=0",
             "--max-solver-time=10s",
             f"--target-function={target_function}",
-            link_opt,
         ]
+        if self.conf_files.meta_patch_obj_file != "":
+            link_opt = f"--link-llvm-lib={self.conf_files.meta_patch_obj_file}"
+            result.append(link_opt)
         if not NAIVE_MODE:
             result.append("--lazy-patch",)
         if "klee_flags" in self.project_conf:
@@ -1235,7 +1246,7 @@ class SymvassAnalyzer:
                 f.write(out)
             for meta in meta_out:
                 f.write(meta)
-                
+    
                 
     def mem_file_parser(self, filename: str) -> sbsv.parser:
         parser = sbsv.parser()
