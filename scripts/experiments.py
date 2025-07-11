@@ -270,7 +270,14 @@ class RunSingle():
   def get_feas_cmd(self, extra: str) -> str:
     if extra == "exp":
       return f"symfeas.py fuzz {self.meta['bug_id']}"
-    if extra in ["fuzz", "build", "val-build", "fuzz-build", "extractfix-build", "vrpilot-build", "fuzz-seeds", "collect-inputs", "group-patches", "val", "feas", "analyze", "check"]:
+    if extra == "build":
+      cmd = "build"
+      if OTHER_APR_TOOL_MODE != "cpr":
+        cmd = f"{OTHER_APR_TOOL_MODE}-build"
+      if MODE == "extractfix":
+        cmd = f"extractfix-{cmd}" # extractfix-build, extractfix-vrpilot-build
+      return f"symfeas.py {cmd}"
+    if extra in ["fuzz", "val-build", "fuzz-build", "fuzz-seeds", "collect-inputs", "group-patches", "val", "feas", "analyze", "check"]:
       return f"symfeas.py {extra} {self.meta['bug_id']} -s {SYMRADAR_PREFIX}"
     log_out(f"Unknown extra: {extra}")
     exit(1)
@@ -299,6 +306,12 @@ def check_correct_exists(meta: dict) -> bool:
     if "vrpilot" not in meta:
       return False
     if meta["vrpilot"] == 0:
+      return False
+    return True
+  elif OTHER_APR_TOOL_MODE == "poc":
+    if "poc" not in meta:
+      return False
+    if meta["poc"] == 0:
       return False
     return True
   if "correct" not in meta:
@@ -744,11 +757,14 @@ def main(argv: List[str]):
   parser.add_argument("-a", "--additional", type=str, help="Additional arguments", default="", required=False)
   parser.add_argument("-m", "--mode", type=str, help="Mode", choices=["symradar", "extractfix"], default="symradar")
   parser.add_argument("-v", "--vrpilot", action="store_true", help="Run vrpilot", default=False)
+  parser.add_argument("--poc", action="store_true", help="Run poc", default=False)
   parser.add_argument("--seq", action="store_true", help="Run sequentially", default=False)
   args = parser.parse_args(argv)
   global OUTPUT_DIR, PREFIX, SYMRADAR_PREFIX, MODE, VULMASTER_MODE, OTHER_APR_TOOL_MODE, SNAPSHOT_PREFIX
   if args.vrpilot:
     OTHER_APR_TOOL_MODE = "vrpilot"
+  if args.poc:
+    OTHER_APR_TOOL_MODE = "poc"
   MODE = args.mode
   SNAPSHOT_PREFIX = args.snapshot_prefix
   OUTPUT_DIR = os.path.join(ROOT_DIR, "out")

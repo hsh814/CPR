@@ -815,3 +815,16 @@ target = "zzip_mem_entry_new"
   id = "correct"
   no = 662
   incomplete = false
+
+[[meta_data]]
+id = 61
+bug_id = "CVE-2013-7437"
+benchmark = "vulnloc"
+subject = "libtiff"
+vars = [ "x", "y", "z", "m", "n" ]
+target = "bm_readbody_bmp"
+poc = 1
+
+  [meta_data.buggy]
+  code = "(0)"
+  id = "buggy"

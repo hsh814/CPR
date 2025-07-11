@@ -143,6 +143,64 @@ class Config(uni_klee.Config):
         self.max_fork = max_fork
         self.mode = mode
         self.conf_files = ConfigFiles()
+    
+    def parse_query(self, snapshot_patch_ids: str) -> Tuple[dict, list]:
+        parsed: List[str] = None
+        if ":" in self.query:
+            parsed = self.query.rsplit(":", 1)
+        else:
+            parsed = self.query.rsplit("/", 1)
+        bugid = parsed[0]
+        self.bug_info = uni_klee.global_config.get_bug_info(bugid)
+        if self.bug_info is None:
+            print_log(f"Cannot find patch for {self.query} - {bugid}")
+            sys.exit(1)
+        # Set config files
+        self.conf_files.set(self.bug_info)
+        # Set patch ids
+        patchid = "buggy"
+        if len(parsed) > 1:
+            patchid = parsed[1]
+        self.patch_ids = self.get_patch_ids(patchid.split(","))
+        if snapshot_patch_ids != "":
+            self.snapshot_patch_ids = self.get_patch_ids(snapshot_patch_ids.split(","))
+        else:
+            self.snapshot_patch_ids = ["0"]
+    
+    def get_patch_ids(self, patch_ids: List[str]) -> List[str]:
+        if OTHER_APR_TOOL_MODE == "vrpilot":
+            if "vrpilot" not in self.bug_info:
+                print_log(f"WARNING!!!: No vrpilot patch info in {self.bug_info}")
+                exit(1)
+            return [str(patch_id) for patch_id in range(self.bug_info["vrpilot"])]
+        elif OTHER_APR_TOOL_MODE == "poc":
+            if "poc" not in self.bug_info:
+                print_log(f"WARNING!!!: No poc patch info in {self.bug_info}")
+                exit(1)
+            return [str(patch_id) for patch_id in range(self.bug_info["poc"])]
+        plausible_file = os.path.join(self.conf_files.project_dir, "plausible.json")
+        if os.path.exists(plausible_file):
+            with open(plausible_file, "r") as f:
+                data = json.load(f)
+                result = ["0"]
+                for patch in data["plausible_patches"]:
+                    result.append(str(patch))
+                    return result
+        print_log(f"WARNING!!!: No such file {plausible_file}")
+        self.meta_program = self.conf_files.read_meta_program()
+        result = list()
+        for patch_id in patch_ids:
+            if patch_id.startswith("r") and "-" in patch_id:
+                start, end = patch_id.removeprefix("r").split("-")
+                for i in range(int(start), int(end) + 1):
+                    result.append(str(i))
+                    continue
+        for patch in self.meta_program["patches"]:
+            if str(patch["id"]) == patch_id:
+                result.append(str(patch["id"]))
+            elif patch["name"] == patch_id:
+                result.append(str(patch["id"]))
+        return result
 
     def append_snapshot_cmd(self, cmd: List[str]):
         snapshot_dir = self.conf_files.snapshot_dir
@@ -957,34 +1015,43 @@ class SymvassAnalyzer:
         self.generate_table(cluster, result)
     
     def analyze_v3(self):
-        if not os.path.exists(os.path.join(self.filter_dir, "filtered.json")):
-            print_log(f"[error] {os.path.join(self.filter_dir, 'filtered.json')} not found")
-            exit(1)
-        dp_filter = SymvassDataLogSbsvParser(self.filter_dir)
-        with open(os.path.join(self.filter_dir, "filtered.json"), "r") as f:
-            filtered = json.load(f)
         subject_dir = os.path.join(uni_klee.ROOT_DIR, "patches", self.bug_info["benchmark"], self.bug_info["subject"], self.bug_info["bug_id"])
-        with open(os.path.join(subject_dir, "group-patches-original.json"), "r") as f:
-            group_patches = json.load(f)
-        patch_group_tmp = dict()
-        correct_patch = group_patches["correct_patch_id"]
-        for patches in group_patches["equivalences"]:
-            representative = patches[0]
-            for patch in patches:
-                patch_group_tmp[patch] = representative
-        patch_eq_map = dict()
-        for patch in filtered["remaining"]:
-            if patch in patch_group_tmp:
-                patch_eq_map[patch] = patch_group_tmp[patch]
-            else:
-                patch_eq_map[patch] = patch
+        plausible_file = os.path.join(subject_dir, "plausible.json")
         all_patches = set()
-        for patch in filtered["remaining"]:
-            if patch == patch_eq_map[patch]:
-                all_patches.add(patch)
-        if correct_patch in patch_eq_map:
-            correct_patch = patch_eq_map[correct_patch]
-        
+        correct_patch = 0
+        if not os.path.exists(plausible_file):
+            print_log(f"[error] {plausible_file} not found")
+            if not os.path.exists(os.path.join(self.filter_dir, "filtered.json")):
+                print_log(f"[error] {os.path.join(self.filter_dir, 'filtered.json')} not found")
+                exit(1)
+            else:
+                with open(os.path.join(self.filter_dir, "filtered.json"), "r") as f:
+                    filtered = json.load(f)
+                with open(os.path.join(subject_dir, "group-patches-original.json"), "r") as f:
+                    group_patches = json.load(f)
+                patch_group_tmp = dict()
+                correct_patch = group_patches["correct_patch_id"]
+                for patches in group_patches["equivalences"]:
+                    representative = patches[0]
+                    for patch in patches:
+                        patch_group_tmp[patch] = representative
+                patch_eq_map = dict()
+                for patch in filtered["remaining"]:
+                    if patch in patch_group_tmp:
+                        patch_eq_map[patch] = patch_group_tmp[patch]
+                    else:
+                        patch_eq_map[patch] = patch
+                for patch in filtered["remaining"]:
+                    if patch == patch_eq_map[patch]:
+                        all_patches.add(patch)
+                if correct_patch in patch_eq_map:
+                    correct_patch = patch_eq_map[correct_patch]
+        else:
+            with open(plausible_file, "r") as f:
+                plausible = json.load(f)
+            all_patches = set(plausible["plausible_patches"])
+            correct_patch = plausible["correct_patch"]
+        dp_filter = SymvassDataLogSbsvParser(self.filter_dir)
         if VULMASTER_MODE:
             all_patches = set(filtered["remaining"])
             correct_patch = 1 # This is mostly wrong, but we need any correct patch
@@ -1353,7 +1420,7 @@ def arg_parser(argv: List[str]) -> Config:
     parser.add_argument("-g", "--use-last", help="Use last output directory", action="store_true")
     parser.add_argument("--naive", help="Naive approach for patch handling", action="store_true")
     parser.add_argument("--mode", help="mode", choices=["symradar", "extractfix"], default="symradar")
-    parser.add_argument("--tool", help="Other apr tool", choices=["cpr", "vrpilot"], default="symardar")
+    parser.add_argument("--tool", help="Other apr tool", choices=["cpr", "vrpilot", "poc"], default="cpr")
     parser.add_argument("--vulmaster-id", help="Vulmaster id", type=int, default=0)
     args = parser.parse_args(argv[1:])
     global VULMASTER_MODE, VULMASTER_ID, EXTRACTFIX_MODE, NAIVE_MODE, OTHER_APR_TOOL_MODE
@@ -1361,6 +1428,8 @@ def arg_parser(argv: List[str]) -> Config:
     NAIVE_MODE = args.naive
     if args.mode == "extractfix":
         EXTRACTFIX_MODE = True
+    if OTHER_APR_TOOL_MODE == "poc":
+        NAIVE_MODE = True
     if args.vulmaster_id > 0:
         VULMASTER_MODE = True
         VULMASTER_ID = args.vulmaster_id
