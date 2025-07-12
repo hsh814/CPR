@@ -208,7 +208,7 @@ class RunSingle():
   def get_filter_cmd(self) -> str:
     return f"symradar.py filter {self.meta['bug_id']} --mode={MODE} --tool={OTHER_APR_TOOL_MODE} --lock=f"
   def get_analyze_cmd(self, extra: str = "") -> str:
-    if extra != "":
+    if extra != "exp":
       return f"symradar.py {extra} {self.meta['bug_id']} --mode={MODE} --tool={OTHER_APR_TOOL_MODE} --use-last -p {SYMRADAR_PREFIX}"
     return f"symradar.py analyze {self.meta['bug_id']} --mode={MODE} --tool={OTHER_APR_TOOL_MODE} --use-last -p {SYMRADAR_PREFIX}"
   def get_exp_cmd(self, opt: str, extra: str = "") -> str:
@@ -600,6 +600,41 @@ def get_all_patches(file: str) -> Tuple[Set[int], int]:
       correct_patch = patch_eq_map[correct_patch]      
     return all_patches, correct_patch
 
+def symradar_final_result_v3_poc(meta: dict, result_f: TextIO):
+  subject = meta["subject"]
+  bug_id = meta["bug_id"]
+  subject_dir = os.path.join(ROOT_DIR, "patches", meta["benchmark"], subject, bug_id)
+  patched_dir = os.path.join(subject_dir, "poc-patched")
+  out_dir_no = find_num(patched_dir, SYMRADAR_PREFIX) - 1
+  out_file = os.path.join(patched_dir, f"{SYMRADAR_PREFIX}-{out_dir_no}", "table_v3.sbsv")
+  if not os.path.exists(out_file):
+    log_out(f"File not found: {out_file}")
+    result_f.write("\t\t\t\t\t\t\t\t\t\n")
+    return
+  parser = parse_result_v3(out_file)
+  result = parser.get_result()
+  if result is None:
+    log_out(f"Failed to parse: {out_file}")
+    result_f.write("\t\t\t\t\t\t\t\t\t\n")
+    return
+
+  all_patches = meta["poc"]
+  correct_patch = 1
+  
+  meta_data_default = result["meta-data"]["default"]
+  meta_data_default_remove_crash = result["meta-data"]["remove-crash"]
+  meta_data_strict = result["meta-data"]["strict"]
+  meta_data_strict_remove_crash = result["meta-data"]["strict-remove-crash"]
+  
+  default_str = symradar_res_to_str(meta_data_default[0])
+  default_remove_crash_str = symradar_res_to_str(meta_data_default_remove_crash[0])
+  strict_str = symradar_res_to_str(meta_data_strict[0])
+  strict_remove_crash_str = symradar_res_to_str(meta_data_strict_remove_crash[0])
+  
+  stat = result["stat"]["states"][0]
+  
+  result_f.write(f"{subject}\t{bug_id}\t{correct_patch}\t{all_patches}\t{False}\t{default_str}\t{strict_str}\t{default_remove_crash_str}\t{strict_remove_crash_str}\n")
+
 def symradar_final_result_v3(meta: dict, result_f: TextIO):
   subject = meta["subject"]
   bug_id = meta["bug_id"]
@@ -619,13 +654,13 @@ def symradar_final_result_v3(meta: dict, result_f: TextIO):
     result_f.write("\t\t\t\t\t\t\t\t\t\n")
     return
   
-  filter_result_file = os.path.join(subject_dir, "patched", "filter", "filtered.json")
-  filter_result = set()
-  if not os.path.exists(filter_result_file):
-    log_out(f"File not found: {filter_result_file}")
-  with open(filter_result_file, "r") as f:
-    data = json.load(f)
-    filter_result = set(data["remaining"])
+  # filter_result_file = os.path.join(subject_dir, "patched", "filter", "filtered.json")
+  # filter_result = set()
+  # if not os.path.exists(filter_result_file):
+  #   log_out(f"File not found: {filter_result_file}")
+  # with open(filter_result_file, "r") as f:
+  #   data = json.load(f)
+  #   filter_result = set(data["remaining"])
 
   all_patches, correct_patch = get_all_patches(os.path.join(subject_dir, "group-patches-original.json"))
   
@@ -657,6 +692,8 @@ def final_analysis(meta_data: List[dict], output: str):
       continue
     if VULMASTER_MODE:
       symradar_final_result_vulmaster_v3(meta, result_f)
+    elif OTHER_APR_TOOL_MODE == "poc":
+      symradar_final_result_v3_poc(meta, result_f)
     else:
       symradar_final_result_v3(meta, result_f)
     # print(f"{meta['subject']}\t{meta['bug_id']}")

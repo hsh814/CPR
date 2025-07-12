@@ -762,7 +762,7 @@ benchmark = "vulnloc"
 subject = "libtiff"
 vars = [ "x", "y", "z", "m", "n" ]
 target = "readContigStripsIntoBuffer"
-poc = 1
+poc = 0
 
   [meta_data.buggy]
   code = "(0)"
