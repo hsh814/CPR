@@ -167,7 +167,7 @@ class RunSingleVulmaster():
     return result
 
   def get_feas_cmd(self, extra: str) -> List[str]:
-    if extra in ["fuzz", "build", "val-build", "fuzz-build", "extractfix-build", "vulmaster-build", "vulmaster-extractfix-build", "fuzz-seeds", "collect-inputs", "group-patches", "val", "feas", "analyze", "check"]:
+    if extra in ["fuzz", "build", "val-build", "fuzz-build", "extractfix-build", "poc-build", "vulmaster-build", "vulmaster-extractfix-build", "fuzz-seeds", "collect-inputs", "group-patches", "val", "feas", "analyze", "check"]:
       return [f"symfeas.py {extra} {self.meta['bug_id']} -s {SYMRADAR_PREFIX}"]
     log_out(f"Unknown extra: {extra}")
     exit(1)
@@ -276,7 +276,7 @@ class RunSingle():
         cmd = f"{OTHER_APR_TOOL_MODE}-build"
       if MODE == "extractfix":
         cmd = f"extractfix-{cmd}" # extractfix-build, extractfix-vrpilot-build
-      return f"symfeas.py {cmd}"
+      return f"symfeas.py {cmd} {self.meta['bug_id']}"
     if extra in ["fuzz", "val-build", "fuzz-build", "fuzz-seeds", "collect-inputs", "group-patches", "val", "feas", "analyze", "check"]:
       return f"symfeas.py {extra} {self.meta['bug_id']} -s {SYMRADAR_PREFIX}"
     log_out(f"Unknown extra: {extra}")

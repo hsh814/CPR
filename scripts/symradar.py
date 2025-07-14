@@ -1283,8 +1283,12 @@ class SymvassAnalyzer:
         dp_filter = SymvassDataLogSbsvParser(self.filter_dir)
         correct_patch = 1 # This is mostly wrong, but we need any correct patch
         # Get exit location in filter
-        filter_metadata = dp_filter.parser.get_result()["meta-data"][0]
-        exit_loc = filter_metadata["exitLoc"]
+        exit_loc = ""
+        for state in dp_filter.parser.get_result()["meta-data"]:
+            if state["patchId"] == 0:
+                exit_loc = state["exitLoc"]
+                print_log(f"Exit location in filter: {exit_loc}")
+                break
         # Analyze
         dp = SymvassDataLogSbsvParser(self.dir)
         analyzer = DataAnalyzer(dp)
@@ -1292,6 +1296,8 @@ class SymvassAnalyzer:
         cluster = self.cluster(analyzer)
         result = list()
         survived_patches = dict()
+        dead_patches = dict()
+        survived_inputs = dict()
         for crash_state in cluster:
             base_meta = analyzer.meta_data[crash_state]
             if not base_meta["use"]:
@@ -1306,6 +1312,12 @@ class SymvassAnalyzer:
             survived_patches[crash_id]["base"] = base_state
             survived_patches[crash_id]["patch"] = set()
             survived_patches[crash_id]["crash_test"] = dict()
+            dead_patches[crash_id] = dict()
+            dead_patches[crash_id]["base"] = base_state
+            dead_patches[crash_id]["crash_test"] = dict()
+            survived_inputs[crash_id] = dict()
+            survived_inputs[crash_id]["base"] = base_state
+            survived_inputs[crash_id]["crash_test"] = set()
             for crash_test in cluster[crash_state]:
                 if crash_test not in analyzer.meta_data:
                     continue
@@ -1316,6 +1328,7 @@ class SymvassAnalyzer:
                 crash_ret = crash_meta["ret"]
                 crash_record = crash_meta["record"]
                 crashed = crash_meta["actuallyCrashed"]
+                survived_inputs[crash_id]["crash_test"].add(crash_test)
                 # If input is feasible:
                 # crash -> not crash
                 # not crash -> not crash + preserve behavior
@@ -1324,6 +1337,8 @@ class SymvassAnalyzer:
                     if not crashed:
                         survived_patches[crash_id]["patch"].add(crash_patch)
                         survived_patches[crash_id]["crash_test"][crash_patch] = crash_test
+                    else:
+                        dead_patches[crash_id]["crash_test"][crash_patch] = crash_test
                 else:
                     if not crashed:
                         no_reg = crash_ret == base_ret
@@ -1335,23 +1350,49 @@ class SymvassAnalyzer:
                         if no_reg:
                             survived_patches[crash_id]["patch"].add(crash_patch)
                             survived_patches[crash_id]["crash_test"][crash_patch] = crash_test
+                        else:
+                            dead_patches[crash_id]["crash_test"][crash_patch] = crash_test
+                    else:
+                        dead_patches[crash_id]["crash_test"][crash_patch] = crash_test
         
         with open(os.path.join(self.dir, "table_v3.sbsv"), "w") as f:
             original_count, independent_count = analyzer.count_states(all_patches)
             f.write(f"[stat] [states] [original {original_count}] [independent {independent_count}]\n")
             default_removed = set()
             remaining_inputs = list()
-            for crash_id in survived_patches:
-                base = survived_patches[crash_id]["base"]
-                res_patches = survived_patches[crash_id]["patch"]
-                removed = all_patches - res_patches
-                remaining = all_patches & res_patches
-                remaining_inputs.append(base)
-                # if len(remaining) == 0:
-                #     # Skip if all patches are removed -> most likely infeasible input
-                #     continue
-                default_removed = default_removed | removed
-                f.write(f"[sym-in] [id {crash_id}] [base {base}] [test {base}] [cnt {len(remaining)}] [patches {sorted(list(remaining))}]\n")
+            for crash_id in survived_inputs:
+                base = survived_inputs[crash_id]["base"]
+                base_meta = analyzer.meta_data[base]
+                for state in survived_inputs[crash_id]["crash_test"]:
+                    if state not in analyzer.meta_data:
+                        continue
+                    # if len(remaining) == 0:
+                    #     # Skip if all patches are removed -> most likely infeasible input
+                    #     continue
+                    remaining_inputs.append((crash_id, base, state))
+                    meta = analyzer.meta_data[state]
+                    if base_meta["isCrash"]:
+                        if meta["actuallyCrashed"]:
+                            f.write(f"[sym-in] [rm] [id {crash_id}] [base {base}] [test {state}] [patch {meta['patchId']}] [exit-res {meta['exit']}] [exit-loc {meta['exitLoc']}]\n")
+                            default_removed.add(meta["patchId"])
+                        else:
+                            f.write(f"[sym-in] [keep] [id {crash_id}] [base {base}] [test {state}] [patch {meta['patchId']}] [exit-res {meta['exit']}] [exit-loc {meta['exitLoc']}]\n")
+                    else:
+                        if meta["actuallyCrashed"]:
+                            f.write(f"[sym-in] [rm] [id {crash_id}] [base {base}] [test {state}] [patch {meta['patchId']}] [exit-res {meta['exit']}] [exit-loc {meta['exitLoc']}]\n")
+                            default_removed.add(meta["patchId"])
+                        else:
+                            no_reg = base_meta["ret"] == meta["ret"]
+                            if no_reg:
+                                for name in base_meta["record"]:
+                                    if name not in meta["record"] or base_meta["record"][name]["val"] != meta["record"][name]["val"]:
+                                        no_reg = False
+                                        break
+                            if no_reg:
+                                f.write(f"[sym-in] [keep] [id {crash_id}] [base {base}] [test {state}] [patch {meta['patchId']}] [exit-res {meta['exit']}] [exit-loc {meta['exitLoc']}]\n")
+                            else:
+                                f.write(f"[sym-in] [rm] [id {crash_id}] [base {base}] [test {state}] [patch {meta['patchId']}] [exit-res {meta['exit']}] [exit-loc {meta['exitLoc']}]\n")
+                                default_removed.add(meta["patchId"])
             all_patches_default = all_patches - default_removed
             output = list()
             meta_out = list()
@@ -1361,30 +1402,45 @@ class SymvassAnalyzer:
             # Further analysis with exit loc
             new_removed = set()
             new_remaining_inputs = list()
-            for crash_id in survived_patches:
-                base = survived_patches[crash_id]["base"]
-                res_patches = survived_patches[crash_id]["patch"]
-                res = (crash_id, base, base, res_patches)
-
-                removed = all_patches - res_patches
-                meta_base = analyzer.meta_data[base]
-                if meta_base["isCrash"]:
-                    if meta_base["exitLoc"] != exit_loc:
-                        f.write(f"[remove] [crash] [id {crash_id}] [base {base}] [test {base}] [exit-loc {meta_base['exitLoc']}] [exit-res {meta_base['exit']}] [cnt {len(remaining)}] [patches {sorted(list(remaining))}]\n")
+            for crash_id in survived_inputs:
+                base = survived_inputs[crash_id]["base"]
+                base_meta = analyzer.meta_data[base]
+                for state in survived_inputs[crash_id]["crash_test"]:
+                    if state not in analyzer.meta_data:
+                        continue
+                    # if len(remaining) == 0:
+                    #     # Skip if all patches are removed -> most likely infeasible input
+                    #     continue
+                    meta = analyzer.meta_data[state]
+                    if base_meta["isCrash"]:
+                        if base_meta["exitLoc"] == exit_loc:
+                            if meta["actuallyCrashed"] and meta["exitLoc"] == exit_loc:
+                                f.write(f"[remain] [rm] [id {crash_id}] [base {base}] [test {state}] [patch {meta['patchId']}] [exit-res {meta['exit']}] [exit-loc {meta['exitLoc']}]\n")
+                                new_removed.add(meta["patchId"])
+                                new_remaining_inputs.append((crash_id, base, state))
+                            elif not meta["actuallyCrashed"]:
+                                f.write(f"[remain] [keep] [id {crash_id}] [base {base}] [test {state}] [patch {meta['patchId']}] [exit-res {meta['exit']}] [exit-loc {meta['exitLoc']}]\n")
+                                new_remaining_inputs.append((crash_id, base, state))
                     else:
-                        new_removed = new_removed | removed
-                        new_remaining_inputs.append(res)
-                else:
-                    new_removed = new_removed | removed
-                    new_remaining_inputs.append(res)
+                        if meta["actuallyCrashed"] and meta["exitLoc"] == exit_loc:
+                            f.write(f"[remain] [rm] [id {crash_id}] [base {base}] [test {state}] [patch {meta['patchId']}] [exit-res {meta['exit']}] [exit-loc {meta['exitLoc']}]\n")
+                            new_removed.add(meta["patchId"])
+                            new_remaining_inputs.append((crash_id, base, state))
+                        elif not meta["actuallyCrashed"]:
+                            no_reg = base_meta["ret"] == meta["ret"]
+                            if no_reg:
+                                for name in base_meta["record"]:
+                                    if name not in meta["record"] or base_meta["record"][name]["val"] != meta["record"][name]["val"]:
+                                        no_reg = False
+                                        break
+                            if no_reg:
+                                f.write(f"[remain] [keep] [id {crash_id}] [base {base}] [test {state}] [patch {meta['patchId']}] [exit-res {meta['exit']}] [exit-loc {meta['exitLoc']}]\n")
+                            else:
+                                f.write(f"[remain] [rm] [id {crash_id}] [base {base}] [test {state}] [patch {meta['patchId']}] [exit-res {meta['exit']}] [exit-loc {meta['exitLoc']}]\n")
+                                new_removed.add(meta["patchId"])
+                            new_remaining_inputs.append((crash_id, base, state))
 
-            for res in new_remaining_inputs:
-                crash_id, base, test, patches = res
-                res_patches = set(patches)
-                remaining = all_patches & res_patches
-                removed = all_patches - res_patches
-                meta_base = analyzer.meta_data[base]
-                f.write(f"[remain] [crash] [id {crash_id}] [base {base}] [test {test}] [exit-loc {meta_base['exitLoc']}] [exit-res {meta_base['exit']}] [cnt {len(remaining)}] [patches {sorted(list(remaining))}]\n")
+
             print_log(f"{len(new_remaining_inputs)}, {len(new_removed)}")
             all_patches_crash = all_patches - new_removed
             output.append(f"[sym-out] [remove-crash] [inputs {len(new_remaining_inputs)}] [cnt {len(all_patches_crash)}] [patches {sorted(list(all_patches_crash))}]\n")
@@ -1632,7 +1688,7 @@ class Runner(uni_klee.Runner):
             parent.kill()
             parent.wait(5)
 
-    def execute(self, cmd: str, dir: str, log_prefix: str, env: dict = None):
+    def execute(self, cmd: str, dir: str, log_prefix: str, env: dict = None, log_file: str = None):
         cmd = cmd.replace('-S$(printf \'\\t\\t\\t\')', '-S$(printf "\\t\\t\\t")')
         if "/tmp/out.tiff" in cmd and os.path.exists("/tmp/out.tiff"):
             os.remove("/tmp/out.tiff")
@@ -1660,21 +1716,18 @@ class Runner(uni_klee.Runner):
             self.kill_proc_tree(proc.pid)
             stdout, stderr = proc.communicate()
         if log_prefix != "quiet" and (self.config.debug or (proc.returncode != 0 and not timeout_reached)):
-            log_file = os.path.join(
-                self.config.conf_files.get_log_dir(), f"{log_prefix}.log"
-            )
             if proc.returncode != 0:
                 print_log("!!!!! Error !!!!")
                 print_log("Save error log to " + log_file)
             try:
                 print_log(stderr.decode("utf-8", errors="ignore"))
-                os.makedirs(self.config.conf_files.get_log_dir(), exist_ok=True)
-                with open(os.path.join(self.config.conf_files.get_log_dir(), log_file), "w") as f:
-                    f.write(stderr.decode("utf-8", errors="ignore"))
-                    f.write("\n###############\n")
-                    if stdout:
-                        f.write(stdout.decode("utf-8", errors="ignore"))
-                print_log(
+                if log_file is not None:
+                    with open(os.path.join(self.config.conf_files.get_log_dir(), log_file), "w") as f:
+                        f.write(stderr.decode("utf-8", errors="ignore"))
+                        f.write("\n###############\n")
+                        if stdout:
+                            f.write(stdout.decode("utf-8", errors="ignore"))
+                    print_log(
                     f"Save error log to {self.config.conf_files.get_log_dir()}/{log_prefix}.log"
                 )
             except Exception as e:
@@ -1686,7 +1739,7 @@ class Runner(uni_klee.Runner):
             self.execute("rm -rf " + self.config.conf_files.snapshot_dir, dir, "rm")
         if self.config.cmd == "filter":
             self.execute("rm -rf " + self.config.conf_files.filter_dir, dir, "rm")
-            self.execute(cmd, dir, "filter", env)
+            self.execute(cmd, dir, "filter", env, log_file=os.path.join(self.config.conf_files.filter_dir, "uni-klee.error"))
             return
         if self.config.cmd == "uc":
             return
@@ -1695,7 +1748,7 @@ class Runner(uni_klee.Runner):
                 print_log(
                     f"snapshot file {self.config.conf_files.snapshot_file} does not exist"
                 )
-            self.execute(cmd, dir, "snapshot", env)
+            self.execute(cmd, dir, "snapshot", env, log_file=os.path.join(self.config.conf_files.snapshot_dir, "uni-klee.error"))
     
     def print_list(self, l: List[Tuple[str, int]]):
         for item, index in l:
@@ -1797,7 +1850,7 @@ class Runner(uni_klee.Runner):
             self.execute_snapshot(cmd, self.config.workdir)
             if self.config.cmd not in ["snapshot", "filter"]:
                 cmd = self.config.get_cmd_opts(False)
-                self.execute(cmd, self.config.workdir, "uni-klee")
+                self.execute(cmd, self.config.workdir, "uni-klee", log_file=os.path.join(self.config.conf_files.out_dir, "uni-klee.error"))
                 analyzer = SymvassAnalyzer(self.get_dir(), self.config.conf_files.filter_dir, self.config.bug_info)
                 if OTHER_APR_TOOL_MODE == "poc":
                     analyzer.analyze_v3_poc()
