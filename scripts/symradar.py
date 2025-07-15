@@ -1718,7 +1718,7 @@ class Runner(uni_klee.Runner):
         if log_prefix != "quiet" and (self.config.debug or (proc.returncode != 0 and not timeout_reached)):
             if proc.returncode != 0:
                 print_log("!!!!! Error !!!!")
-                print_log("Save error log to " + log_file)
+                print_log(f"Save error log to {log_file}")
             try:
                 print_log(stderr.decode("utf-8", errors="ignore"))
                 if log_file is not None:
@@ -1727,9 +1727,7 @@ class Runner(uni_klee.Runner):
                         f.write("\n###############\n")
                         if stdout:
                             f.write(stdout.decode("utf-8", errors="ignore"))
-                    print_log(
-                    f"Save error log to {self.config.conf_files.get_log_dir()}/{log_prefix}.log"
-                )
+                    print_log(f"Save error log to {log_file}")
             except Exception as e:
                 print_log(f"Failed to save error: {str(e)}")
         return proc.returncode

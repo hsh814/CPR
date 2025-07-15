@@ -829,134 +829,134 @@ poc = 1
   code = "(0)"
   id = "buggy"
 
-[[meta_data]]
-id = 62
-bug_id = "CVE-2020-14163"
-benchmark = "bugscpp"
-subject = "jerryscript"
-target = "ecma_op_internal_buffer_append"
-poc = 1
+# [[meta_data]]
+# id = 62
+# bug_id = "CVE-2020-14163"
+# benchmark = "bugscpp"
+# subject = "jerryscript"
+# target = "ecma_op_internal_buffer_append"
+# poc = 1
 
-  [meta_data.buggy]
-  code = "(0)"
-  id = "buggy"
+#   [meta_data.buggy]
+#   code = "(0)"
+#   id = "buggy"
 
-[[meta_data]]
-id = 63
-bug_id = "CVE-2021-41682"
-benchmark = "bugscpp"
-subject = "jerryscript"
-target = "vm_loop"
-poc = 1
+# [[meta_data]]
+# id = 63
+# bug_id = "CVE-2021-41682"
+# benchmark = "bugscpp"
+# subject = "jerryscript"
+# target = "vm_loop"
+# poc = 1
 
-  [meta_data.buggy]
-  code = "(0)"
-  id = "buggy"
+#   [meta_data.buggy]
+#   code = "(0)"
+#   id = "buggy"
 
-[[meta_data]]
-id = 64
-bug_id = "CVE-2021-41751"
-benchmark = "bugscpp"
-subject = "jerryscript"
-target = "ecma_builtin_array_prototype_object_slice"
-poc = 1
+# [[meta_data]]
+# id = 64
+# bug_id = "CVE-2021-41751"
+# benchmark = "bugscpp"
+# subject = "jerryscript"
+# target = "ecma_builtin_array_prototype_object_slice"
+# poc = 1
 
-  [meta_data.buggy]
-  code = "(0)"
-  id = "buggy"
+#   [meta_data.buggy]
+#   code = "(0)"
+#   id = "buggy"
 
-[[meta_data]]
-id = 65
-bug_id = "CVE-2021-41959"
-benchmark = "bugscpp"
-subject = "jerryscript"
-target = "ecma_regexp_match_helper"
-poc = 1
+# [[meta_data]]
+# id = 65
+# bug_id = "CVE-2021-41959"
+# benchmark = "bugscpp"
+# subject = "jerryscript"
+# target = "ecma_regexp_match_helper"
+# poc = 1
 
-  [meta_data.buggy]
-  code = "(0)"
-  id = "buggy"
+#   [meta_data.buggy]
+#   code = "(0)"
+#   id = "buggy"
 
-[[meta_data]]
-id = 66
-bug_id = "CVE-2021-44988"
-benchmark = "bugscpp"
-subject = "jerryscript"
-target = "ecma_builtin_array_flatten_into_array"
-poc = 1
+# [[meta_data]]
+# id = 66
+# bug_id = "CVE-2021-44988"
+# benchmark = "bugscpp"
+# subject = "jerryscript"
+# target = "ecma_builtin_array_flatten_into_array"
+# poc = 1
 
-  [meta_data.buggy]
-  code = "(0)"
-  id = "buggy"
+#   [meta_data.buggy]
+#   code = "(0)"
+#   id = "buggy"
 
-[[meta_data]]
-id = 67
-bug_id = "CVE-2021-44994"
-benchmark = "bugscpp"
-subject = "jerryscript"
-target = "ecma_atomic_read_modify_write"
-poc = 1
+# [[meta_data]]
+# id = 67
+# bug_id = "CVE-2021-44994"
+# benchmark = "bugscpp"
+# subject = "jerryscript"
+# target = "ecma_atomic_read_modify_write"
+# poc = 1
 
-  [meta_data.buggy]
-  code = "(0)"
-  id = "buggy"
+#   [meta_data.buggy]
+#   code = "(0)"
+#   id = "buggy"
 
-[[meta_data]]
-id = 68
-bug_id = "CVE-2022-22893"
-benchmark = "bugscpp"
-subject = "jerryscript"
-target = "ecma_op_function_construct"
-poc = 1
+# [[meta_data]]
+# id = 68
+# bug_id = "CVE-2022-22893"
+# benchmark = "bugscpp"
+# subject = "jerryscript"
+# target = "ecma_op_function_construct"
+# poc = 1
 
-  [meta_data.buggy]
-  code = "(0)"
-  id = "buggy"
+#   [meta_data.buggy]
+#   code = "(0)"
+#   id = "buggy"
 
-[[meta_data]]
-id = 69
-bug_id = "CVE-2022-22901"
-benchmark = "bugscpp"
-subject = "jerryscript"
-target = "lexer_expect_object_literal_id"
-poc = 1
+# [[meta_data]]
+# id = 69
+# bug_id = "CVE-2022-22901"
+# benchmark = "bugscpp"
+# subject = "jerryscript"
+# target = "lexer_expect_object_literal_id"
+# poc = 1
 
-  [meta_data.buggy]
-  code = "(0)"
-  id = "buggy"
+#   [meta_data.buggy]
+#   code = "(0)"
+#   id = "buggy"
 
-[[meta_data]]
-id = 70
-bug_id = "CVE-2018-11536"
-benchmark = "bugscpp"
-subject = "md4c"
-target = "md_split_simple_pairing_mark"
-poc = 1
+# [[meta_data]]
+# id = 70
+# bug_id = "CVE-2018-11536"
+# benchmark = "bugscpp"
+# subject = "md4c"
+# target = "md_split_simple_pairing_mark"
+# poc = 1
 
-  [meta_data.buggy]
-  code = "(0)"
-  id = "buggy"
+#   [meta_data.buggy]
+#   code = "(0)"
+#   id = "buggy"
 
-[[meta_data]]
-id = 71
-bug_id = "CVE-2018-11546"
-benchmark = "bugscpp"
-subject = "md4c"
-target = "md_process_inlines"
-poc = 1
+# [[meta_data]]
+# id = 71
+# bug_id = "CVE-2018-11546"
+# benchmark = "bugscpp"
+# subject = "md4c"
+# target = "md_process_inlines"
+# poc = 1
 
-  [meta_data.buggy]
-  code = "(0)"
-  id = "buggy"
+#   [meta_data.buggy]
+#   code = "(0)"
+#   id = "buggy"
 
-[[meta_data]]
-id = 72
-bug_id = "CVE-2018-12102"
-benchmark = "bugscpp"
-subject = "md4c"
-target = "md_analyze_line"
-poc = 1
+# [[meta_data]]
+# id = 72
+# bug_id = "CVE-2018-12102"
+# benchmark = "bugscpp"
+# subject = "md4c"
+# target = "md_analyze_line"
+# poc = 1
 
-  [meta_data.buggy]
-  code = "(0)"
-  id = "buggy"
+#   [meta_data.buggy]
+#   code = "(0)"
+#   id = "buggy"
