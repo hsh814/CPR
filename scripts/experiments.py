@@ -605,6 +605,10 @@ def symradar_final_result_v3_poc(meta: dict, result_f: TextIO):
   bug_id = meta["bug_id"]
   subject_dir = os.path.join(ROOT_DIR, "patches", meta["benchmark"], subject, bug_id)
   patched_dir = os.path.join(subject_dir, "poc-patched")
+  # if not os.path.exists(os.path.join(patched_dir, "snapshot-high-test/snapshot-last.json")):
+  #   log_out(f"Snapshot not found: {os.path.join(patched_dir, 'snapshot-high-test/snapshot-last.json')}")
+  #   result_f.write("\t\t\t\t\t\t\t\t\t\n")
+  #   return
   out_dir_no = find_num(patched_dir, SYMRADAR_PREFIX) - 1
   out_file = os.path.join(patched_dir, f"{SYMRADAR_PREFIX}-{out_dir_no}", "table_v3.sbsv")
   if not os.path.exists(out_file):
@@ -643,6 +647,16 @@ def symradar_final_result_v3(meta: dict, result_f: TextIO):
   patched_dir = os.path.join(subject_dir, "patched")
   out_dir_no = find_num(patched_dir, SYMRADAR_PREFIX) - 1
   out_file = os.path.join(patched_dir, f"{SYMRADAR_PREFIX}-{out_dir_no}", "table_v3.sbsv")
+  # data_log_file = os.path.join(patched_dir, f"{SYMRADAR_PREFIX}-{out_dir_no}", "data.log")
+  # with open(data_log_file, "r") as f:
+  #   time_ms = 0
+  #   lines = f.readlines()
+  #   for line in lines:
+  #      m = re.search(f'\[time (\d+)\]', line)
+  #      if m:
+  #        time_ms = int(m.group(1))
+  #   result_f.write(f"{subject}\t{bug_id}\t{time_ms}\n")      
+  #   return
   if not os.path.exists(out_file):
     log_out(f"File not found: {out_file}")
     result_f.write("\t\t\t\t\t\t\t\t\t\n")
