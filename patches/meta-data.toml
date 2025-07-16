@@ -960,3 +960,43 @@ poc = 1
 #   [meta_data.buggy]
 #   code = "(0)"
 #   id = "buggy"
+
+
+[[meta_data]]
+id = 72
+bug_id = "CVE-2016-10266"
+benchmark = "magma"
+subject = "libtiff"
+vars = [ "x", "y", "z", "m", "n" ]
+target = "readContigStripsIntoBuffer"
+poc = 1
+
+  [meta_data.buggy]
+  code = "(0)"
+  id = "buggy"
+
+[[meta_data]]
+id = 73
+bug_id = "CVE-2016-1840"
+benchmark = "magma"
+subject = "libxml2"
+vars = [ "x", "y",]
+target = "xmlFAParseCharRange"
+poc = 1
+
+  [meta_data.buggy]
+  code = "(1)"
+  id = "buggy"
+
+[[meta_data]]
+id = 74
+bug_id = "CVE-2017-8872"
+benchmark = "magma"
+subject = "libxml2"
+vars = [ "x", "y",]
+target = "xmlHaltParser"
+poc = 1
+
+  [meta_data.buggy]
+  code = "(1)"
+  id = "buggy"
