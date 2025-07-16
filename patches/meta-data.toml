@@ -748,7 +748,7 @@ benchmark = "vulnloc"
 subject = "libtiff"
 vars = [ "x", "y", "z", "m", "n" ]
 target = "readContigStripsIntoBuffer"
-poc = 1
+poc = 4
 
   [meta_data.buggy]
   code = "(0)"
@@ -776,7 +776,7 @@ benchmark = "vulnloc"
 subject = "libtiff"
 vars = [ "x", "y", "z", "m", "n" ]
 target = "cpContig2SeparateByRow"
-poc = 1
+poc = 5
 
   [meta_data.buggy]
   code = "(0)"
@@ -823,7 +823,7 @@ benchmark = "vulnloc"
 subject = "potrace"
 vars = [ "x", "y", "z", "m", "n" ]
 target = "bm_readbody_bmp"
-poc = 1
+poc = 9
 
   [meta_data.buggy]
   code = "(0)"
