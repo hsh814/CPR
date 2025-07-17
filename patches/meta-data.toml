@@ -748,7 +748,7 @@ benchmark = "vulnloc"
 subject = "libtiff"
 vars = [ "x", "y", "z", "m", "n" ]
 target = "readContigStripsIntoBuffer"
-poc = 4
+poc = 8
 
   [meta_data.buggy]
   code = "(0)"
@@ -776,7 +776,7 @@ benchmark = "vulnloc"
 subject = "libtiff"
 vars = [ "x", "y", "z", "m", "n" ]
 target = "cpContig2SeparateByRow"
-poc = 5
+poc = 14
 
   [meta_data.buggy]
   code = "(0)"
@@ -823,7 +823,7 @@ benchmark = "vulnloc"
 subject = "potrace"
 vars = [ "x", "y", "z", "m", "n" ]
 target = "bm_readbody_bmp"
-poc = 9
+poc = 14
 
   [meta_data.buggy]
   code = "(0)"
@@ -968,8 +968,8 @@ bug_id = "CVE-2016-10266"
 benchmark = "magma"
 subject = "libtiff"
 vars = [ "x", "y", "z", "m", "n" ]
-target = "readContigStripsIntoBuffer"
-poc = 1
+target = "TIFFReadEncodedStrip"
+poc = 6
 
   [meta_data.buggy]
   code = "(0)"
@@ -982,7 +982,7 @@ benchmark = "magma"
 subject = "libxml2"
 vars = [ "x", "y",]
 target = "xmlFAParseCharRange"
-poc = 1
+poc = 8
 
   [meta_data.buggy]
   code = "(1)"
