@@ -963,7 +963,7 @@ poc = 9
 
 
 [[meta_data]]
-id = 72
+id = 73
 bug_id = "CVE-2016-10266"
 benchmark = "magma"
 subject = "libtiff"
@@ -976,7 +976,7 @@ poc = 1
   id = "buggy"
 
 [[meta_data]]
-id = 73
+id = 74
 bug_id = "CVE-2016-1840"
 benchmark = "magma"
 subject = "libxml2"
@@ -989,7 +989,7 @@ poc = 1
   id = "buggy"
 
 [[meta_data]]
-id = 74
+id = 75
 bug_id = "CVE-2017-8872"
 benchmark = "magma"
 subject = "libxml2"
@@ -1000,3 +1000,55 @@ poc = 1
   [meta_data.buggy]
   code = "(1)"
   id = "buggy"
+
+# [[meta_data]]
+# id = 76
+# bug_id = "CVE-2017-"
+# benchmark = "other"
+# subject = "binutils"
+# vars = [ "x", "y",]
+# target = ""
+# poc = 0
+
+#   [meta_data.buggy]
+#   code = "(0)"
+#   id = "buggy"
+
+# [[meta_data]]
+# id = 77
+# bug_id = "CVE-2017-"
+# benchmark = "other"
+# subject = "binutils"
+# vars = [ "x", "y",]
+# target = ""
+# poc = 0
+
+#   [meta_data.buggy]
+#   code = "(0)"
+#   id = "buggy"
+
+# [[meta_data]]
+# id = 78
+# bug_id = "CVE-2017-"
+# benchmark = "other"
+# subject = "binutils"
+# vars = [ "x", "y",]
+# target = ""
+# poc = 0
+
+#   [meta_data.buggy]
+#   code = "(0)"
+#   id = "buggy"
+
+# [[meta_data]]
+# id = 79
+# bug_id = ""
+# benchmark = "other"
+# subject = "libtiff"
+# vars = [ "x", "y",]
+# target = ""
+# poc = 0
+
+#   [meta_data.buggy]
+#   code = "(0)"
+#   id = "buggy"
