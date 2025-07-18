@@ -2442,7 +2442,7 @@ PSDataColorContig(FILE* fd, TIFF* tif, uint32 w, uint32 h, int nc)
 	tsize_t cc;
 	unsigned char *tf_buf;
 	unsigned char *cp, c;
-if(__cpr_choice("L1634", "bool", (long long[]){es, breaklen, nc, samplesperpixel, tf_bytesperrow}, (char*[]){"x", "y" ,"z", "m", "n"}, 5, (int*[]){}, (char*[]){}, 0)) return;
+if(__cpr_choice("L1634", "bool", (long long[]){es, breaklen}, (char*[]){"x", "y"}, 2, (int*[]){}, (char*[]){}, 0)) return;
 
 	(void) w;
 	tf_buf = (unsigned char *) _TIFFmalloc(tf_bytesperrow);
