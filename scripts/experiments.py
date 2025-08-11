@@ -372,12 +372,12 @@ def parse_result(file: str) -> sbsv.parser:
 def parse_result_v3(file: str) -> sbsv.parser:
   parser = sbsv.parser()
   parser.add_schema("[stat] [states] [original: int] [independent: int]")
-  parser.add_schema("[sym-in] [id: int] [base: int] [test: int] [cnt: int] [patches: str]")
-  parser.add_schema("[remove] [crash] [id: int] [base: int] [test: int] [exit-loc: str] [exit-res: str] [cnt: int] [patches: str]")
-  parser.add_schema("[remain] [crash] [id: int] [base: int] [test: int] [exit-loc: str] [exit-res: str] [cnt: int] [patches: str]")
-  parser.add_schema("[strict] [id: int] [base: int] [test: int] [cnt: int] [patches: str]")
-  parser.add_schema("[strict-remove] [crash] [id: int] [base: int] [test: int] [exit-loc: str] [exit-res: str] [cnt: int] [patches: str]")
-  parser.add_schema("[strict-remain] [crash] [id: int] [base: int] [test: int] [exit-loc: str] [exit-res: str] [cnt: int] [patches: str]")
+  # parser.add_schema("[sym-in] [id: int] [base: int] [test: int] [cnt: int] [patches: str]")
+  # parser.add_schema("[remove] [crash] [id: int] [base: int] [test: int] [exit-loc: str] [exit-res: str] [cnt: int] [patches: str]")
+  # parser.add_schema("[remain] [crash] [id: int] [base: int] [test: int] [exit-loc: str] [exit-res: str] [cnt: int] [patches: str]")
+  # parser.add_schema("[strict] [id: int] [base: int] [test: int] [cnt: int] [patches: str]")
+  # parser.add_schema("[strict-remove] [crash] [id: int] [base: int] [test: int] [exit-loc: str] [exit-res: str] [cnt: int] [patches: str]")
+  # parser.add_schema("[strict-remain] [crash] [id: int] [base: int] [test: int] [exit-loc: str] [exit-res: str] [cnt: int] [patches: str]")
   parser.add_schema("[sym-out] [default] [inputs: int] [cnt: int] [patches: str]")
   parser.add_schema("[sym-out] [remove-crash] [inputs: int] [cnt: int] [patches: str]")
   parser.add_schema("[sym-out] [strict] [inputs: int] [cnt: int] [patches: str]")
@@ -756,7 +756,11 @@ def run_cmd(opt: str, meta_data: List[dict], extra: str, additional: str):
   for meta in meta_data:
     if not check_correct_exists(meta):
       continue
-    # if meta["benchmark"] != "vulnloc":
+    # if OTHER_APR_TOOL_MODE != "poc":
+    #   exit(1)
+    # if meta["benchmark"] not in ["magma", "vulnloc"]:
+    #   continue
+    # if meta["bug_id"] not in ["CVE-2016-1840", "CVE-2016-5844", "CVE-2016-10266"]:
     #   continue
     if VULMASTER_MODE:
       rsv = RunSingleVulmaster((meta["id"]))
@@ -783,6 +787,8 @@ def run_cmd_seq(opt: str, meta_data: List[dict], extra: str, additional: str, ou
   meta_data = sorted(meta_data, key=lambda x: f"{x['subject']}/{x['bug_id']}")
   for meta in meta_data:
     if not check_correct_exists(meta):
+      continue
+    if meta["benchmark"] != "extractfix":
       continue
     rs = RunSingle(meta["id"])
     cmd = rs.get_cmd(opt, extra)

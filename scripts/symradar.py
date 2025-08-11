@@ -587,6 +587,13 @@ class DataAnalyzer():
         multi_patch_count = 0
         sym_inputs = list()
         sym_reruns = list()
+        
+        reached_count = 0
+        for sel in self.data["fork-map"]["sel-patch"]:
+            base = sel["state$base"]
+            base_after = sel["state$base_after"]
+            reached_count += 1
+
         for state in self.meta_data:
             meta = self.meta_data[state]
             if meta["stateType"] == "1":
@@ -632,7 +639,7 @@ class DataAnalyzer():
                 pass
             else:
                 print_log(f"[error] [unknown edge type {type}]")
-        print_log(f"[info] [original-count {original_count}] [independent-count {multi_patch_count}]")
+        print_out(f"[info] [original-count {type_count['1']}] [independent-count {reached_count}]")
         return original_count, multi_patch_count
 
 
@@ -1150,9 +1157,8 @@ class SymvassAnalyzer:
                 else:
                     if not crashed and base_reg == crash_reg:
                         result.append((crash_id, base_meta["state"], crash_meta["state"], crash))
-        
+        original_count, independent_count = analyzer.count_states(all_patches)
         with open(os.path.join(self.dir, "table_v3.sbsv"), "w") as f:
-            original_count, independent_count = analyzer.count_states(all_patches)
             f.write(f"[stat] [states] [original {original_count}] [independent {independent_count}]\n")
             default_removed = set()
             remaining_inputs = list()
@@ -1281,7 +1287,7 @@ class SymvassAnalyzer:
         all_patches = set(range(1, self.bug_info["poc"] + 1))
         correct_patch = 0
         dp_filter = SymvassDataLogSbsvParser(self.filter_dir)
-        correct_patch = 1 # This is mostly wrong, but we need any correct patch
+        correct_patch = 1
         # Get exit location in filter
         exit_loc = ""
         for state in dp_filter.parser.get_result()["meta-data"]:
