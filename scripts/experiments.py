@@ -166,9 +166,11 @@ class RunSingleVulmaster():
       result.append(cmd)
     return result
 
-  def get_feas_cmd(self, extra: str) -> List[str]:
-    if extra in ["fuzz", "build", "val-build", "fuzz-build", "extractfix-build", "poc-build", "vulmaster-build", "vulmaster-extractfix-build", "fuzz-seeds", "collect-inputs", "group-patches", "val", "feas", "analyze", "check"]:
-      return [f"symfeas.py {extra} {self.meta['bug_id']} -s {SYMRADAR_PREFIX}"]
+  def get_util_cmd(self, extra: str) -> List[str]:
+    if extra == "build":
+      return [f"symutil.py build {self.meta['bug_id']} --tool={OTHER_APR_TOOL_MODE}"]
+    if extra in ["fuzz", "val-build", "fuzz-build", "extractfix-build", "poc-build", "vulmaster-build", "vulmaster-extractfix-build", "fuzz-seeds", "collect-inputs", "group-patches", "val", "feas", "analyze", "check"]:
+      return [f"symutil.py {extra} {self.meta['bug_id']} -s {SYMRADAR_PREFIX}"]
     log_out(f"Unknown extra: {extra}")
     exit(1)
     
@@ -189,8 +191,8 @@ class RunSingleVulmaster():
       return self.get_uc_cmd(extra)
     if opt == "analyze":
       return self.get_analyze_cmd(extra)
-    if opt == "feas": # clean with rm -r patches/*/*/*/runtime/aflrun-out-*
-      return self.get_feas_cmd(extra)
+    if opt == "util": # clean with rm -r patches/*/*/*/runtime/aflrun-out-*
+      return self.get_util_cmd(extra)
     log_out(f"Unknown opt: {opt}")
     return []
 
@@ -267,18 +269,13 @@ class RunSingle():
     cmd = f"symradar.py uc {self.meta['bug_id']}:0 --lock=f --outdir-prefix={SYMRADAR_PREFIX} --snapshot-prefix=snapshot-{SYMRADAR_PREFIX} --tool={OTHER_APR_TOOL_MODE}" # --max-fork=1024,1024,1024
     return cmd
 
-  def get_feas_cmd(self, extra: str) -> str:
+  def get_util_cmd(self, extra: str) -> str:
     if extra == "exp":
-      return f"symfeas.py fuzz {self.meta['bug_id']}"
+      return f"symutil.py fuzz {self.meta['bug_id']}"
     if extra == "build":
-      cmd = "build"
-      if OTHER_APR_TOOL_MODE != "cpr":
-        cmd = f"{OTHER_APR_TOOL_MODE}-build"
-      if MODE == "extractfix":
-        cmd = f"extractfix-{cmd}" # extractfix-build, extractfix-vrpilot-build
-      return f"symfeas.py {cmd} {self.meta['bug_id']}"
+      return f"symutil.py build {self.meta['bug_id']} --tool={OTHER_APR_TOOL_MODE}"
     if extra in ["fuzz", "val-build", "fuzz-build", "fuzz-seeds", "collect-inputs", "group-patches", "val", "feas", "analyze", "check"]:
-      return f"symfeas.py {extra} {self.meta['bug_id']} -s {SYMRADAR_PREFIX}"
+      return f"symutil.py {extra} {self.meta['bug_id']} -s {SYMRADAR_PREFIX}"
     log_out(f"Unknown extra: {extra}")
     exit(1)
     
@@ -296,8 +293,8 @@ class RunSingle():
       return self.get_uc_cmd(extra)
     if opt == "analyze":
       return self.get_analyze_cmd(extra)
-    if opt == "feas": # clean with rm -r patches/*/*/*/runtime/aflrun-out-*
-      return self.get_feas_cmd(extra)
+    if opt == "util": # clean with rm -r patches/*/*/*/runtime/aflrun-out-*
+      return self.get_util_cmd(extra)
     log_out(f"Unknown opt: {opt}")
     return None
 
@@ -312,6 +309,12 @@ def check_correct_exists(meta: dict) -> bool:
     if "poc" not in meta:
       return False
     if meta["poc"] == 0:
+      return False
+    return True
+  elif OTHER_APR_TOOL_MODE == "crashrepair":
+    if "crashrepair" not in meta:
+      return False
+    if meta["crashrepair"] == 0:
       return False
     return True
   if "correct" not in meta:
@@ -706,7 +709,7 @@ def final_analysis(meta_data: List[dict], output: str):
       continue
     if VULMASTER_MODE:
       symradar_final_result_vulmaster_v3(meta, result_f)
-    elif OTHER_APR_TOOL_MODE == "poc":
+    elif OTHER_APR_TOOL_MODE == "crashrepair":
       symradar_final_result_v3_poc(meta, result_f)
     else:
       symradar_final_result_v3(meta, result_f)
@@ -805,7 +808,7 @@ def run_cmd_seq(opt: str, meta_data: List[dict], extra: str, additional: str, ou
 
 def main(argv: List[str]):
   parser = argparse.ArgumentParser(description="Run symradar experiments")
-  parser.add_argument("cmd", type=str, help="Command to run", choices=["filter", "exp", "run", "uc", "analyze", "final", "feas", "clean"], default="exp")
+  parser.add_argument("cmd", type=str, help="Command to run", choices=["filter", "exp", "run", "uc", "analyze", "final", "util", "clean"], default="exp")
   parser.add_argument("-e", "--extra", type=str, help="Subcommand", default="exp")
   parser.add_argument("-o", "--output", type=str, help="Output file", default="", required=False)
   parser.add_argument("-p", "--prefix", type=str, help="Output prefix", default="", required=False)
@@ -814,14 +817,14 @@ def main(argv: List[str]):
   parser.add_argument("-a", "--additional", type=str, help="Additional arguments", default="", required=False)
   parser.add_argument("-m", "--mode", type=str, help="Mode", choices=["symradar", "extractfix"], default="symradar")
   parser.add_argument("-v", "--vrpilot", action="store_true", help="Run vrpilot", default=False)
-  parser.add_argument("--poc", action="store_true", help="Run poc", default=False)
+  parser.add_argument("--cr", action="store_true", help="Run crashrepair", default=False)
   parser.add_argument("--seq", action="store_true", help="Run sequentially", default=False)
   args = parser.parse_args(argv)
   global OUTPUT_DIR, PREFIX, SYMRADAR_PREFIX, MODE, VULMASTER_MODE, OTHER_APR_TOOL_MODE, SNAPSHOT_PREFIX
   if args.vrpilot:
     OTHER_APR_TOOL_MODE = "vrpilot"
-  if args.poc:
-    OTHER_APR_TOOL_MODE = "poc"
+  if args.cr:
+    OTHER_APR_TOOL_MODE = "crashrepair"
   MODE = args.mode
   SNAPSHOT_PREFIX = args.snapshot_prefix
   OUTPUT_DIR = os.path.join(ROOT_DIR, "out")

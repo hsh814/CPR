@@ -28,6 +28,8 @@ from pysmt.typing import BV32, BV8, BV64, INT
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+OTHER_APR_TOOL_MODE = "cpr"
+
 def print_log(msg: str):
     print(msg, file=sys.stderr)
 
@@ -1157,8 +1159,11 @@ def main():
     parser.add_argument("-s", "--symradar-prefix", help="SymVass prefix", default="uni-m-out")
     parser.add_argument("-v", "--val-prefix", help="Val prefix", default="")
     parser.add_argument("-p", "--prefix", help="Prefix of fuzzer out: default aflrun-multi-out", default="aflrun-multi-out")
+    parser.add_argument("-t", "--tool", help="APR tool", default="cpr", choices=["cpr", "crashrepair"])
     # parser.add_argument("-s", "--subject", help="Subject", default="")
     args = parser.parse_args(sys.argv[1:])
+    global OTHER_APR_TOOL_MODE
+    OTHER_APR_TOOL_MODE = args.tool
     subject = get_metadata(args.subject)
     subject_dir = os.path.join(ROOT_DIR, "patches", subject["benchmark"], subject["subject"], subject["bug_id"])
     val_prefix = args.val_prefix if args.val_prefix != "" else args.symradar_prefix
@@ -1193,7 +1198,12 @@ def main():
         env["UNI_KLEE_SYMBOLIC_GLOBALS_FILE_OVERRIDE"] = os.path.join(out_dir, "base-mem.symbolic-globals")
         subprocess.run(f"./val.sh", cwd=subject_dir, shell=True, env=env)
     elif args.cmd == "build":
-        subprocess.run(f"./init.sh", cwd=subject_dir, shell=True)
+        if OTHER_APR_TOOL_MODE == "cpr":
+            subprocess.run(f"./init.sh", cwd=subject_dir, shell=True)
+        elif OTHER_APR_TOOL_MODE == "crashrepair":
+            subprocess.run(f"./init-crashrepair.sh", cwd=subject_dir, shell=True)
+        elif OTHER_APR_TOOL_MODE == "poc":
+            subprocess.run(f"./init-poc.sh", cwd=subject_dir, shell=True)
     elif args.cmd == "extractfix-build":
         subprocess.run(f"./extractfix.sh", cwd=subject_dir, shell=True)
     elif args.cmd == "vulmaster-build":
@@ -1204,8 +1214,6 @@ def main():
         subprocess.run(f"./init-vrpilot.sh", cwd=subject_dir, shell=True)
     elif args.cmd == "extractfix-vrpilot-build":
         subprocess.run(f"./extractfix-vrpilot.sh", cwd=subject_dir, shell=True)
-    elif args.cmd == "poc-build":
-        subprocess.run(f"./init-poc.sh", cwd=subject_dir, shell=True)
     elif args.cmd == "extractfix-poc-build":
         subprocess.run(f"./extractfix-poc.sh", cwd=subject_dir, shell=True)
     elif args.cmd == "collect-inputs":

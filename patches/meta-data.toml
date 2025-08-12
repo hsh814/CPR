@@ -682,6 +682,7 @@ subject = "jasper"
 vars = [ "x", "y", "z", "m", "n" ]
 target = "jas_image_create"
 vrpilot = 2
+crashrepair = 1
 
   [meta_data.buggy]
   code = "(0)"
@@ -701,6 +702,7 @@ subject = "libarchive"
 vars = [ "x", "y", "z", "m", "n" ]
 target = "choose_volume"
 poc = 1
+crashrepair = 1
 
   [meta_data.buggy]
   code = "(0)"
@@ -714,6 +716,7 @@ subject = "libming"
 vars = [ "x", "y", "z", "m", "n" ]
 target = "printMP3Headers"
 vrpilot = 1
+crashrepair = 1
 
   [meta_data.buggy]
   code = "(0)"
@@ -731,6 +734,7 @@ benchmark = "vulnloc"
 subject = "libtiff"
 vars = [ "x", "y", "z", "m", "n" ]
 target = "writeBufferToSeparateStrips"
+crashrepair = 1
 
   [meta_data.buggy]
   code = "(0)"
@@ -749,6 +753,7 @@ subject = "libtiff"
 vars = [ "x", "y", "z", "m", "n" ]
 target = "readContigStripsIntoBuffer"
 poc = 8
+crashrepair = 1
 
   [meta_data.buggy]
   code = "(0)"
@@ -763,6 +768,7 @@ subject = "libtiff"
 vars = [ "x", "y", "z", "m", "n" ]
 target = "readContigStripsIntoBuffer"
 poc = 0
+crashrepair = 1
 
   [meta_data.buggy]
   code = "(0)"
@@ -777,6 +783,7 @@ subject = "libtiff"
 vars = [ "x", "y", "z", "m", "n" ]
 target = "cpContig2SeparateByRow"
 poc = 14
+crashrepair = 1
 
   [meta_data.buggy]
   code = "(0)"
@@ -806,6 +813,7 @@ benchmark = "vulnloc"
 subject = "zziplib"
 vars = [ "x", "y", "z", "m", "n" ]
 target = "zzip_mem_entry_new"
+crashrepair = 1
 
   [meta_data.buggy]
   code = "(0)"
@@ -818,16 +826,62 @@ target = "zzip_mem_entry_new"
 
 [[meta_data]]
 id = 61
+bug_id = "CVE-2017-5976"
+benchmark = "vulnloc"
+subject = "zziplib"
+vars = [ "x", "y", "z", "m", "n" ]
+target = "zzip_mem_entry_extra_block"
+crashrepair = 1
+
+  [meta_data.buggy]
+  code = "(0)"
+  id = "buggy"
+  [meta_data.correct]
+  code = "(m == n)"
+  id = "correct"
+  no = 662
+  incomplete = false
+
+[[meta_data]]
+id = 62
 bug_id = "CVE-2013-7437"
 benchmark = "vulnloc"
 subject = "potrace"
 vars = [ "x", "y", "z", "m", "n" ]
 target = "bm_readbody_bmp"
 poc = 14
+crashrepair = 1
 
   [meta_data.buggy]
   code = "(0)"
   id = "buggy"
+
+[[meta_data]]
+id = 63
+bug_id = "CVE-2017-7599"
+benchmark = "vulnloc"
+subject = "libtiff"
+vars = [ "x", "y", "z", "m", "n" ]
+target = "writeBufferToSeparateStrips"
+crashrepair = 1
+
+  [meta_data.buggy]
+  code = "(0)"
+  id = "buggy"
+
+[[meta_data]]
+id = 64
+bug_id = "CVE-2017-7600"
+benchmark = "vulnloc"
+subject = "libtiff"
+vars = [ "x", "y", "z", "m", "n" ]
+target = "writeBufferToSeparateStrips"
+crashrepair = 1
+
+  [meta_data.buggy]
+  code = "(0)"
+  id = "buggy"
+
 
 # [[meta_data]]
 # id = 62
