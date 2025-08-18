@@ -702,7 +702,7 @@ subject = "libarchive"
 vars = [ "x", "y", "z", "m", "n" ]
 target = "choose_volume"
 poc = 1
-crashrepair = 1
+crashrepair = 3
 
   [meta_data.buggy]
   code = "(0)"
