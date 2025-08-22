@@ -100,12 +100,15 @@ class ConfigFiles(uni_klee.ConfigFiles):
         elif OTHER_APR_TOOL_MODE == "poc":
             self.work_dir = os.path.join(self.project_dir, f"poc-patched")
             self.meta_patch_obj_file = ""
+        elif OTHER_APR_TOOL_MODE == "crashrepair":
+            self.work_dir = os.path.join(self.project_dir, "crashrepair-patched")
+            self.meta_patch_obj_file = ""
         else:
             self.work_dir = os.path.join(self.project_dir, "patched")
             self.meta_patch_obj_file = os.path.join(self.project_dir, "concrete", "libuni_klee_runtime_new.bca")
         self.repair_conf = os.path.join(self.project_dir, "repair.conf")
         self.meta_program = os.path.join(self.project_dir, "meta-program-original.json")
-        if OTHER_APR_TOOL_MODE != "poc":
+        if OTHER_APR_TOOL_MODE not in ["poc", "crashrepair"]:
             sympatch.compile(os.path.join(self.project_dir, "concrete"))
         
 
@@ -182,6 +185,11 @@ class Config(uni_klee.Config):
                 print_log(f"WARNING!!!: No poc patch info in {self.bug_info}")
                 exit(1)
             return [str(patch_id) for patch_id in range(self.bug_info["poc"] + 1)]
+        elif OTHER_APR_TOOL_MODE == "crashrepair":
+            if "crashrepair" not in self.bug_info:
+                print_log(f"WARNING!!!: No crashrepair patch info in {self.bug_info}")
+                exit(1)
+            return [str(patch_id) for patch_id in range(self.bug_info["crashrepair"] + 1)]
         plausible_file = os.path.join(self.conf_files.project_dir, "plausible.json")
         if os.path.exists(plausible_file):
             with open(plausible_file, "r") as f:
@@ -217,7 +225,7 @@ class Config(uni_klee.Config):
             #     cmd.append(f"--patch-filtering")
             patch_str = ",".join(self.patch_ids)
             cmd.append(f"--patch-id={patch_str}")
-            if OTHER_APR_TOOL_MODE == "poc":
+            if OTHER_APR_TOOL_MODE in ["poc", "crashrepair"]:
                 cmd.append(f"--patch-filtering")
         else:
             cmd.append(f"--patch-id=0")
@@ -309,7 +317,7 @@ class Config(uni_klee.Config):
             result.append(link_opt)
         if not NAIVE_MODE:
             result.append("--lazy-patch")
-        if OTHER_APR_TOOL_MODE == "poc":
+        if OTHER_APR_TOOL_MODE in ["poc", "crashrepair"]:
             result.append(f"--non-cond-patch")
         if "klee_flags" in self.project_conf:
             link_opt = self.project_conf["klee_flags"]
@@ -1284,7 +1292,8 @@ class SymvassAnalyzer:
     
     def analyze_v3_poc(self):
         subject_dir = os.path.join(uni_klee.ROOT_DIR, "patches", self.bug_info["benchmark"], self.bug_info["subject"], self.bug_info["bug_id"])
-        all_patches = set(range(1, self.bug_info["poc"] + 1))
+        # "poc", "crashrepair"
+        all_patches = set(range(1, self.bug_info[OTHER_APR_TOOL_MODE] + 1))
         correct_patch = 0
         dp_filter = SymvassDataLogSbsvParser(self.filter_dir)
         correct_patch = 1
@@ -1653,7 +1662,7 @@ def arg_parser(argv: List[str]) -> Config:
     parser.add_argument("-g", "--use-last", help="Use last output directory", action="store_true")
     parser.add_argument("--naive", help="Naive approach for patch handling", action="store_true")
     parser.add_argument("--mode", help="mode", choices=["symradar", "extractfix"], default="symradar")
-    parser.add_argument("--tool", help="Other apr tool", choices=["cpr", "vrpilot", "poc"], default="cpr")
+    parser.add_argument("--tool", help="Other apr tool", choices=["cpr", "vrpilot", "poc", "crashrepair"], default="cpr")
     parser.add_argument("--vulmaster-id", help="Vulmaster id", type=int, default=0)
     args = parser.parse_args(argv[1:])
     global VULMASTER_MODE, VULMASTER_ID, EXTRACTFIX_MODE, NAIVE_MODE, OTHER_APR_TOOL_MODE
@@ -1661,7 +1670,7 @@ def arg_parser(argv: List[str]) -> Config:
     NAIVE_MODE = args.naive
     if args.mode == "extractfix":
         EXTRACTFIX_MODE = True
-    if OTHER_APR_TOOL_MODE == "poc":
+    if OTHER_APR_TOOL_MODE in ["poc", "crashrepair"]:
         NAIVE_MODE = True
     if args.vulmaster_id > 0:
         VULMASTER_MODE = True
@@ -1800,7 +1809,7 @@ class Runner(uni_klee.Runner):
                 return
             analyzer = SymvassAnalyzer(self.get_dir(), self.config.conf_files.filter_dir, self.config.bug_info)
             if self.config.cmd == "analyze":
-                if OTHER_APR_TOOL_MODE == "poc":
+                if OTHER_APR_TOOL_MODE in ["poc", "crashrepair"]:
                     analyzer.analyze_v3_poc()
                 else:
                     analyzer.analyze_v3()
@@ -1856,7 +1865,7 @@ class Runner(uni_klee.Runner):
                 cmd = self.config.get_cmd_opts(False)
                 self.execute(cmd, self.config.workdir, "uni-klee", log_file=os.path.join(self.config.conf_files.out_dir, "uni-klee.error"))
                 analyzer = SymvassAnalyzer(self.get_dir(), self.config.conf_files.filter_dir, self.config.bug_info)
-                if OTHER_APR_TOOL_MODE == "poc":
+                if OTHER_APR_TOOL_MODE in ["poc", "crashrepair"]:
                     analyzer.analyze_v3_poc()
                 else:
                     analyzer.analyze_v3()

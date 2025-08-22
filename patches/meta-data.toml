@@ -682,7 +682,7 @@ subject = "jasper"
 vars = [ "x", "y", "z", "m", "n" ]
 target = "jas_image_create"
 vrpilot = 2
-crashrepair = 1
+crashrepair = 4
 
   [meta_data.buggy]
   code = "(0)"
@@ -702,7 +702,7 @@ subject = "libarchive"
 vars = [ "x", "y", "z", "m", "n" ]
 target = "choose_volume"
 poc = 1
-crashrepair = 3
+crashrepair = 2
 
   [meta_data.buggy]
   code = "(0)"
@@ -716,7 +716,7 @@ subject = "libming"
 vars = [ "x", "y", "z", "m", "n" ]
 target = "printMP3Headers"
 vrpilot = 1
-crashrepair = 1
+crashrepair = 2
 
   [meta_data.buggy]
   code = "(0)"
@@ -734,7 +734,7 @@ benchmark = "vulnloc"
 subject = "libtiff"
 vars = [ "x", "y", "z", "m", "n" ]
 target = "writeBufferToSeparateStrips"
-crashrepair = 1
+crashrepair = 2
 
   [meta_data.buggy]
   code = "(0)"
@@ -753,7 +753,7 @@ subject = "libtiff"
 vars = [ "x", "y", "z", "m", "n" ]
 target = "readContigStripsIntoBuffer"
 poc = 8
-crashrepair = 1
+crashrepair = 14
 
   [meta_data.buggy]
   code = "(0)"
@@ -768,7 +768,7 @@ subject = "libtiff"
 vars = [ "x", "y", "z", "m", "n" ]
 target = "readContigStripsIntoBuffer"
 poc = 0
-crashrepair = 1
+crashrepair = 3
 
   [meta_data.buggy]
   code = "(0)"
@@ -783,7 +783,7 @@ subject = "libtiff"
 vars = [ "x", "y", "z", "m", "n" ]
 target = "cpContig2SeparateByRow"
 poc = 14
-crashrepair = 1
+crashrepair = 3
 
   [meta_data.buggy]
   code = "(0)"
@@ -813,7 +813,7 @@ benchmark = "vulnloc"
 subject = "zziplib"
 vars = [ "x", "y", "z", "m", "n" ]
 target = "zzip_mem_entry_new"
-crashrepair = 1
+crashrepair = 3
 
   [meta_data.buggy]
   code = "(0)"
@@ -831,7 +831,7 @@ benchmark = "vulnloc"
 subject = "zziplib"
 vars = [ "x", "y", "z", "m", "n" ]
 target = "zzip_mem_entry_extra_block"
-crashrepair = 1
+crashrepair = 13
 
   [meta_data.buggy]
   code = "(0)"
@@ -850,7 +850,7 @@ subject = "potrace"
 vars = [ "x", "y", "z", "m", "n" ]
 target = "bm_readbody_bmp"
 poc = 14
-crashrepair = 1
+crashrepair = 7
 
   [meta_data.buggy]
   code = "(0)"
@@ -862,8 +862,8 @@ bug_id = "CVE-2017-7599"
 benchmark = "vulnloc"
 subject = "libtiff"
 vars = [ "x", "y", "z", "m", "n" ]
-target = "writeBufferToSeparateStrips"
-crashrepair = 1
+target = "TIFFWriteDirectoryTagSampleformatArray"
+crashrepair = 3
 
   [meta_data.buggy]
   code = "(0)"
@@ -875,8 +875,8 @@ bug_id = "CVE-2017-7600"
 benchmark = "vulnloc"
 subject = "libtiff"
 vars = [ "x", "y", "z", "m", "n" ]
-target = "writeBufferToSeparateStrips"
-crashrepair = 1
+target = "TIFFWriteDirectoryTagSampleformatArray"
+crashrepair = 9
 
   [meta_data.buggy]
   code = "(0)"
