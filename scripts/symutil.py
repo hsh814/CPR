@@ -1159,7 +1159,7 @@ def main():
     parser.add_argument("-s", "--symradar-prefix", help="SymVass prefix", default="uni-m-out")
     parser.add_argument("-v", "--val-prefix", help="Val prefix", default="")
     parser.add_argument("-p", "--prefix", help="Prefix of fuzzer out: default aflrun-multi-out", default="aflrun-multi-out")
-    parser.add_argument("-t", "--tool", help="APR tool", default="cpr", choices=["cpr", "crashrepair"])
+    parser.add_argument("-t", "--tool", help="APR tool", default="cpr", choices=["cpr", "poc", "crashrepair"])
     # parser.add_argument("-s", "--subject", help="Subject", default="")
     args = parser.parse_args(sys.argv[1:])
     global OTHER_APR_TOOL_MODE

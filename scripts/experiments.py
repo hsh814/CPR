@@ -818,6 +818,7 @@ def main(argv: List[str]):
   parser.add_argument("-m", "--mode", type=str, help="Mode", choices=["symradar", "extractfix"], default="symradar")
   parser.add_argument("-v", "--vrpilot", action="store_true", help="Run vrpilot", default=False)
   parser.add_argument("--cr", action="store_true", help="Run crashrepair", default=False)
+  parser.add_argument("--poc", action="store_true", help="Run crashrepair", default=False)
   parser.add_argument("--seq", action="store_true", help="Run sequentially", default=False)
   args = parser.parse_args(argv)
   global OUTPUT_DIR, PREFIX, SYMRADAR_PREFIX, MODE, VULMASTER_MODE, OTHER_APR_TOOL_MODE, SNAPSHOT_PREFIX
@@ -825,6 +826,8 @@ def main(argv: List[str]):
     OTHER_APR_TOOL_MODE = "vrpilot"
   if args.cr:
     OTHER_APR_TOOL_MODE = "crashrepair"
+  if args.poc:
+    OTHER_APR_TOOL_MODE = "poc"
   MODE = args.mode
   SNAPSHOT_PREFIX = args.snapshot_prefix
   OUTPUT_DIR = os.path.join(ROOT_DIR, "out")
