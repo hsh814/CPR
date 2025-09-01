@@ -709,7 +709,7 @@ def final_analysis(meta_data: List[dict], output: str):
       continue
     if VULMASTER_MODE:
       symradar_final_result_vulmaster_v3(meta, result_f)
-    elif OTHER_APR_TOOL_MODE == "crashrepair":
+    elif OTHER_APR_TOOL_MODE in ["crashrepair", "poc"]:
       symradar_final_result_v3_poc(meta, result_f)
     else:
       symradar_final_result_v3(meta, result_f)

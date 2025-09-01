@@ -789,58 +789,58 @@ crashrepair = 3
   code = "(0)"
   id = "buggy"
 
-[[meta_data]]
-id = 59
-bug_id = "CVE-2017-5974"
-benchmark = "vulnloc"
-subject = "zziplib"
-vars = [ "x", "y", "z", "m", "n" ]
-target = "zzip_mem_entry_new"
+# [[meta_data]]
+# id = 59
+# bug_id = "CVE-2017-5974"
+# benchmark = "vulnloc"
+# subject = "zziplib"
+# vars = [ "x", "y", "z", "m", "n" ]
+# target = "zzip_mem_entry_new"
 
-  [meta_data.buggy]
-  code = "(0)"
-  id = "buggy"
-  [meta_data.correct]
-  code = "(n > z)"
-  id = "correct"
-  no = 3923
-  incomplete = false
+#   [meta_data.buggy]
+#   code = "(0)"
+#   id = "buggy"
+#   [meta_data.correct]
+#   code = "(n > z)"
+#   id = "correct"
+#   no = 3923
+#   incomplete = false
 
-[[meta_data]]
-id = 60
-bug_id = "CVE-2017-5975"
-benchmark = "vulnloc"
-subject = "zziplib"
-vars = [ "x", "y", "z", "m", "n" ]
-target = "zzip_mem_entry_new"
-crashrepair = 3
+# [[meta_data]]
+# id = 60
+# bug_id = "CVE-2017-5975"
+# benchmark = "vulnloc"
+# subject = "zziplib"
+# vars = [ "x", "y", "z", "m", "n" ]
+# target = "zzip_mem_entry_new"
+# crashrepair = 3
 
-  [meta_data.buggy]
-  code = "(0)"
-  id = "buggy"
-  [meta_data.correct]
-  code = "(m == n)"
-  id = "correct"
-  no = 662
-  incomplete = false
+#   [meta_data.buggy]
+#   code = "(0)"
+#   id = "buggy"
+#   [meta_data.correct]
+#   code = "(m == n)"
+#   id = "correct"
+#   no = 662
+#   incomplete = false
 
-[[meta_data]]
-id = 61
-bug_id = "CVE-2017-5976"
-benchmark = "vulnloc"
-subject = "zziplib"
-vars = [ "x", "y", "z", "m", "n" ]
-target = "zzip_mem_entry_extra_block"
-crashrepair = 13
+# [[meta_data]]
+# id = 61
+# bug_id = "CVE-2017-5976"
+# benchmark = "vulnloc"
+# subject = "zziplib"
+# vars = [ "x", "y", "z", "m", "n" ]
+# target = "zzip_mem_entry_extra_block"
+# crashrepair = 13
 
-  [meta_data.buggy]
-  code = "(0)"
-  id = "buggy"
-  [meta_data.correct]
-  code = "(m == n)"
-  id = "correct"
-  no = 662
-  incomplete = false
+#   [meta_data.buggy]
+#   code = "(0)"
+#   id = "buggy"
+#   [meta_data.correct]
+#   code = "(m == n)"
+#   id = "correct"
+#   no = 662
+#   incomplete = false
 
 [[meta_data]]
 id = 62

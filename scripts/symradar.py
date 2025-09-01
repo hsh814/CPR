@@ -380,11 +380,12 @@ class SymvassDataLogSbsvParser():
         parser.add_schema("[patch] [trace] [state: int] [iter: int] [res: bool] [patches: str]")
         parser.add_schema("[patch] [trace-rand] [state: int] [iter: int] [res: bool] [patches: str]")
         parser.add_schema("[patch] [fork] [state$true: int] [state$false: int] [iter: int] [patches: str]")
-        parser.add_schema("[regression] [state: int] [reg?: str]")
+        # parser.add_schema("[regression] [state: int] [reg?: str]")
         parser.add_schema("[lazy-trace] [state: int] [reg?: str] [patches?: str] [patch-eval?: str]")
         parser.add_schema("[stack-trace] [state: int] [reg?: str] [passed-crash-loc: bool]")
         parser.add_schema("[poc] [rec] [state: int] [name: str] [sym: int] [val: int] [size: int] [type: int] [loc: int]")
         parser.add_schema("[poc] [ret] [state: int] [value: int] [symbolic: int]")
+        parser.add_schema("[non-cond-reg] [state: int] [patch: int] [regression: str]")
         for s in schema:
             parser.add_schema(s)
     def get_data(self) -> Dict[str, List[dict]]:
@@ -532,10 +533,17 @@ class DataAnalyzer():
             loc = rec["loc"]
             if sym == 1:
                 print_log(f"[info] [state {state}] [symbolic record {name} {val} {size} {loc}]")
-                exit(1)
             if state not in meta_data:
                 continue
             meta_data[state]["record"][name] = rec.data
+        
+        for non_cond_reg in self.data["non-cond-reg"]:
+            state = non_cond_reg["state"]
+            patch = non_cond_reg["patch"]
+            regression = non_cond_reg["regression"]
+            if state not in meta_data:
+                continue
+            meta_data[state]["nonCondReg"] = regression
 
     def draw_graph(self):
         if len(self.graph.nodes()) > 1024:
@@ -1313,6 +1321,7 @@ class SymvassAnalyzer:
         survived_patches = dict()
         dead_patches = dict()
         survived_inputs = dict()
+        inputs_per_crash_test = dict()
         for crash_state in cluster:
             base_meta = analyzer.meta_data[crash_state]
             if not base_meta["use"]:
@@ -1323,16 +1332,13 @@ class SymvassAnalyzer:
             base_ret = base_meta["ret"]
             base_record = base_meta["record"]
             is_crash = base_meta["isCrash"]
-            survived_patches[crash_id] = dict()
-            survived_patches[crash_id]["base"] = base_state
-            survived_patches[crash_id]["patch"] = set()
-            survived_patches[crash_id]["crash_test"] = dict()
-            dead_patches[crash_id] = dict()
-            dead_patches[crash_id]["base"] = base_state
-            dead_patches[crash_id]["crash_test"] = dict()
             survived_inputs[crash_id] = dict()
             survived_inputs[crash_id]["base"] = base_state
             survived_inputs[crash_id]["crash_test"] = set()
+            inputs_per_crash_test[crash_id] = dict()
+            inputs_per_crash_test[crash_id]["base"] = base_state
+            inputs_per_crash_test[crash_id]["crash_test"] = dict()
+
             for crash_test in cluster[crash_state]:
                 if crash_test not in analyzer.meta_data:
                     continue
@@ -1344,133 +1350,198 @@ class SymvassAnalyzer:
                 crash_record = crash_meta["record"]
                 crashed = crash_meta["actuallyCrashed"]
                 survived_inputs[crash_id]["crash_test"].add(crash_test)
-                # If input is feasible:
-                # crash -> not crash
-                # not crash -> not crash + preserve behavior
-                # plus, should not remove all possibly correct patches
-                if is_crash:
-                    if not crashed:
-                        survived_patches[crash_id]["patch"].add(crash_patch)
-                        survived_patches[crash_id]["crash_test"][crash_patch] = crash_test
-                    else:
-                        dead_patches[crash_id]["crash_test"][crash_patch] = crash_test
-                else:
-                    if not crashed:
-                        no_reg = crash_ret == base_ret
-                        if no_reg:
-                            for name in crash_record:
-                                if name not in base_record or base_record[name]["val"] != crash_record[name]["val"]:
-                                    no_reg = False
-                                    break
-                        if no_reg:
-                            survived_patches[crash_id]["patch"].add(crash_patch)
-                            survived_patches[crash_id]["crash_test"][crash_patch] = crash_test
-                        else:
-                            dead_patches[crash_id]["crash_test"][crash_patch] = crash_test
-                    else:
-                        dead_patches[crash_id]["crash_test"][crash_patch] = crash_test
-        
+                if crash_patch not in inputs_per_crash_test[crash_id]["crash_test"]:
+                    inputs_per_crash_test[crash_id]["crash_test"][crash_patch] = set()
+                inputs_per_crash_test[crash_id]["crash_test"][crash_patch].add(crash_test)
+
         with open(os.path.join(self.dir, "table_v3.sbsv"), "w") as f:
             original_count, independent_count = analyzer.count_states(all_patches)
             f.write(f"[stat] [states] [original {original_count}] [independent {independent_count}]\n")
             default_removed = set()
             remaining_inputs = list()
-            for crash_id in survived_inputs:
-                base = survived_inputs[crash_id]["base"]
+            strict_removed = set()
+            for crash_id in inputs_per_crash_test:
+                base = inputs_per_crash_test[crash_id]["base"]
                 base_meta = analyzer.meta_data[base]
-                for state in survived_inputs[crash_id]["crash_test"]:
-                    if state not in analyzer.meta_data:
+                for patch in inputs_per_crash_test[crash_id]["crash_test"]:
+                    if patch not in all_patches:
                         continue
-                    # if len(remaining) == 0:
-                    #     # Skip if all patches are removed -> most likely infeasible input
-                    #     continue
-                    remaining_inputs.append((crash_id, base, state))
-                    meta = analyzer.meta_data[state]
-                    if base_meta["isCrash"]:
-                        if meta["actuallyCrashed"]:
-                            f.write(f"[sym-in] [rm] [id {crash_id}] [base {base}] [test {state}] [patch {meta['patchId']}] [exit-res {meta['exit']}] [exit-loc {meta['exitLoc']}]\n")
-                            default_removed.add(meta["patchId"])
-                        else:
-                            f.write(f"[sym-in] [keep] [id {crash_id}] [base {base}] [test {state}] [patch {meta['patchId']}] [exit-res {meta['exit']}] [exit-loc {meta['exitLoc']}]\n")
-                    else:
-                        if meta["actuallyCrashed"]:
-                            f.write(f"[sym-in] [rm] [id {crash_id}] [base {base}] [test {state}] [patch {meta['patchId']}] [exit-res {meta['exit']}] [exit-loc {meta['exitLoc']}]\n")
-                            default_removed.add(meta["patchId"])
-                        else:
-                            no_reg = base_meta["ret"] == meta["ret"]
-                            if no_reg:
-                                for name in base_meta["record"]:
-                                    if name not in meta["record"] or base_meta["record"][name]["val"] != meta["record"][name]["val"]:
-                                        no_reg = False
-                                        break
-                            if no_reg:
-                                f.write(f"[sym-in] [keep] [id {crash_id}] [base {base}] [test {state}] [patch {meta['patchId']}] [exit-res {meta['exit']}] [exit-loc {meta['exitLoc']}]\n")
+                    states = inputs_per_crash_test[crash_id]["crash_test"][patch]
+                    if len(states) == 0:
+                        continue
+                    removed = False
+                    survived = False
+                    for state in states:
+                        remaining_inputs.append((crash_id, base, state, list(states)))
+                        meta = analyzer.meta_data[state]
+                        if base_meta["isCrash"]:
+                            if meta["actuallyCrashed"]:
+                                removed = True
+                                strict_removed.add(meta["patchId"])
                             else:
-                                f.write(f"[sym-in] [rm] [id {crash_id}] [base {base}] [test {state}] [patch {meta['patchId']}] [exit-res {meta['exit']}] [exit-loc {meta['exitLoc']}]\n")
-                                default_removed.add(meta["patchId"])
+                                survived = True
+                        else:
+                            if meta["actuallyCrashed"]:
+                                removed = True
+                                strict_removed.add(meta["patchId"])
+                            else:
+                                no_reg = base_meta["ret"] == meta["ret"]
+                                if no_reg:
+                                    if "nonCondReg" not in meta:
+                                        meta["nonCondReg"] = "null"
+                                    # if meta["nonCondReg"] != "ok":
+                                    #     no_reg = False
+                                if no_reg:
+                                    survived = True
+                                else:
+                                    removed = True
+                                    strict_removed.add(meta["patchId"])
+
+                    # Write result
+                    for state in states:
+                        meta = analyzer.meta_data[state]
+                        result = ""
+                        if base_meta["isCrash"]:
+                            if meta["actuallyCrashed"]:
+                                if survived or not removed:
+                                    result = "ignore"
+                                else:
+                                    result = "rm"
+                                    default_removed.add(meta["patchId"])
+                                f.write(f"[sym-in] [{result}] [id {crash_id}] [base {base}] [test {state}] [patch {meta['patchId']}] [exit-res {meta['exit']}] [exit-loc {meta['exitLoc']}]\n")
+                            else:
+                                f.write(f"[sym-in] [keep] [id {crash_id}] [base {base}] [test {state}] [patch {meta['patchId']}] [exit-res {meta['exit']}] [exit-loc {meta['exitLoc']}]\n")
+                        else:
+                            if meta["actuallyCrashed"]:
+                                if survived or not removed:
+                                    result = "ignore"
+                                else:
+                                    result = "rm"
+                                    default_removed.add(meta["patchId"])
+                                f.write(f"[sym-in] [{result}] [id {crash_id}] [base {base}] [test {state}] [patch {meta['patchId']}] [exit-res {meta['exit']}] [exit-loc {meta['exitLoc']}]\n")
+                            else:
+                                no_reg = base_meta["ret"] == meta["ret"]
+                                if no_reg:
+                                    if "nonCondReg" not in meta:
+                                        meta["nonCondReg"] = "null"
+                                    # if meta["nonCondReg"] != "ok":
+                                    #     no_reg = False
+                                if no_reg:
+                                    f.write(f"[sym-in] [keep] [id {crash_id}] [base {base}] [test {state}] [patch {meta['patchId']}] [exit-res {meta['exit']}] [exit-loc {meta['exitLoc']}]\n")
+                                else:
+                                    if survived or not removed:
+                                        result = "ignore"
+                                    else:
+                                        result = "rm"
+                                        default_removed.add(meta["patchId"])
+                                    f.write(f"[sym-in] [{result}] [id {crash_id}] [base {base}] [test {state}] [patch {meta['patchId']}] [exit-res {meta['exit']}] [exit-loc {meta['exitLoc']}] [reg {meta['nonCondReg']}]\n")
             all_patches_default = all_patches - default_removed
             output = list()
             meta_out = list()
             output.append(f"[sym-out] [default] [inputs {len(remaining_inputs)}] [cnt {len(all_patches_default)}] [patches {sorted(list(all_patches_default))}]\n")
             meta_out.append(f"[meta-data] [default] [correct {correct_patch}] [all-patches {len(all_patches)}] [sym-input {len(remaining_inputs)}] [is-correct {correct_patch in all_patches_default}] [patches {sorted(list(all_patches_default))}]\n")
-            
+            output.append(f"[sym-out] [strict] [inputs {len(remaining_inputs)}] [cnt {len(all_patches - strict_removed)}] [patches {sorted(list(all_patches - strict_removed))}]\n")
+            meta_out.append(f"[meta-data] [strict] [correct {correct_patch}] [all-patches {len(all_patches)}] [sym-input {len(remaining_inputs)}] [is-correct {correct_patch in (all_patches - strict_removed)}] [patches {sorted(list(all_patches - strict_removed))}]\n")
             # Further analysis with exit loc
             new_removed = set()
+            new_strict_removed = set()
             new_remaining_inputs = list()
-            for crash_id in survived_inputs:
-                base = survived_inputs[crash_id]["base"]
+            for crash_id in inputs_per_crash_test:
+                base = inputs_per_crash_test[crash_id]["base"]
                 base_meta = analyzer.meta_data[base]
-                for state in survived_inputs[crash_id]["crash_test"]:
-                    if state not in analyzer.meta_data:
+                for patch in inputs_per_crash_test[crash_id]["crash_test"]:
+                    if patch not in all_patches:
                         continue
-                    # if len(remaining) == 0:
-                    #     # Skip if all patches are removed -> most likely infeasible input
-                    #     continue
-                    meta = analyzer.meta_data[state]
-                    if base_meta["isCrash"]:
-                        if base_meta["exitLoc"] == exit_loc:
+                    states = inputs_per_crash_test[crash_id]["crash_test"][patch]
+                    if len(states) == 0:
+                        continue
+                    removed = False
+                    survived = False
+                    for state in states:
+                        meta = analyzer.meta_data[state]
+                        if base_meta["isCrash"]:
                             if meta["actuallyCrashed"] and meta["exitLoc"] == exit_loc:
-                                f.write(f"[remain] [rm] [id {crash_id}] [base {base}] [test {state}] [patch {meta['patchId']}] [exit-res {meta['exit']}] [exit-loc {meta['exitLoc']}]\n")
-                                new_removed.add(meta["patchId"])
-                                new_remaining_inputs.append((crash_id, base, state))
+                                new_remaining_inputs.append((crash_id, base, state, list(states)))
+                                removed = True
+                                new_strict_removed.add(meta["patchId"])
+                            elif not meta["actuallyCrashed"]:
+                                new_remaining_inputs.append((crash_id, base, state, list(states)))
+                                survived = True
+                        else:
+                            if meta["actuallyCrashed"] and meta["exitLoc"] == exit_loc:
+                                new_remaining_inputs.append((crash_id, base, state, list(states)))
+                                removed = True
+                                new_strict_removed.add(meta["patchId"])
+                            elif not meta["actuallyCrashed"]:
+                                new_remaining_inputs.append((crash_id, base, state, list(states)))
+                                no_reg = base_meta["ret"] == meta["ret"]
+                                if no_reg:
+                                    if "nonCondReg" not in meta:
+                                        meta["nonCondReg"] = "null"
+                                    # if meta["nonCondReg"] != "ok":
+                                    #     no_reg = False
+                                if no_reg:
+                                    survived = True
+                                else:
+                                    removed = True
+                                    new_strict_removed.add(meta["patchId"])
+
+                    # Write result
+                    for state in states:
+                        meta = analyzer.meta_data[state]
+                        result = ""
+                        if base_meta["isCrash"]:
+                            if meta["actuallyCrashed"] and meta["exitLoc"] == exit_loc:
+                                if survived or not removed:
+                                    result = "ignore"
+                                else:
+                                    result = "rm"
+                                    new_removed.add(meta["patchId"])
+                                f.write(f"[remain] [{result}] [id {crash_id}] [base {base}] [test {state}] [patch {meta['patchId']}] [exit-res {meta['exit']}] [exit-loc {meta['exitLoc']}]\n")
                             elif not meta["actuallyCrashed"]:
                                 f.write(f"[remain] [keep] [id {crash_id}] [base {base}] [test {state}] [patch {meta['patchId']}] [exit-res {meta['exit']}] [exit-loc {meta['exitLoc']}]\n")
-                                new_remaining_inputs.append((crash_id, base, state))
-                    else:
-                        if meta["actuallyCrashed"] and meta["exitLoc"] == exit_loc:
-                            f.write(f"[remain] [rm] [id {crash_id}] [base {base}] [test {state}] [patch {meta['patchId']}] [exit-res {meta['exit']}] [exit-loc {meta['exitLoc']}]\n")
-                            new_removed.add(meta["patchId"])
-                            new_remaining_inputs.append((crash_id, base, state))
-                        elif not meta["actuallyCrashed"]:
-                            no_reg = base_meta["ret"] == meta["ret"]
-                            if no_reg:
-                                for name in base_meta["record"]:
-                                    if name not in meta["record"] or base_meta["record"][name]["val"] != meta["record"][name]["val"]:
-                                        no_reg = False
-                                        break
-                            if no_reg:
-                                f.write(f"[remain] [keep] [id {crash_id}] [base {base}] [test {state}] [patch {meta['patchId']}] [exit-res {meta['exit']}] [exit-loc {meta['exitLoc']}]\n")
                             else:
-                                f.write(f"[remain] [rm] [id {crash_id}] [base {base}] [test {state}] [patch {meta['patchId']}] [exit-res {meta['exit']}] [exit-loc {meta['exitLoc']}]\n")
-                                new_removed.add(meta["patchId"])
-                            new_remaining_inputs.append((crash_id, base, state))
-
+                                f.write(f"[remove] [keep] [id {crash_id}] [base {base}] [test {state}] [patch {meta['patchId']}] [exit-res {meta['exit']}] [exit-loc {meta['exitLoc']}]\n")
+                        else:
+                            if meta["actuallyCrashed"] and meta["exitLoc"] == exit_loc:
+                                if survived or not removed:
+                                    result = "ignore"
+                                else:
+                                    result = "rm"
+                                    new_removed.add(meta["patchId"])
+                                f.write(f"[remain] [{result}] [id {crash_id}] [base {base}] [test {state}] [patch {meta['patchId']}] [exit-res {meta['exit']}] [exit-loc {meta['exitLoc']}]\n")
+                            elif not meta["actuallyCrashed"]:
+                                no_reg = base_meta["ret"] == meta["ret"]
+                                if no_reg:
+                                    if "nonCondReg" not in meta:
+                                        meta["nonCondReg"] = "null"
+                                    # if meta["nonCondReg"] != "ok":
+                                    #     no_reg = False
+                                if no_reg:
+                                    f.write(f"[remain] [keep] [id {crash_id}] [base {base}] [test {state}] [patch {meta['patchId']}] [exit-res {meta['exit']}] [exit-loc {meta['exitLoc']}]\n")
+                                else:
+                                    if survived or not removed:
+                                        result = "ignore"
+                                    else:
+                                        result = "rm"
+                                        new_removed.add(meta["patchId"])
+                                    f.write(f"[remain] [{result}] [id {crash_id}] [base {base}] [test {state}] [patch {meta['patchId']}] [exit-res {meta['exit']}] [exit-loc {meta['exitLoc']}] [reg {meta['nonCondReg']}]\n")
+                            else:
+                                f.write(f"[remove] [keep] [id {crash_id}] [base {base}] [test {state}] [patch {meta['patchId']}] [exit-res {meta['exit']}] [exit-loc {meta['exitLoc']}]\n")
 
             print_log(f"{len(new_remaining_inputs)}, {len(new_removed)}")
             all_patches_crash = all_patches - new_removed
             output.append(f"[sym-out] [remove-crash] [inputs {len(new_remaining_inputs)}] [cnt {len(all_patches_crash)}] [patches {sorted(list(all_patches_crash))}]\n")
             meta_out.append(f"[meta-data] [remove-crash] [correct {correct_patch}] [all-patches {len(all_patches)}] [sym-input {len(new_remaining_inputs)}] [is-correct {correct_patch in all_patches_crash}] [patches {sorted(list(all_patches_crash))}]\n")
             
-            strict_remaining_inputs = list()
-            strict_removed = set()
-           
+            strict_remaining_inputs = remaining_inputs
+
             all_patches_strict = all_patches - strict_removed
             output.append(f"[sym-out] [strict] [inputs {len(strict_remaining_inputs)}] [cnt {len(all_patches_strict)}] [patches {sorted(list(all_patches_strict))}]\n")
             meta_out.append(f"[meta-data] [strict] [correct {correct_patch}] [all-patches {len(all_patches)}] [sym-input {len(strict_remaining_inputs)}] [is-correct {correct_patch in all_patches_strict}] [patches {sorted(list(all_patches_strict))}]\n")
             
-            strict_new_remaining_inputs = list()
-            strict_new_removed = set()
-            all_patches_strict_new = all_patches - strict_new_removed
+            strict_new_remaining_inputs = new_remaining_inputs
+            all_patches_strict_new = all_patches - new_strict_removed
             output.append(f"[sym-out] [strict-remove-crash] [inputs {len(strict_new_remaining_inputs)}] [cnt {len(all_patches_strict_new)}] [patches {sorted(list(all_patches_strict_new))}]\n")
             meta_out.append(f"[meta-data] [strict-remove-crash] [correct {correct_patch}] [all-patches {len(all_patches)}] [sym-input {len(strict_new_remaining_inputs)}] [is-correct {correct_patch in all_patches_strict_new}] [patches {sorted(list(all_patches_strict_new))}]\n")
             
