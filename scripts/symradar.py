@@ -1385,12 +1385,24 @@ class SymvassAnalyzer:
                                 removed = True
                                 strict_removed.add(meta["patchId"])
                             else:
-                                no_reg = base_meta["ret"] == meta["ret"]
-                                if no_reg:
-                                    if "nonCondReg" not in meta:
-                                        meta["nonCondReg"] = "null"
-                                    # if meta["nonCondReg"] != "ok":
-                                    #     no_reg = False
+                                base_record = base_meta["record"]
+                                crash_record = meta["record"]
+                                if "__uni_klee_path" not in base_record or "__uni_klee_path" not in crash_record:
+                                    f.write(f"[error] [no-path] [id {crash_id}] [base {base}] [test {state}] [patch {meta['patchId']}] [exit-res {meta['exit']}] [exit-loc {meta['exitLoc']}]\n")
+                                    exit(1)
+                                exit_path_base = base_record["__uni_klee_path"]["loc"]
+                                exit_path_crash = crash_record["__uni_klee_path"]["loc"]
+                                if exit_path_base != exit_path_crash:
+                                    no_reg = False
+                                elif exit_path_base == 0:
+                                    no_reg = True
+                                else:
+                                    no_reg = base_meta["ret"] == meta["ret"]
+                                    if no_reg:
+                                        if "nonCondReg" not in meta:
+                                            meta["nonCondReg"] = "null"
+                                        if meta["nonCondReg"] != "ok":
+                                            no_reg = False
                                 if no_reg:
                                     survived = True
                                 else:
@@ -1420,12 +1432,24 @@ class SymvassAnalyzer:
                                     default_removed.add(meta["patchId"])
                                 f.write(f"[sym-in] [{result}] [id {crash_id}] [base {base}] [test {state}] [patch {meta['patchId']}] [exit-res {meta['exit']}] [exit-loc {meta['exitLoc']}]\n")
                             else:
-                                no_reg = base_meta["ret"] == meta["ret"]
-                                if no_reg:
-                                    if "nonCondReg" not in meta:
-                                        meta["nonCondReg"] = "null"
-                                    # if meta["nonCondReg"] != "ok":
-                                    #     no_reg = False
+                                base_record = base_meta["record"]
+                                crash_record = meta["record"]
+                                if "__uni_klee_path" not in base_record or "__uni_klee_path" not in crash_record:
+                                    f.write(f"[error] [no-path] [id {crash_id}] [base {base}] [test {state}] [patch {meta['patchId']}] [exit-res {meta['exit']}] [exit-loc {meta['exitLoc']}]\n")
+                                    exit(1)
+                                exit_path_base = base_record["__uni_klee_path"]["loc"]
+                                exit_path_crash = crash_record["__uni_klee_path"]["loc"]
+                                if exit_path_base != exit_path_crash:
+                                    no_reg = False
+                                elif exit_path_base == 0:
+                                    no_reg = True
+                                else:
+                                    no_reg = base_meta["ret"] == meta["ret"]
+                                    if no_reg:
+                                        if "nonCondReg" not in meta:
+                                            meta["nonCondReg"] = "null"
+                                        if meta["nonCondReg"] != "ok":
+                                            no_reg = False
                                 if no_reg:
                                     f.write(f"[sym-in] [keep] [id {crash_id}] [base {base}] [test {state}] [patch {meta['patchId']}] [exit-res {meta['exit']}] [exit-loc {meta['exitLoc']}]\n")
                                 else:
@@ -1440,8 +1464,6 @@ class SymvassAnalyzer:
             meta_out = list()
             output.append(f"[sym-out] [default] [inputs {len(remaining_inputs)}] [cnt {len(all_patches_default)}] [patches {sorted(list(all_patches_default))}]\n")
             meta_out.append(f"[meta-data] [default] [correct {correct_patch}] [all-patches {len(all_patches)}] [sym-input {len(remaining_inputs)}] [is-correct {correct_patch in all_patches_default}] [patches {sorted(list(all_patches_default))}]\n")
-            output.append(f"[sym-out] [strict] [inputs {len(remaining_inputs)}] [cnt {len(all_patches - strict_removed)}] [patches {sorted(list(all_patches - strict_removed))}]\n")
-            meta_out.append(f"[meta-data] [strict] [correct {correct_patch}] [all-patches {len(all_patches)}] [sym-input {len(remaining_inputs)}] [is-correct {correct_patch in (all_patches - strict_removed)}] [patches {sorted(list(all_patches - strict_removed))}]\n")
             # Further analysis with exit loc
             new_removed = set()
             new_strict_removed = set()
@@ -1474,12 +1496,24 @@ class SymvassAnalyzer:
                                 new_strict_removed.add(meta["patchId"])
                             elif not meta["actuallyCrashed"]:
                                 new_remaining_inputs.append((crash_id, base, state, list(states)))
-                                no_reg = base_meta["ret"] == meta["ret"]
-                                if no_reg:
-                                    if "nonCondReg" not in meta:
-                                        meta["nonCondReg"] = "null"
-                                    # if meta["nonCondReg"] != "ok":
-                                    #     no_reg = False
+                                base_record = base_meta["record"]
+                                crash_record = meta["record"]
+                                if "__uni_klee_path" not in base_record or "__uni_klee_path" not in crash_record:
+                                    f.write(f"[error] [no-path] [id {crash_id}] [base {base}] [test {state}] [patch {meta['patchId']}] [exit-res {meta['exit']}] [exit-loc {meta['exitLoc']}]\n")
+                                    exit(1)
+                                exit_path_base = base_record["__uni_klee_path"]["loc"]
+                                exit_path_crash = crash_record["__uni_klee_path"]["loc"]
+                                if exit_path_base != exit_path_crash:
+                                    no_reg = False
+                                elif exit_path_base == 0:
+                                    no_reg = True
+                                else:
+                                    no_reg = base_meta["ret"] == meta["ret"]
+                                    if no_reg:
+                                        if "nonCondReg" not in meta:
+                                            meta["nonCondReg"] = "null"
+                                        if meta["nonCondReg"] != "ok":
+                                            no_reg = False
                                 if no_reg:
                                     survived = True
                                 else:
@@ -1511,21 +1545,33 @@ class SymvassAnalyzer:
                                     new_removed.add(meta["patchId"])
                                 f.write(f"[remain] [{result}] [id {crash_id}] [base {base}] [test {state}] [patch {meta['patchId']}] [exit-res {meta['exit']}] [exit-loc {meta['exitLoc']}]\n")
                             elif not meta["actuallyCrashed"]:
-                                no_reg = base_meta["ret"] == meta["ret"]
+                                base_record = base_meta["record"]
+                                crash_record = meta["record"]
+                                if "__uni_klee_path" not in base_record or "__uni_klee_path" not in crash_record:
+                                    f.write(f"[error] [no-path] [id {crash_id}] [base {base}] [test {state}] [patch {meta['patchId']}] [exit-res {meta['exit']}] [exit-loc {meta['exitLoc']}]\n")
+                                    exit(1)
+                                exit_path_base = base_record["__uni_klee_path"]["loc"]
+                                exit_path_crash = crash_record["__uni_klee_path"]["loc"]
+                                if exit_path_base != exit_path_crash:
+                                    no_reg = False
+                                elif exit_path_base == 0:
+                                    no_reg = True
+                                else:
+                                    no_reg = base_meta["ret"] == meta["ret"]
+                                    if no_reg:
+                                        if "nonCondReg" not in meta:
+                                            meta["nonCondReg"] = "null"
+                                        if meta["nonCondReg"] != "ok":
+                                            no_reg = False
                                 if no_reg:
-                                    if "nonCondReg" not in meta:
-                                        meta["nonCondReg"] = "null"
-                                    # if meta["nonCondReg"] != "ok":
-                                    #     no_reg = False
-                                if no_reg:
-                                    f.write(f"[remain] [keep] [id {crash_id}] [base {base}] [test {state}] [patch {meta['patchId']}] [exit-res {meta['exit']}] [exit-loc {meta['exitLoc']}]\n")
+                                    f.write(f"[remain] [keep] [id {crash_id}] [base {base}] [test {state}] [patch {meta['patchId']}] [exit-res {meta['exit']}] [exit-loc {exit_path_base}-{exit_path_crash}:{base_meta['ret']}-{meta['ret']}] [reg {meta['nonCondReg']}]\n")
                                 else:
                                     if survived or not removed:
                                         result = "ignore"
                                     else:
                                         result = "rm"
                                         new_removed.add(meta["patchId"])
-                                    f.write(f"[remain] [{result}] [id {crash_id}] [base {base}] [test {state}] [patch {meta['patchId']}] [exit-res {meta['exit']}] [exit-loc {meta['exitLoc']}] [reg {meta['nonCondReg']}]\n")
+                                    f.write(f"[remain] [{result}] [id {crash_id}] [base {base}] [test {state}] [patch {meta['patchId']}] [exit-res {meta['exit']}] [exit-loc {exit_path_base}-{exit_path_crash}:{base_meta['ret']}-{meta['ret']}] [reg {meta['nonCondReg']}]\n")
                             else:
                                 f.write(f"[remove] [keep] [id {crash_id}] [base {base}] [test {state}] [patch {meta['patchId']}] [exit-res {meta['exit']}] [exit-loc {meta['exitLoc']}]\n")
 
