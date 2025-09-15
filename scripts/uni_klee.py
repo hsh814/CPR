@@ -221,7 +221,7 @@ class ConfigFiles:
     dirs.sort(key=self.sorting_key)
     print_log(dirs)
     for d in dirs:
-      if name.startswith("snapshot") or name not in d:
+      if d.startswith("snapshot") or name not in d:
         continue
       index += 1
       result.append((d, index))
