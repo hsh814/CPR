@@ -21,14 +21,14 @@ pushd dafl-src
   # Build
   ./bootstrap
   # Patch
-  cp ../${patched_file} ${patched_dir}/${patched_file}
+  cp "../${patched_file%.c}.afl.c" ${patched_dir}/${patched_file}
   sed -i 's|#include <klee/klee.h>|#include "uni_klee_runtime.h"|g' $patched_dir/$patched_file
   rm -rf build
   mkdir build
   pushd build
-    FORCE_UNSAFE_CONFIGURE=1 ../configure CFLAGS='-g -O0 -DDAFL_ASSERT -Wno-error -static -fPIE -fPIC' CXXFLAGS="$CFLAGS"
+    CC=clang CXX=clang++ FORCE_UNSAFE_CONFIGURE=1 ../configure
     # make CFLAGS="-fPIC -fPIE -ldafl_runtime -L"${PWD}/.." -I"${PWD}"/../../concrete -DDAFL_ASSERT -Wno-error" CXXFLAGS=$CFLAGS -j32
-    make CFLAGS="-fPIC -fPIE -I"${PWD}"/../../concrete -DDAFL_ASSERT -Wno-error" CXXFLAGS=$CFLAGS -j32
+    CC=clang CXX=clang++ make LDFLAGS="-no-pie" CFLAGS="-Wno-error -fsanitize=address -g -fPIC" CXXFLAGS="-Wno-error -fsanitize=address -g -fPIC" -j 10
   popd
   # cp
   cp build/${bin_dir}/${bin_file} ../dafl-patched/bin

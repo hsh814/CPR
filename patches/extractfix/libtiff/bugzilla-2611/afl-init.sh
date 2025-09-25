@@ -10,11 +10,6 @@ patched_file=tif_ojpeg.c
 bin_dir=tools
 bin_file=tiffmedian
 git clone $project_url dafl-src
-pushd concrete
-  gcc -c -fpic -L. uni_klee_runtime_dafl.c
-  gcc -shared -o libdafl_runtime.so uni_klee_runtime_dafl.o
-  mv libdafl_runtime.so ../dafl-src
-popd
 pushd dafl-src
   git checkout $commit_id
   wget http://www.ijg.org/files/jpegsrc.v8d.tar.gz
@@ -24,10 +19,10 @@ pushd dafl-src
     make -j32 install
   popd
   # Patch
-  cp ../${patched_file} ${patched_dir}/${patched_file}
+  cp "../${patched_file%.c}.afl.c" ${patched_dir}/${patched_file}
   ./autogen.sh
-  OJPEG_SUPPORT=true JPEG_SUPPORT=true ./configure --enable-static --disable-shared --enable-old-jpeg --with-jpeg-include-dir="${PWD}/jpeg-8d/build/include" --with-jpeg-lib-dir="${PWD}/jpeg-8d/build/lib"
-  OJPEG_SUPPORT=true JPEG_SUPPORT=true make CFLAGS="-static -O0 -g -DDAFL_ASSERT -Wno-error -ldafl_runtime -L"${PWD}" -I"${PWD}"/../concrete" CXXFLAGS="-static -O0 -g -DDAFL_ASSERT -Wno-error -ldafl_runtime -L"${PWD}" -I"${PWD}"/../concrete" -j16
+  CC=clang CXX=clang++ OJPEG_SUPPORT=true JPEG_SUPPORT=true ./configure --enable-static --disable-shared --enable-old-jpeg --with-jpeg-include-dir="${PWD}/jpeg-8d/build/include" --with-jpeg-lib-dir="${PWD}/jpeg-8d/build/lib"
+  CC=clang CXX=clang++ OJPEG_SUPPORT=true JPEG_SUPPORT=true make CFLAGS="-static -fsanitize=address -fsanitize=undefined -g" CXXFLAGS="-static -fsanitize=address -fsanitize=undefined -g" -j10
   # cp
   cp ${bin_dir}/${bin_file} ../dafl-patched/bin
 popd
