@@ -392,13 +392,13 @@
    }
    
    int uni_klee_choice(int *patch_results, int patch_id) {
-     FILE *fp=fopen(getenv("DAFL_RESULT_FILE"),"a");
-     if (fp == NULL) {
-       fprintf(stderr, "Error opening file!\n");
-       exit(1);
-     }
-     fprintf(fp, "%d ", patch_results[patch_id]);
-     fclose(fp);
+    //  FILE *fp=fopen(getenv("DAFL_RESULT_FILE"),"a");
+    //  if (fp == NULL) {
+    //    fprintf(stderr, "Error opening file!\n");
+    //    exit(1);
+    //  }
+    //  fprintf(fp, "%d ", patch_results[patch_id]);
+    //  fclose(fp);
      return patch_results[patch_id];
    }
    
