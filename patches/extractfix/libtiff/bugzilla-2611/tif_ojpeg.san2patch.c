@@ -250,6 +250,7 @@ typedef enum {
 
 typedef struct {
 	TIFF* tif;
+	int decoder_ok;
 	#ifndef LIBJPEG_ENCAP_EXTERNAL
 	JMP_BUF exit_jmpbuf;
 	#endif
@@ -728,6 +729,7 @@ OJPEGPreDecode(TIFF* tif, uint16 s)
 		}
 		sp->write_curstrile++;
 	}
+	sp->decoder_ok = 1;
 	return(1);
 }
 
@@ -820,31 +822,25 @@ OJPEGDecodeRaw(TIFF* tif, uint8* buf, tmsize_t cc)
 	uint8* r;
 	uint8 sx,sy;
 	int patch = __uni_klee_poc_choice();
-	if (patch == 1) {
+	if (patch == 2 || patch == 3 || patch == 4 || patch == 5 || patch == 7 || patch == 8 || patch == 9 || patch == 10 || patch == 11) {
+		if (sp == NULL) {
+			TIFFErrorExt(tif->tif_clientdata,module,"Malformed OJPEG: missing decoder state");
+			return(0);
+		}
 		if (sp->bytes_per_line == 0) {
-			TIFFErrorExt(tif->tif_clientdata,module,"bytes_per_line is zero");
-			return 0;
-		}
-	} else if (patch == 2) {
-		if (sp->bytes_per_line == 0 || sp->subsampling_ver == 0 || sp->subsampling_hor == 0 || sp->subsampling_convert_ylinelen == 0 || sp->subsampling_convert_clinelen == 0 || sp->subsampling_convert_clinelenout == 0 || sp->subsampling_convert_ybuf == NULL || sp->subsampling_convert_cbbuf == NULL || sp->subsampling_convert_crbuf == NULL) {
-			TIFFErrorExt(tif->tif_clientdata,module,"bytes_per_line is zero");
+			TIFFErrorExt(tif->tif_clientdata,module,"Malformed OJPEG: zero bytes_per_line");
 			return(0);
 		}
-	} else if (patch == 3) {
-		if (sp == NULL || sp->bytes_per_line == 0 || sp->bytes_per_line > (tmsize_t)(1<<24) ||  sp->subsampling_ver == 0 || sp->subsampling_hor == 0 || sp->subsampling_convert_ylinelen == 0 || sp->subsampling_convert_clinelen == 0 || sp->subsampling_convert_ylinelen < sp->subsampling_hor) {
-			TIFFErrorExt(tif->tif_clientdata,module,"bytes_per_line is zero");
+	}
+	else if (patch == 6) {
+		if (sp->bytes_per_line == 0) {
+			TIFFErrorExt(tif->tif_clientdata,module,"Invalid bytes_per_line (0) in OJPEG header");
 			return(0);
 		}
-	} else if (patch == 4) {
-		if (tif == NULL || sp == NULL || cc < 0 || sp->bytes_per_line == 0 || sp->subsampling_ver == 0 || sp->subsampling_hor == 0 || sp->subsampling_convert_ylinelen == 0 || sp->subsampling_convert_clinelen == 0 || sp->subsampling_convert_clinelenout == 0 || sp->subsampling_convert_ylinelen < sp->subsampling_hor || sp->subsampling_convert_state >= sp->subsampling_convert_clines) {
-			TIFFErrorExt(tif->tif_clientdata,module,"bytes_per_line is zero");
-			return 0;
-		}
-	} else if (patch == 5) {
-		if (sp == NULL || sp->bytes_per_line == 0) {
-			TIFFErrorExt(tif->tif_clientdata,module,"bytes_per_line is zero");
-			return(0);
-		}
+	}
+	else if (patch == 1) {
+		// ground truth patch
+		if (sp->bytes_per_line == 0) return -1;
 	}
 	if (cc%sp->bytes_per_line!=0)
 	{
