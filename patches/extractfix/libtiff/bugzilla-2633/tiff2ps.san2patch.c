@@ -2445,27 +2445,122 @@ PSDataColorContig(FILE* fd, TIFF* tif, uint32 w, uint32 h, int nc)
 	unsigned char *tf_buf;
 	unsigned char *cp, c;
     int patch = __uni_klee_poc_choice();
-	if (patch == 1) {
-		if (es <= 0) return;
-	} else if (patch == 2) {
-		if (samplesperpixel <= 0) return;
-	} else if (patch == 3) {
-		if (samplesperpixel <= 0 || bitspersample <= 0 || (tf_bytesperrow < (tsize_t)(samplesperpixel) && tf_bytesperrow < (tsize_t)((bitspersample + 7) / 8 * samplesperpixel))) {
-			return;
-		}
-	} else if (patch == 4) {
-		tsize_t tf_bytesperrow = TIFFScanlineSize(tif);
-		if (tf_bytesperrow <= 0 || tf_bytesperrow >= (size_t)(-1)) {
-			return;
-		}
-	} else if (patch == 5) {
-		if (samplesperpixel <= nc) return;
-	}
 	(void) w;
-	tf_buf = (unsigned char *) _TIFFmalloc(tf_bytesperrow);
+	if (patch == 5) {
+		/* try to get canonical scanline size */
+		tsize_t scanline = TIFFScanlineSize(tif);
+		size_t alloc_size = 0;
+		if (scanline > 0) {
+			/* ensure it fits in size_t */
+			if ((tsize_t)((size_t)-1) < scanline) {
+				TIFFError(filename, "Scanline size too large");
+				return;
+			}
+			alloc_size = (size_t)scanline;
+		} else {
+			/* fallback: compute required bytes safely */
+			u_int64_t bits = (u_int64_t)w * (u_int64_t)samplesperpixel * (u_int64_t)bitspersample;
+			u_int64_t required_bytes = (bits + 7) / 8; /* round up to whole bytes */
+			if (required_bytes == 0 || required_bytes > (u_int64_t)((size_t)-1)) {
+				TIFFError(filename, "Invalid image dimensions or overflow computing scanline size");
+				return;
+			}
+			alloc_size = (size_t)required_bytes;
+		}
+		/* allocate at least as much as tf_bytesperrow to remain compatible */
+		if ((size_t)tf_bytesperrow > alloc_size)
+			alloc_size = (size_t)tf_bytesperrow;
+
+		tf_buf = (unsigned char *) _TIFFmalloc(alloc_size);
+	}
+	else if (patch == 7) {
+		size_t bytes_per_sample = (bitspersample + 7) / 8;
+		size_t spp = (size_t)samplesperpixel;
+		size_t scanline_bytes = 0;
+		/* check for multiplication overflow: w * spp * bytes_per_sample */
+		if (bytes_per_sample != 0 && spp != 0) {
+			/* Use (size_t)-1 as the maximum value instead of SIZE_MAX to
+			   avoid relying on SIZE_MAX being defined in the build
+			   environment. */
+			if ((size_t)w > ((size_t)-1) / spp / bytes_per_sample) {
+				TIFFError(filename, "scanline width too large");
+				return;
+			}
+			scanline_bytes = (size_t)w * spp * bytes_per_sample;
+		}
+		/* fallback to tf_bytesperrow if computed size is 0 (defensive) */
+		if (scanline_bytes == 0)
+			scanline_bytes = (size_t)tf_bytesperrow;
+
+		/* allocate the computed required size */
+		tf_buf = (unsigned char *) _TIFFmalloc((tsize_t)scanline_bytes);
+	}
+	else if (patch == 9) {
+		if (tf_bytesperrow >= (tsize_t) ((size_t) -1)) {
+			/* extremely large allocation would overflow; fail gracefully */
+			TIFFError(filename, "Requested scanline buffer size too large");
+			return;
+		}
+		tf_buf = (unsigned char *) _TIFFmalloc(tf_bytesperrow + 1);
+	}
+	else if (patch == 1) {
+		// ground truth
+		if (es == -2) return;
+	}
+	else {
+		if (patch == 6) {
+			u_int64_t scanline_bytes64 = TIFFScanlineSize64(tif);
+			if (scanline_bytes64 == 0 || scanline_bytes64 > (u_int64_t)((size_t)-1)) {
+				TIFFError(filename, "invalid scanline size");
+				return;
+			}
+			/* assign validated size to tf_bytesperrow (used elsewhere) */
+			tf_bytesperrow = (tsize_t)scanline_bytes64;
+		}
+		tf_buf = (unsigned char *) _TIFFmalloc(tf_bytesperrow);
+	}
 	if (tf_buf == NULL) {
 		TIFFError(filename, "No space for scanline buffer");
 		return;
+	}
+	if (patch == 2) {
+		if (tf_bytesperrow < (tsize_t)samplesperpixel) {
+			TIFFError(filename, "Scanline size too small for samplesperpixel");
+			_TIFFfree((char *) tf_buf);
+			return;
+		}
+	}
+	else if (patch == 3) {
+		if (samplesperpixel <= 0 || nc <= 0 || nc > samplesperpixel) {
+			TIFFError(filename, "Invalid SamplesPerPixel/colour count");
+			return;
+		}
+		if (tf_bytesperrow <= 0 || tf_bytesperrow < (tsize_t)samplesperpixel) {
+			TIFFError(filename, "Scanline size too small");
+			return;
+		}
+	}
+	else if (patch == 4) {
+		if ((size_t)tf_bytesperrow < (size_t)samplesperpixel) {
+			TIFFError(filename, "Scanline buffer too small");
+			_TIFFfree((char *) tf_buf);
+			return;
+		}
+		if ((size_t)nc >= (size_t)samplesperpixel) {
+			TIFFError(filename, "Invalid component count");
+			_TIFFfree((char *) tf_buf);
+			return;
+		}
+	}
+	else if (patch == 9) {
+		tf_buf[tf_bytesperrow] = 0;
+	}
+	else if (patch == 10) {
+		if (tf_bytesperrow == 0) {
+			TIFFError(filename, "Empty scanline");
+			_TIFFfree((char *) tf_buf);
+			return;
+		}
 	}
 	for (row = 0; row < h; row++) {
 		if (TIFFReadScanline(tif, tf_buf, row, 0) < 0)
@@ -2482,6 +2577,22 @@ PSDataColorContig(FILE* fd, TIFF* tif, uint32 w, uint32 h, int nc)
 			int adjust;
 			cc = 0;
 			for (; cc < tf_bytesperrow; cc += samplesperpixel) {
+				if (patch == 2) {
+					tsize_t off = (tsize_t)(cp - tf_buf);
+					if (off + nc >= (tsize_t)tf_bytesperrow) /* not enough room for alpha */
+						break;
+					if (off + samplesperpixel > (tsize_t)tf_bytesperrow) /* not enough for full pixel */
+						break;
+				}
+				else if (patch == 4) {
+					if (!(cc + samplesperpixel <= tf_bytesperrow)) break;
+				}
+				else if (patch == 7) {
+					if (!(cc < (tsize_t)((size_t)w * (size_t)samplesperpixel * ((bitspersample + 7)/8)))) break;
+				}
+				else if (patch == 8) {
+					if (cp + samplesperpixel > tf_buf + tf_bytesperrow) break;
+				}
 				DOBREAK(breaklen, nc, fd);
 				/*
 				 * For images with alpha, matte against
@@ -2489,6 +2600,12 @@ PSDataColorContig(FILE* fd, TIFF* tif, uint32 w, uint32 h, int nc)
 				 *    Cback * (1 - Aimage)
 				 * where Cback = 1.
 				 */
+				if (patch == 3 || patch == 6 || patch == 7 || patch == 10) {
+					if (cc + nc >= tf_bytesperrow) break;
+				}
+				else if (patch == 8 || patch == 11) {
+					if (cp + nc >= tf_buf + tf_bytesperrow) break;
+				}
 CPR_OUTPUT("obs", "i32", es);
 				adjust = 255 - cp[nc];
 				switch (nc) {
@@ -2502,7 +2619,30 @@ CPR_OUTPUT("obs", "i32", es);
 		} else {
 			cc = 0;
 			for (; cc < tf_bytesperrow; cc += samplesperpixel) {
+				if (patch == 2) {
+					tsize_t off = (tsize_t)(cp - tf_buf);
+					if (off + samplesperpixel > (tsize_t)tf_bytesperrow)
+						break;
+				}
+				else if (patch == 4) {
+					if (!(cc + samplesperpixel <= tf_bytesperrow)) break;
+				}
+				else if (patch == 7) {
+					if (!(cc < (tsize_t)((size_t)w * (size_t)samplesperpixel * ((bitspersample + 7)/8)))) break;
+				}
+				else if (patch == 8 || patch == 11) {
+					if (cp + samplesperpixel > tf_buf + tf_bytesperrow) break;
+				}
 				DOBREAK(breaklen, nc, fd);
+				if (patch == 3 || patch == 10) {
+					if (cc + nc >= tf_bytesperrow) break;
+				}
+				else if (patch == 6) {
+					if ((size_t)cc >= (size_t)tf_bytesperrow) break;
+				}
+				else if (patch == 7) {
+					if ((size_t)cc + (size_t)samplesperpixel > (size_t)tf_bytesperrow) break;
+				}
 				switch (nc) {
 				case 4: c = *cp++; PUTHEX(c,fd);
 				case 3: c = *cp++; PUTHEX(c,fd);
