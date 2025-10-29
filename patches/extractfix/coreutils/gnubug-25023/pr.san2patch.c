@@ -1225,21 +1225,29 @@ init_parameters (int number_of_files)
   /* Tabification is assumed for multiple columns. */
   if (columns > 1)
     {
+      int cond = !join_lines && *col_sep_string == '\t';
+      int patch = __uni_klee_poc_choice();
+      if (patch == 1) {
+        cond = cond && col_sep_length == 1;
+      } else if (patch == 2) {
+        cond = cond && col_sep_string != NULL;
+      } else if (patch == 3) {
+        cond = !join_lines && col_sep_string != NULL && col_sep_string[0] == '\t' && col_sep_string[1] == '\0';
+      }
       if (!use_col_separator)
-        {
-          /* Use default separator */
-          if (join_lines)
-            col_sep_string = line_separator;
-          else
-            col_sep_string = column_separator;
+      {
+        /* Use default separator */
+        if (join_lines)
+          col_sep_string = line_separator;
+        else
+          col_sep_string = column_separator;
 
-          col_sep_length = 1;
-          use_col_separator = true;
+        col_sep_length = 1;
+        use_col_separator = true;
         }
       /* It's rather pointless to define a TAB separator with column
          alignment */
-else if (!join_lines && *col_sep_string == '\t' && __cpr_choice("L290", "bool", (long long[]){col_sep_length}, (char*[]){"col_sep_length"}, 1, (int*[]){}, (char*[]){}, 0)){
-CPR_OUTPUT("obs", "i32", col_sep_length);
+else if (cond){
 
         col_sep_string = column_separator;
         if (col_sep_length != 1) klee_abort();

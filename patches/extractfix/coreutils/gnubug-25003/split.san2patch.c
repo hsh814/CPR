@@ -994,16 +994,30 @@ bytes_chunk_extract (uintmax_t k, uintmax_t n, char *buf, size_t bufsize,
   } else if (patch == 1) {
     cond = start < initial_read;
   } else if (patch == 2) {
-    cond = initial_read != SIZE_MAX && start >= 0 && start < (off_t)initial_read && initial_read - start <= bufsize && initial_read - start > 0;
+    cond = initial_read != SIZE_MAX && (size_t) start < initial_read;
   } else if (patch == 3) {
-    cond = initial_read != SIZE_MAX && start >= 0 && start < (off_t)initial_read;
+    cond = initial_read != SIZE_MAX && start < (off_t)initial_read;
+    if (initial_read != SIZE_MAX && size >= (off_t)initial_read) {
+      die (EXIT_FAILURE, 0, "invalid range: start > available bytes");
+    }
+  } else if (patch == 4) {
+    cond = initial_read != SIZE_MAX && start >= 0 && (size_t)start < initial_read;
+  } else if (patch == 5) {
+    cond = initial_read != SIZE_MAX && start < (off_t)initial_read;
   }
 
   if (cond) {
-    CPR_OUTPUT("obs", "i32", initial_read - start);
 
     klee_assert(initial_read > start);
-    memmove(buf, buf + start, initial_read - start);
+    size_t copy_size = initial_read - start;
+    if (patch == 5) {
+      if (copy_size > bufsize)
+        copy_size = bufsize;
+      if (copy_size < initial_read - start) {
+        initial_read = SIZE_MAX;
+      }
+    }
+    memmove(buf, buf + start, copy_size);
     initial_read -= start;
     }
   else

@@ -37,5 +37,7 @@ vrpilot-src/
 vrpilot-patched/
 crashrepair-src/
 crashrepair-patched/
+san2patch-src/
+san2patch-patched/
 afl-init.log
 trace-diff.sbsv

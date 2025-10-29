@@ -198,8 +198,14 @@ main (int argc, char **argv)
 
   size = (limit-1)/2;
   /* sieve[i] represents 3+2*i */
-  sieve = xalloc (size);
-  memset (sieve, 1, size);
+  int patch = __uni_klee_poc_choice();
+  if (patch == 2) {
+    sieve = xalloc(size + 1);
+    memset(sieve, 1, size + 1);
+  } else {
+    sieve = xalloc(size);
+    memset (sieve, 1, size);
+  }
 
   prime_list = xalloc (size * sizeof (*prime_list));
   nprimes = 0;
@@ -213,18 +219,21 @@ main (int argc, char **argv)
 
       for (j = (p*p - 3)/2; j < size; j+= p)
         sieve[j] = 0;
-      int patch = __uni_klee_poc_choice();
       while (1)
       {
         if (patch == 0) {
           if (!(i < size && sieve[++i] == 0))
             break;
-        } else if (patch == 1) {
+        } else if (patch == 1 || patch == 7 || patch == 8 || patch == 9 || patch == 10) {
           if (!(++i < size && sieve[i] == 0))
             break;
-        } else if (patch == 2) {
+        } else if (patch == 3 || patch == 5) {
+          if (i + 1 >= size) {
+            i = size;
+            break;
+          }
           i++;
-          if (!(i < size && sieve[i] == 0))
+          if (sieve[i] != 0)
             break;
         }
       }
