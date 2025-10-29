@@ -224,10 +224,10 @@ main (int argc, char **argv)
         if (patch == 0) {
           if (!(i < size && sieve[++i] == 0))
             break;
-        } else if (patch == 1 || patch == 7 || patch == 8 || patch == 9 || patch == 10) {
+        } else if (patch == 1 ) {
           if (!(++i < size && sieve[i] == 0))
             break;
-        } else if (patch == 3 || patch == 5) {
+        } else if (patch == 3) {
           if (i + 1 >= size) {
             i = size;
             break;

@@ -298,22 +298,21 @@ fillpattern (int type, unsigned char *r, size_t size)
   r[1] = (bits >> 8) & 255;
   r[2] = bits & 255;
   int patch = __uni_klee_poc_choice();
-  if (patch == )
   for (i = 3;; i *= 2)
   {
     if (patch == 0) {
       if (!(i < size / 2))
         break;
-      uni_klee_assert((i > size / 2 ));
       memcpy (r + i, r, i);
     } else if (patch == 1) {
       if (!(i <= size / 2))
         break;
-      uni_klee_assert((i > size / 2 ));
       memcpy (r + i, r, i);
     } else if (patch == 2) {
       memmove(r + i, r, i);
     }
+    if (patch != 2)
+      uni_klee_assert((i > size / 2 ));
     
   }
     

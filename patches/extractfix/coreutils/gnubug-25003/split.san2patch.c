@@ -1000,10 +1000,6 @@ bytes_chunk_extract (uintmax_t k, uintmax_t n, char *buf, size_t bufsize,
     if (initial_read != SIZE_MAX && size >= (off_t)initial_read) {
       die (EXIT_FAILURE, 0, "invalid range: start > available bytes");
     }
-  } else if (patch == 4) {
-    cond = initial_read != SIZE_MAX && start >= 0 && (size_t)start < initial_read;
-  } else if (patch == 5) {
-    cond = initial_read != SIZE_MAX && start < (off_t)initial_read;
   }
 
   if (cond) {
