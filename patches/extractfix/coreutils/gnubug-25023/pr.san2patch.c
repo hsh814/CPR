@@ -1230,7 +1230,7 @@ init_parameters (int number_of_files)
       if (patch == 1) {
         cond = cond && col_sep_length == 1;
       } else if (patch == 2) {
-        cond = cond && col_sep_string != NULL;
+        cond = col_sep_string != NULL && cond;
       } else if (patch == 3) {
         cond = !join_lines && col_sep_string != NULL && col_sep_string[0] == '\t' && col_sep_string[1] == '\0';
       }
@@ -1250,6 +1250,9 @@ init_parameters (int number_of_files)
 else if (cond){
 
         col_sep_string = column_separator;
+        if (patch == 2) {
+          col_sep_length = strnlen(column_separator, 64);
+        }
         if (col_sep_length != 1) klee_abort();
 }
 

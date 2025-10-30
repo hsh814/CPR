@@ -1159,7 +1159,7 @@ def main():
     parser.add_argument("-s", "--symradar-prefix", help="SymVass prefix", default="uni-m-out")
     parser.add_argument("-v", "--val-prefix", help="Val prefix", default="")
     parser.add_argument("-p", "--prefix", help="Prefix of fuzzer out: default aflrun-multi-out", default="aflrun-multi-out")
-    parser.add_argument("-t", "--tool", help="APR tool", default="cpr", choices=["cpr", "poc", "crashrepair"])
+    parser.add_argument("-t", "--tool", help="APR tool", default="cpr", choices=["cpr", "poc", "crashrepair", "san2patch"])
     # parser.add_argument("-s", "--subject", help="Subject", default="")
     args = parser.parse_args(sys.argv[1:])
     global OTHER_APR_TOOL_MODE
@@ -1204,6 +1204,8 @@ def main():
             subprocess.run(f"./init-crashrepair.sh", cwd=subject_dir, shell=True)
         elif OTHER_APR_TOOL_MODE == "poc":
             subprocess.run(f"./init-poc.sh", cwd=subject_dir, shell=True)
+        elif OTHER_APR_TOOL_MODE == "san2patch":
+            subprocess.run(f"./init-san2patch.sh >san2patch-build.log 2>&1", cwd=subject_dir, shell=True)
     elif args.cmd == "extractfix-build":
         subprocess.run(f"./extractfix.sh", cwd=subject_dir, shell=True)
     elif args.cmd == "vulmaster-build":

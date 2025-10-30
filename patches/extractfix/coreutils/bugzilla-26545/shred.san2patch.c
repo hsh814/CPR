@@ -311,17 +311,18 @@ fillpattern (int type, unsigned char *r, size_t size)
     } else if (patch == 2) {
       memmove(r + i, r, i);
     }
-    if (patch != 2)
-      uni_klee_assert((i > size / 2 ));
-    
+  }
+  if (patch != 2)
+    uni_klee_assert((i > size / 2 ));
+
+  if (i < size) {
+    if (patch != 2) {
+      memcpy (r + i, r, size - i);
+    } else {
+      memmove(r + i, r, size - i);
+    }
   }
     
-CPR_OUTPUT("obs", "i32", i - (size/2));
-
-
-
-  if (i < size)
-    memcpy (r + i, r, size - i);
 
   /* Invert the first bit of every sector. */
   if (type & 0x1000)

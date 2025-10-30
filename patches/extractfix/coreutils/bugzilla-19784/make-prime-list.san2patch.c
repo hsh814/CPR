@@ -221,10 +221,7 @@ main (int argc, char **argv)
         sieve[j] = 0;
       while (1)
       {
-        if (patch == 0) {
-          if (!(i < size && sieve[++i] == 0))
-            break;
-        } else if (patch == 1 ) {
+        if (patch == 1 ) {
           if (!(++i < size && sieve[i] == 0))
             break;
         } else if (patch == 3) {
@@ -234,6 +231,9 @@ main (int argc, char **argv)
           }
           i++;
           if (sieve[i] != 0)
+            break;
+        } else {
+          if (!(i < size && sieve[++i] == 0))
             break;
         }
       }

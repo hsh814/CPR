@@ -103,12 +103,15 @@ class ConfigFiles(uni_klee.ConfigFiles):
         elif OTHER_APR_TOOL_MODE == "crashrepair":
             self.work_dir = os.path.join(self.project_dir, "crashrepair-patched")
             self.meta_patch_obj_file = ""
+        elif OTHER_APR_TOOL_MODE == "san2patch":
+            self.work_dir = os.path.join(self.project_dir, "san2patch-patched")
+            self.meta_patch_obj_file = ""
         else:
             self.work_dir = os.path.join(self.project_dir, "patched")
             self.meta_patch_obj_file = os.path.join(self.project_dir, "concrete", "libuni_klee_runtime_new.bca")
         self.repair_conf = os.path.join(self.project_dir, "repair.conf")
         self.meta_program = os.path.join(self.project_dir, "meta-program-original.json")
-        if OTHER_APR_TOOL_MODE not in ["poc", "crashrepair"]:
+        if OTHER_APR_TOOL_MODE not in ["poc", "crashrepair", "san2patch"]:
             sympatch.compile(os.path.join(self.project_dir, "concrete"))
         
 
@@ -190,6 +193,11 @@ class Config(uni_klee.Config):
                 print_log(f"WARNING!!!: No crashrepair patch info in {self.bug_info}")
                 exit(1)
             return [str(patch_id) for patch_id in range(self.bug_info["crashrepair"] + 1)]
+        elif OTHER_APR_TOOL_MODE == "san2patch":
+            if "san2patch" not in self.bug_info:
+                print_log(f"WARNING!!!: No san2patch patch info in {self.bug_info}")
+                exit(1)
+            return [str(patch_id) for patch_id in range(self.bug_info["san2patch"] + 1)]
         plausible_file = os.path.join(self.conf_files.project_dir, "plausible.json")
         if os.path.exists(plausible_file):
             with open(plausible_file, "r") as f:
@@ -225,7 +233,7 @@ class Config(uni_klee.Config):
             #     cmd.append(f"--patch-filtering")
             patch_str = ",".join(self.patch_ids)
             cmd.append(f"--patch-id={patch_str}")
-            if OTHER_APR_TOOL_MODE in ["poc", "crashrepair"]:
+            if OTHER_APR_TOOL_MODE in ["poc", "crashrepair", "san2patch"]:
                 cmd.append(f"--patch-filtering")
         else:
             cmd.append(f"--patch-id=0")
@@ -317,7 +325,7 @@ class Config(uni_klee.Config):
             result.append(link_opt)
         if not NAIVE_MODE:
             result.append("--lazy-patch")
-        if OTHER_APR_TOOL_MODE in ["poc", "crashrepair"]:
+        if OTHER_APR_TOOL_MODE in ["poc", "crashrepair", "san2patch"]:
             result.append(f"--non-cond-patch")
         if "klee_flags" in self.project_conf:
             link_opt = self.project_conf["klee_flags"]
@@ -365,7 +373,7 @@ class SymvassDataLogSbsvParser():
             self.data = self.parser.load(f)
 
     def set_schema(self, parser: sbsv.parser, schema: List[str]):
-        parser.add_schema("[meta-data] [state: int] [crashId: int] [patchId: int] [stateType: str] [isCrash: bool] [actuallyCrashed: bool] [use: bool] [exitLoc: str] [exit: str]")
+        parser.add_schema("[meta-data] [state: int] [crashId: int] [patchId: int] [stateType: str] [isCrash: bool] [actuallyCrashed: bool] [use: bool] [exitLoc: str] [exit: str] [time: int]")
         parser.add_schema("[fork] [state$from: int] [state$to: int]")
         parser.add_schema("[fork-map] [fork] [state$from: int] [type$from: str] [base: int] [base-type: str] [state$to: int] [type$to: str] [fork-count: str]")
         parser.add_schema("[fork-map] [sel-patch] [state$base: int] [state$base_after: int]")
@@ -1120,7 +1128,7 @@ class SymvassAnalyzer:
             correct_patch = 1 # This is mostly wrong, but we need any correct patch
         # Get exit location in filter
         filter_metadata = dp_filter.parser.get_result()["meta-data"][0]
-        exit_loc = filter_metadata["exitLoc"]
+        exit_loc = filter_metadata["exitLoc"].split(":")[-1]
         exit_res = filter_metadata["exit"]
         # Analyze
         dp = SymvassDataLogSbsvParser(self.dir)
@@ -1205,8 +1213,9 @@ class SymvassAnalyzer:
                 removed = all_patches - res_patches
                 meta = analyzer.meta_data[test]
                 meta_base = analyzer.meta_data[base]
+                base_exit_loc = meta_base["exitLoc"].split(":")[-1]
                 if meta_base["isCrash"]:
-                    if meta_base["exitLoc"] != exit_loc:
+                    if base_exit_loc != exit_loc:
                         f.write(f"[remove] [crash] [id {crash_id}] [base {base}] [test {test}] [exit-loc {meta_base['exitLoc']}] [exit-res {meta_base['exit']}] [cnt {len(remaining)}] [patches {sorted(list(remaining))}]\n")
                     else:
                         new_removed = new_removed | removed
@@ -1267,8 +1276,9 @@ class SymvassAnalyzer:
                 removed = all_patches - res_patches
                 meta = analyzer.meta_data[test]
                 meta_base = analyzer.meta_data[base]
+                base_exit_loc = meta_base["exitLoc"].split(":")[-1]
                 if meta_base["isCrash"]:
-                    if meta_base["exitLoc"] != exit_loc:
+                    if base_exit_loc != exit_loc:
                         f.write(f"[strict-remove] [crash] [id {crash_id}] [base {base}] [test {test}] [exit-loc {meta_base['exitLoc']}] [exit-res {meta_base['exit']}] [cnt {len(remaining)}] [patches {sorted(list(remaining))}]\n")
                     else:
                         strict_new_removed = strict_new_removed | removed
@@ -1298,6 +1308,198 @@ class SymvassAnalyzer:
             for meta in meta_out:
                 f.write(meta)
     
+    def analyze_v3_min_time(self):
+        subject_dir = os.path.join(uni_klee.ROOT_DIR, "patches", self.bug_info["benchmark"], self.bug_info["subject"], self.bug_info["bug_id"])
+        plausible_file = os.path.join(subject_dir, "plausible.json")
+        all_patches = set()
+        correct_patch = 0
+        if not os.path.exists(plausible_file):
+            print_log(f"[error] {plausible_file} not found")
+            if not os.path.exists(os.path.join(self.filter_dir, "filtered.json")):
+                print_log(f"[error] {os.path.join(self.filter_dir, 'filtered.json')} not found")
+                exit(1)
+            else:
+                with open(os.path.join(self.filter_dir, "filtered.json"), "r") as f:
+                    filtered = json.load(f)
+                with open(os.path.join(subject_dir, "group-patches-original.json"), "r") as f:
+                    group_patches = json.load(f)
+                patch_group_tmp = dict()
+                correct_patch = group_patches["correct_patch_id"]
+                for patches in group_patches["equivalences"]:
+                    representative = patches[0]
+                    for patch in patches:
+                        patch_group_tmp[patch] = representative
+                patch_eq_map = dict()
+                for patch in filtered["remaining"]:
+                    if patch in patch_group_tmp:
+                        patch_eq_map[patch] = patch_group_tmp[patch]
+                    else:
+                        patch_eq_map[patch] = patch
+                for patch in filtered["remaining"]:
+                    if patch == patch_eq_map[patch]:
+                        all_patches.add(patch)
+                if correct_patch in patch_eq_map:
+                    correct_patch = patch_eq_map[correct_patch]
+        else:
+            with open(plausible_file, "r") as f:
+                plausible = json.load(f)
+            all_patches = set(plausible["plausible_patches"])
+            correct_patch = plausible["correct_patch"]
+        
+        def get_trace(dir: str) -> Set[str]:
+            trace_file = os.path.join(dir, "trace.log")
+            trace = set()
+            if not os.path.exists(trace_file):
+                print_log(f"[error] {trace_file} not found")
+                return trace
+            pattern = re.compile(r"(/.*?:\d+:\d+:\d+)")
+            with open(trace_file, "r") as f:
+                for line in f:
+                    line = line.strip()
+                    if line == "":
+                        continue
+                    match = pattern.search(line)
+                    if match:
+                        trace.add(match.group(1))
+            return trace
+        
+        symradar_dir = os.path.join(subject_dir, "patched", "2025-09-23-0")
+        ucklee_dir = os.path.join(subject_dir, "patched", "uc-2025-09-24-0")
+        symradar_trace = get_trace(symradar_dir)
+        ucklee_trace = get_trace(ucklee_dir)
+        with open(os.path.join(subject_dir, "trace-diff.sbsv"), "w") as f:
+            only_symradar = symradar_trace - ucklee_trace
+            only_ucklee = ucklee_trace - symradar_trace
+            both = symradar_trace & ucklee_trace
+            f.write(f"[trace] [only-symradar {len(only_symradar)}] [only-ucklee {len(only_ucklee)}] [both {len(both)}]\n")
+            for line in list(only_symradar)[:10]:
+                f.write(f"[only-symradar] [loc {line}]\n")
+            for line in list(only_ucklee)[:10]:
+                f.write(f"[only-ucklee] [loc {line}]\n")
+        dp_filter = SymvassDataLogSbsvParser(self.filter_dir)
+        # Get exit location in filter
+        filter_metadata = dp_filter.parser.get_result()["meta-data"][0]
+        exit_loc = filter_metadata["exitLoc"].split(":")[-1]
+        exit_res = filter_metadata["exit"]
+        
+        result_file = os.path.join(self.dir, "table_v3.sbsv")
+        parser = sbsv.parser()
+        parser.add_schema("[remain] [crash] [id: int] [base: int] [test: int] [exit-loc: str] [exit-res: str] [cnt: int] [patches: str]")
+        parser.add_schema("[meta-data] [remove-crash] [correct: int] [all-patches: int] [sym-input: int] [is-correct: bool] [patches: str]")
+        result = dict()
+        with open(result_file, "r") as f:
+            result = parser.load(f)
+        def get_list(s: str) -> List[int]:
+            s = s.strip("[]").strip(", ")
+            if s == "":
+                return list()
+            parts = s.split(", ")
+            return [int(p) for p in parts]
+        result_patches = set(get_list(result["meta-data"]["remove-crash"][0]["patches"]))
+        dp = SymvassDataLogSbsvParser(self.dir)
+        analyzer = DataAnalyzer(dp)
+        analyzer.analyze()
+        cluster = self.cluster(analyzer)
+        case_dist = {"nn": 0, "nc+": 0, "nc-": 0, "cn": 0, "cc+": 0, "cc-": 0}
+        
+        for base_state_id in cluster:
+            base_meta = analyzer.meta_data[base_state_id]
+            if not base_meta["use"]:
+                continue
+            base_crash_id = base_meta["crashId"]
+            base_time = base_meta["time"]
+            is_crash = base_meta["isCrash"]
+            if not is_crash:
+                case_dist["nn"] += 1
+                # Check n
+                continue
+            base_exit_loc = base_meta["exitLoc"].split(":")[-1]
+            if base_exit_loc != exit_loc:
+                continue
+            for crash_test in cluster[base_state_id]:
+                if crash_test not in analyzer.meta_data:
+                    continue
+                crash_meta = analyzer.meta_data[crash_test]
+                if not crash_meta["use"]:
+                    continue
+                crash_crash_id = crash_meta["crashId"]
+                crashed = crash_meta["actuallyCrashed"]
+                crash_time = crash_meta["time"]
+                if base_crash_id != crash_crash_id:
+                    continue
+                # If input is feasible:
+                # crash -> not crash
+                # not crash -> not crash + preserve behavior
+                    
+                            
+        out_file = os.path.join(self.dir, "add.sbsv")
+        if result_patches == all_patches:
+            print_log(f"All patches remain, skip min-time analysis")
+            with open(out_file, "w") as f:
+                f.write(f"[stat] [min-time] [bug {self.bug_info['bug_id']}] [time {-1}] [cnt {len(all_patches)}] [patches {sorted(list(all_patches))}]\n")
+            return
+        base_time_map = dict()
+        for base_state_id in cluster:
+            base_meta = analyzer.meta_data[base_state_id]
+            if not base_meta["use"]:
+                continue
+            base_crash_id = base_meta["crashId"]
+            base_time = base_meta["time"]
+            is_crash = base_meta["isCrash"]
+            if not is_crash:
+                base_time_map[base_state_id] = base_time
+                continue
+            base_exit_loc = base_meta["exitLoc"].split(":")[-1]
+            if base_exit_loc != exit_loc:
+                continue
+            else:
+                if base_meta["exit"] != exit_res:
+                    with open("/root/projects/CPR/ERRRR", "a") as ef:
+                        ef.write(f"[error] [bug {self.bug_info['bug_id']}] [base {base_state_id}] [exit-loc {base_meta['exitLoc']}] [exit-res {base_meta['exit']}] [expected {exit_res}]\n")
+            for crash_test in cluster[base_state_id]:
+                if crash_test not in analyzer.meta_data:
+                    continue
+                crash_meta = analyzer.meta_data[crash_test]
+                if not crash_meta["use"]:
+                    continue
+                crash_crash_id = crash_meta["crashId"]
+                crashed = crash_meta["actuallyCrashed"]
+                crash_time = crash_meta["time"]
+                if base_crash_id != crash_crash_id:
+                    continue
+                # If input is feasible:
+                # crash -> not crash
+                # not crash -> not crash + preserve behavior
+                if not crashed:
+                    if base_state_id not in base_time_map:
+                        base_time_map[base_state_id] = crash_time
+                    else:
+                        if crash_time > base_time_map[base_state_id]:
+                            base_time_map[base_state_id] = crash_time
+        
+        base_patch_map = dict()
+        for si in result["remain"]["crash"]:
+            base_id = si["base"]
+            test = si["test"]
+            patches = set(get_list(si["patches"]))
+            if base_id not in base_patch_map:
+                base_patch_map[base_id] = all_patches.copy()
+            base_patch_map[base_id] = base_patch_map[base_id] & patches
+        # Sort base by time
+        sorted_base = sorted(base_time_map.items(), key=lambda x: x[1])
+        incremental_patches = all_patches.copy()
+        final_time = -1
+        for base in sorted_base:
+            incremental_patches = incremental_patches & base_patch_map[base[0]]
+            base_time = base[1]
+            print_log(f"Min-time result: [base {base[0]}] [time {base_time}] [patches {sorted(list(incremental_patches))}]")
+            final_time = base_time
+            if incremental_patches == result_patches:
+                break
+        
+        with open(out_file, "a") as f:
+            f.write(f"[stat] [min-time] [bug {self.bug_info['bug_id']}] [time {final_time}] [cnt {len(incremental_patches)}] [patches {sorted(list(incremental_patches))}]\n")
+
     def analyze_v3_poc(self):
         subject_dir = os.path.join(uni_klee.ROOT_DIR, "patches", self.bug_info["benchmark"], self.bug_info["subject"], self.bug_info["bug_id"])
         # "poc", "crashrepair"
@@ -1779,7 +1981,7 @@ def arg_parser(argv: List[str]) -> Config:
     parser.add_argument("-g", "--use-last", help="Use last output directory", action="store_true")
     parser.add_argument("--naive", help="Naive approach for patch handling", action="store_true")
     parser.add_argument("--mode", help="mode", choices=["symradar", "extractfix"], default="symradar")
-    parser.add_argument("--tool", help="Other apr tool", choices=["cpr", "vrpilot", "poc", "crashrepair"], default="cpr")
+    parser.add_argument("--tool", help="Other apr tool", choices=["cpr", "vrpilot", "poc", "crashrepair", "san2patch"], default="cpr")
     parser.add_argument("--vulmaster-id", help="Vulmaster id", type=int, default=0)
     args = parser.parse_args(argv[1:])
     global VULMASTER_MODE, VULMASTER_ID, EXTRACTFIX_MODE, NAIVE_MODE, OTHER_APR_TOOL_MODE
@@ -1787,7 +1989,7 @@ def arg_parser(argv: List[str]) -> Config:
     NAIVE_MODE = args.naive
     if args.mode == "extractfix":
         EXTRACTFIX_MODE = True
-    if OTHER_APR_TOOL_MODE in ["poc", "crashrepair"]:
+    if OTHER_APR_TOOL_MODE in ["poc", "crashrepair", "san2patch"]:
         NAIVE_MODE = True
     if args.vulmaster_id > 0:
         VULMASTER_MODE = True
@@ -1926,12 +2128,13 @@ class Runner(uni_klee.Runner):
                 return
             analyzer = SymvassAnalyzer(self.get_dir(), self.config.conf_files.filter_dir, self.config.bug_info)
             if self.config.cmd == "analyze":
-                if OTHER_APR_TOOL_MODE in ["poc", "crashrepair"]:
+                if OTHER_APR_TOOL_MODE in ["poc", "crashrepair", "san2patch"]:
                     analyzer.analyze_v3_poc()
                 else:
                     analyzer.analyze_v3()
             elif self.config.cmd == "symgroup":
-                analyzer.cluster_symbolic_inputs()
+                # analyzer.cluster_symbolic_inputs()
+                analyzer.analyze_v3_min_time()
             else:
                 val_dir = os.path.join(self.config.conf_files.project_dir, "val-runtime")
                 val_out_dir = os.path.join(val_dir, "val-out-" + str(self.config.conf_files.find_num(val_dir, "val-out")))
@@ -1982,7 +2185,7 @@ class Runner(uni_klee.Runner):
                 cmd = self.config.get_cmd_opts(False)
                 self.execute(cmd, self.config.workdir, "uni-klee", log_file=os.path.join(self.config.conf_files.out_dir, "uni-klee.error"))
                 analyzer = SymvassAnalyzer(self.get_dir(), self.config.conf_files.filter_dir, self.config.bug_info)
-                if OTHER_APR_TOOL_MODE in ["poc", "crashrepair"]:
+                if OTHER_APR_TOOL_MODE in ["poc", "crashrepair", "san2patch"]:
                     analyzer.analyze_v3_poc()
                 else:
                     analyzer.analyze_v3()

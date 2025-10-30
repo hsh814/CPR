@@ -840,7 +840,10 @@ OJPEGDecodeRaw(TIFF* tif, uint8* buf, tmsize_t cc)
 	}
 	else if (patch == 1) {
 		// ground truth patch
-		if (sp->bytes_per_line == 0) return -1;
+		if (sp->bytes_per_line == 0)  {
+			TIFFErrorExt(tif->tif_clientdata,module,"Fractional scanline not read");
+			return -1;
+		}
 	}
 	if (cc%sp->bytes_per_line!=0)
 	{

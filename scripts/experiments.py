@@ -317,6 +317,12 @@ def check_correct_exists(meta: dict) -> bool:
     if meta["crashrepair"] == 0:
       return False
     return True
+  elif OTHER_APR_TOOL_MODE == "san2patch":
+    if "san2patch" not in meta:
+      return False
+    if meta["san2patch"] == 0:
+      return False
+    return True
   if "correct" not in meta:
     return False
   if "no" not in meta["correct"]:
@@ -607,7 +613,7 @@ def symradar_final_result_v3_poc(meta: dict, result_f: TextIO):
   subject = meta["subject"]
   bug_id = meta["bug_id"]
   subject_dir = os.path.join(ROOT_DIR, "patches", meta["benchmark"], subject, bug_id)
-  patched_dir = os.path.join(subject_dir, "poc-patched")
+  patched_dir = os.path.join(subject_dir, f"{OTHER_APR_TOOL_MODE}-patched")
   # if not os.path.exists(os.path.join(patched_dir, "snapshot-high-test/snapshot-last.json")):
   #   log_out(f"Snapshot not found: {os.path.join(patched_dir, 'snapshot-high-test/snapshot-last.json')}")
   #   result_f.write("\t\t\t\t\t\t\t\t\t\n")
@@ -709,7 +715,7 @@ def final_analysis(meta_data: List[dict], output: str):
       continue
     if VULMASTER_MODE:
       symradar_final_result_vulmaster_v3(meta, result_f)
-    elif OTHER_APR_TOOL_MODE in ["crashrepair", "poc"]:
+    elif OTHER_APR_TOOL_MODE in ["crashrepair", "poc", "san2patch"]:
       symradar_final_result_v3_poc(meta, result_f)
     else:
       symradar_final_result_v3(meta, result_f)
@@ -818,7 +824,8 @@ def main(argv: List[str]):
   parser.add_argument("-m", "--mode", type=str, help="Mode", choices=["symradar", "extractfix"], default="symradar")
   parser.add_argument("-v", "--vrpilot", action="store_true", help="Run vrpilot", default=False)
   parser.add_argument("--cr", action="store_true", help="Run crashrepair", default=False)
-  parser.add_argument("--poc", action="store_true", help="Run crashrepair", default=False)
+  parser.add_argument("--poc", action="store_true", help="Run vrpilot", default=False)
+  parser.add_argument("--s2p", action="store_true", help="Run san2patch", default=False)
   parser.add_argument("--seq", action="store_true", help="Run sequentially", default=False)
   args = parser.parse_args(argv)
   global OUTPUT_DIR, PREFIX, SYMRADAR_PREFIX, MODE, VULMASTER_MODE, OTHER_APR_TOOL_MODE, SNAPSHOT_PREFIX
@@ -828,6 +835,9 @@ def main(argv: List[str]):
     OTHER_APR_TOOL_MODE = "crashrepair"
   if args.poc:
     OTHER_APR_TOOL_MODE = "poc"
+  if args.s2p:
+    OTHER_APR_TOOL_MODE = "san2patch"
+  
   MODE = args.mode
   SNAPSHOT_PREFIX = args.snapshot_prefix
   OUTPUT_DIR = os.path.join(ROOT_DIR, "out")

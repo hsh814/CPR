@@ -2606,7 +2606,6 @@ PSDataColorContig(FILE* fd, TIFF* tif, uint32 w, uint32 h, int nc)
 				else if (patch == 8 || patch == 11) {
 					if (cp + nc >= tf_buf + tf_bytesperrow) break;
 				}
-CPR_OUTPUT("obs", "i32", es);
 				adjust = 255 - cp[nc];
 				switch (nc) {
 				case 4: c = *cp++ + adjust; PUTHEX(c,fd);
