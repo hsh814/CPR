@@ -825,16 +825,19 @@ OJPEGDecodeRaw(TIFF* tif, uint8* buf, tmsize_t cc)
 	if (patch == 2 || patch == 3 || patch == 4 || patch == 5 || patch == 7 || patch == 8 || patch == 9 || patch == 10 || patch == 11) {
 		if (sp == NULL) {
 			TIFFErrorExt(tif->tif_clientdata,module,"Malformed OJPEG: missing decoder state");
+			__uni_klee_poc_record_value(0, 0, 0, "__uni_klee_path", 0);
 			return(0);
 		}
 		if (sp->bytes_per_line == 0) {
 			TIFFErrorExt(tif->tif_clientdata,module,"Malformed OJPEG: zero bytes_per_line");
+			__uni_klee_poc_record_value(0, 0, 0, "__uni_klee_path", 0);
 			return(0);
 		}
 	}
 	else if (patch == 6) {
 		if (sp->bytes_per_line == 0) {
 			TIFFErrorExt(tif->tif_clientdata,module,"Invalid bytes_per_line (0) in OJPEG header");
+			__uni_klee_poc_record_value(0, 0, 0, "__uni_klee_path", 0);
 			return(0);
 		}
 	}
@@ -842,12 +845,14 @@ OJPEGDecodeRaw(TIFF* tif, uint8* buf, tmsize_t cc)
 		// ground truth patch
 		if (sp->bytes_per_line == 0)  {
 			TIFFErrorExt(tif->tif_clientdata,module,"Fractional scanline not read");
-			return -1;
+			__uni_klee_poc_record_value(0, 0, 0, "__uni_klee_path", 0);
+			return 0;
 		}
 	}
 	if (cc%sp->bytes_per_line!=0)
 	{
 		TIFFErrorExt(tif->tif_clientdata,module,"Fractional scanline not read");
+		__uni_klee_poc_record_value(0, 0, 0, "__uni_klee_path", 0);
 		return(0);
 	}
 	assert(cc>0);
@@ -857,8 +862,10 @@ OJPEGDecodeRaw(TIFF* tif, uint8* buf, tmsize_t cc)
 	{
 		if (sp->subsampling_convert_state==0)
 		{
-			if (jpeg_read_raw_data_encap(sp,&(sp->libjpeg_jpeg_decompress_struct),sp->subsampling_convert_ycbcrimage,sp->subsampling_ver*8)==0)
+			if (jpeg_read_raw_data_encap(sp,&(sp->libjpeg_jpeg_decompress_struct),sp->subsampling_convert_ycbcrimage,sp->subsampling_ver*8)==0) {
+				__uni_klee_poc_record_value(0, 0, 0, "__uni_klee_path", 0);
 				return(0);
+			}
 		}
 		oy=sp->subsampling_convert_ybuf+sp->subsampling_convert_state*sp->subsampling_ver*sp->subsampling_convert_ylinelen;
 		ocb=sp->subsampling_convert_cbbuf+sp->subsampling_convert_state*sp->subsampling_convert_clinelen;
@@ -883,6 +890,7 @@ OJPEGDecodeRaw(TIFF* tif, uint8* buf, tmsize_t cc)
 		m+=sp->bytes_per_line;
 		n-=sp->bytes_per_line;
 	} while(n>0);
+	__uni_klee_poc_record_value(0, 0, 0, "__uni_klee_path", 1);
 	return(1);
 }
 

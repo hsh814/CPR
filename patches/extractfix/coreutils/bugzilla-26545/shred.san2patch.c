@@ -328,6 +328,8 @@ fillpattern (int type, unsigned char *r, size_t size)
   if (type & 0x1000)
     for (i = 0; i < size; i += SECTOR_SIZE)
       r[i] ^= 0x80;
+
+  __uni_klee_poc_record_value(0, 0, 0, "__uni_klee_path", 1);
 }
 
 /*

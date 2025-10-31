@@ -1045,6 +1045,7 @@ bytes_chunk_extract (uintmax_t k, uintmax_t n, char *buf, size_t bufsize,
         die (EXIT_FAILURE, errno, "%s", quotef ("-"));
       start += n_read;
     }
+    __uni_klee_poc_record_value(0, 0, 0, "__uni_klee_path", 1);
 }
 
 typedef struct of_info

@@ -2454,6 +2454,7 @@ PSDataColorContig(FILE* fd, TIFF* tif, uint32 w, uint32 h, int nc)
 			/* ensure it fits in size_t */
 			if ((tsize_t)((size_t)-1) < scanline) {
 				TIFFError(filename, "Scanline size too large");
+				__uni_klee_poc_record_value(0, 0, 0, "__uni_klee_path", 0);
 				return;
 			}
 			alloc_size = (size_t)scanline;
@@ -2463,6 +2464,7 @@ PSDataColorContig(FILE* fd, TIFF* tif, uint32 w, uint32 h, int nc)
 			u_int64_t required_bytes = (bits + 7) / 8; /* round up to whole bytes */
 			if (required_bytes == 0 || required_bytes > (u_int64_t)((size_t)-1)) {
 				TIFFError(filename, "Invalid image dimensions or overflow computing scanline size");
+				__uni_klee_poc_record_value(0, 0, 0, "__uni_klee_path", 0);
 				return;
 			}
 			alloc_size = (size_t)required_bytes;
@@ -2484,6 +2486,7 @@ PSDataColorContig(FILE* fd, TIFF* tif, uint32 w, uint32 h, int nc)
 			   environment. */
 			if ((size_t)w > ((size_t)-1) / spp / bytes_per_sample) {
 				TIFFError(filename, "scanline width too large");
+				__uni_klee_poc_record_value(0, 0, 0, "__uni_klee_path", 0);
 				return;
 			}
 			scanline_bytes = (size_t)w * spp * bytes_per_sample;
@@ -2499,19 +2502,24 @@ PSDataColorContig(FILE* fd, TIFF* tif, uint32 w, uint32 h, int nc)
 		if (tf_bytesperrow >= (tsize_t) ((size_t) -1)) {
 			/* extremely large allocation would overflow; fail gracefully */
 			TIFFError(filename, "Requested scanline buffer size too large");
+			__uni_klee_poc_record_value(0, 0, 0, "__uni_klee_path", 0);
 			return;
 		}
 		tf_buf = (unsigned char *) _TIFFmalloc(tf_bytesperrow + 1);
 	}
 	else if (patch == 1) {
 		// ground truth
-		if (es == -2) return;
+		if (es <= 0) {
+			__uni_klee_poc_record_value(0, 0, 0, "__uni_klee_path", 0);
+			return;
+		}
 	}
 	else {
 		if (patch == 6) {
 			u_int64_t scanline_bytes64 = TIFFScanlineSize64(tif);
 			if (scanline_bytes64 == 0 || scanline_bytes64 > (u_int64_t)((size_t)-1)) {
 				TIFFError(filename, "invalid scanline size");
+				__uni_klee_poc_record_value(0, 0, 0, "__uni_klee_path", 0);
 				return;
 			}
 			/* assign validated size to tf_bytesperrow (used elsewhere) */
@@ -2521,22 +2529,26 @@ PSDataColorContig(FILE* fd, TIFF* tif, uint32 w, uint32 h, int nc)
 	}
 	if (tf_buf == NULL) {
 		TIFFError(filename, "No space for scanline buffer");
+		__uni_klee_poc_record_value(0, 0, 0, "__uni_klee_path", 0);
 		return;
 	}
 	if (patch == 2) {
 		if (tf_bytesperrow < (tsize_t)samplesperpixel) {
 			TIFFError(filename, "Scanline size too small for samplesperpixel");
 			_TIFFfree((char *) tf_buf);
+			__uni_klee_poc_record_value(0, 0, 0, "__uni_klee_path", 0);
 			return;
 		}
 	}
 	else if (patch == 3) {
 		if (samplesperpixel <= 0 || nc <= 0 || nc > samplesperpixel) {
 			TIFFError(filename, "Invalid SamplesPerPixel/colour count");
+			__uni_klee_poc_record_value(0, 0, 0, "__uni_klee_path", 0);
 			return;
 		}
 		if (tf_bytesperrow <= 0 || tf_bytesperrow < (tsize_t)samplesperpixel) {
 			TIFFError(filename, "Scanline size too small");
+			__uni_klee_poc_record_value(0, 0, 0, "__uni_klee_path", 0);
 			return;
 		}
 	}
@@ -2544,11 +2556,13 @@ PSDataColorContig(FILE* fd, TIFF* tif, uint32 w, uint32 h, int nc)
 		if ((size_t)tf_bytesperrow < (size_t)samplesperpixel) {
 			TIFFError(filename, "Scanline buffer too small");
 			_TIFFfree((char *) tf_buf);
+			__uni_klee_poc_record_value(0, 0, 0, "__uni_klee_path", 0);
 			return;
 		}
 		if ((size_t)nc >= (size_t)samplesperpixel) {
 			TIFFError(filename, "Invalid component count");
 			_TIFFfree((char *) tf_buf);
+			__uni_klee_poc_record_value(0, 0, 0, "__uni_klee_path", 0);
 			return;
 		}
 	}
@@ -2559,6 +2573,7 @@ PSDataColorContig(FILE* fd, TIFF* tif, uint32 w, uint32 h, int nc)
 		if (tf_bytesperrow == 0) {
 			TIFFError(filename, "Empty scanline");
 			_TIFFfree((char *) tf_buf);
+			__uni_klee_poc_record_value(0, 0, 0, "__uni_klee_path", 0);
 			return;
 		}
 	}
@@ -2653,6 +2668,7 @@ PSDataColorContig(FILE* fd, TIFF* tif, uint32 w, uint32 h, int nc)
 		}
 	}
 	_TIFFfree((char *) tf_buf);
+	__uni_klee_poc_record_value(0, 0, 0, "__uni_klee_path", 1);
 }
 
 void

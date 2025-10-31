@@ -1315,6 +1315,7 @@ else if (cond){
      to expand a tab which is not an input_tab-char. */
   free (clump_buff);
   clump_buff = xmalloc (MAX (8, chars_per_input_tab));
+  __uni_klee_poc_record_value(0, 0, 0, "__uni_klee_path", 1);
 }
 
 /* Open the necessary files,

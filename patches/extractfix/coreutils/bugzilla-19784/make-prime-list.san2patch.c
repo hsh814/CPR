@@ -244,8 +244,9 @@ main (int argc, char **argv)
   if (ferror (stdout) + fclose (stdout))
     {
       fprintf (stderr, "write error: %s\n", strerror (errno));
+      __uni_klee_poc_record_value(0, 0, 0, "__uni_klee_path", 0);
       return EXIT_FAILURE;
     }
-
+  __uni_klee_poc_record_value(0, 0, 0, "__uni_klee_path", 1);
   return EXIT_SUCCESS;
 }

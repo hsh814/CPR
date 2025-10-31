@@ -381,6 +381,7 @@ subject = "libjpeg"
 vars = [ "x", "t",]
 target = "quantize_ord_dither"
 vrpilot = 0
+san2patch = 5
 
   [meta_data.buggy]
   code = "(0)"
@@ -399,7 +400,7 @@ subject = "libjpeg"
 vars = [ "x", "t",]
 target = "get_sos"
 vrpilot = 0
-san2patch = 5
+san2patch = 4
 
   [meta_data.buggy]
   code = "(1)"
@@ -418,7 +419,7 @@ subject = "coreutils"
 vars = [ "size", "i",]
 target = "fillpattern"
 vrpilot = 0
-san2patch = 2
+san2patch = 1
 
   [meta_data.buggy]
   code = "(size / 2 > i)"
