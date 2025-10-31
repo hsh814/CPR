@@ -1205,6 +1205,7 @@ def main():
         elif OTHER_APR_TOOL_MODE == "poc":
             subprocess.run(f"./init-poc.sh", cwd=subject_dir, shell=True)
         elif OTHER_APR_TOOL_MODE == "san2patch":
+            subprocess.run(f"mv san2patch-patched san2patch-patched-bak", cwd=subject_dir, shell=True)
             subprocess.run(f"./init-san2patch.sh >san2patch-build.log 2>&1", cwd=subject_dir, shell=True)
     elif args.cmd == "extractfix-build":
         subprocess.run(f"./extractfix.sh", cwd=subject_dir, shell=True)

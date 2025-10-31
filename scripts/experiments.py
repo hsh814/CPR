@@ -631,7 +631,7 @@ def symradar_final_result_v3_poc(meta: dict, result_f: TextIO):
     result_f.write("\t\t\t\t\t\t\t\t\t\n")
     return
 
-  all_patches = meta["poc"]
+  all_patches = meta[OTHER_APR_TOOL_MODE]
   correct_patch = 1
   
   meta_data_default = result["meta-data"]["default"]

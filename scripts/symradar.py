@@ -459,7 +459,7 @@ class DataAnalyzer():
             meta_data[state]["patch-eval"] = dict()
             meta_data[state]["reg"] = list()
             meta_data[state]["ret"] = None
-            meta_data[state]["record"] = dict()
+            meta_data[state]["record"] = {"__uni_klee_path": {"loc": 0, "type": 0, "size": 0, "val": 0}}
             if state_type == "2": # Add base states, even if not tested
                 if state not in self.symbolic_inputs:
                     self.symbolic_inputs[state] = list()
@@ -1591,6 +1591,7 @@ class SymvassAnalyzer:
                                 crash_record = meta["record"]
                                 if "__uni_klee_path" not in base_record or "__uni_klee_path" not in crash_record:
                                     f.write(f"[error] [no-path] [id {crash_id}] [base {base}] [test {state}] [patch {meta['patchId']}] [exit-res {meta['exit']}] [exit-loc {meta['exitLoc']}]\n")
+                                    print_log(f"[error] [no-path] [id {crash_id}] [base {base}] [test {state}] [patch {meta['patchId']}] [exit-res {meta['exit']}] [exit-loc {meta['exitLoc']}]\n")
                                     exit(1)
                                 exit_path_base = base_record["__uni_klee_path"]["loc"]
                                 exit_path_crash = crash_record["__uni_klee_path"]["loc"]
@@ -1638,6 +1639,7 @@ class SymvassAnalyzer:
                                 crash_record = meta["record"]
                                 if "__uni_klee_path" not in base_record or "__uni_klee_path" not in crash_record:
                                     f.write(f"[error] [no-path] [id {crash_id}] [base {base}] [test {state}] [patch {meta['patchId']}] [exit-res {meta['exit']}] [exit-loc {meta['exitLoc']}]\n")
+                                    print_log(f"[error] [no-path] [id {crash_id}] [base {base}] [test {state}] [patch {meta['patchId']}] [exit-res {meta['exit']}] [exit-loc {meta['exitLoc']}]\n")
                                     exit(1)
                                 exit_path_base = base_record["__uni_klee_path"]["loc"]
                                 exit_path_crash = crash_record["__uni_klee_path"]["loc"]
@@ -1702,6 +1704,7 @@ class SymvassAnalyzer:
                                 crash_record = meta["record"]
                                 if "__uni_klee_path" not in base_record or "__uni_klee_path" not in crash_record:
                                     f.write(f"[error] [no-path] [id {crash_id}] [base {base}] [test {state}] [patch {meta['patchId']}] [exit-res {meta['exit']}] [exit-loc {meta['exitLoc']}]\n")
+                                    print_log(f"[error] [no-path] [id {crash_id}] [base {base}] [test {state}] [patch {meta['patchId']}] [exit-res {meta['exit']}] [exit-loc {meta['exitLoc']}]\n")
                                     exit(1)
                                 exit_path_base = base_record["__uni_klee_path"]["loc"]
                                 exit_path_crash = crash_record["__uni_klee_path"]["loc"]
@@ -1751,6 +1754,7 @@ class SymvassAnalyzer:
                                 crash_record = meta["record"]
                                 if "__uni_klee_path" not in base_record or "__uni_klee_path" not in crash_record:
                                     f.write(f"[error] [no-path] [id {crash_id}] [base {base}] [test {state}] [patch {meta['patchId']}] [exit-res {meta['exit']}] [exit-loc {meta['exitLoc']}]\n")
+                                    print_log(f"[error] [no-path] [id {crash_id}] [base {base}] [test {state}] [patch {meta['patchId']}] [exit-res {meta['exit']}] [exit-loc {meta['exitLoc']}]\n")
                                     exit(1)
                                 exit_path_base = base_record["__uni_klee_path"]["loc"]
                                 exit_path_crash = crash_record["__uni_klee_path"]["loc"]
