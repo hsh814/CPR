@@ -19,7 +19,7 @@ pushd san2patch-src
     make -j32 install
   popd
   # Patch
-  cp "../${patched_file%.c}.san2patch.c" ${patched_dir}/${patched_file}
+  cp "../${patched_file%.c}.san2patch-cpr.c" ${patched_dir}/${patched_file}
   ./autogen.sh
   LD=lld OJPEG_SUPPORT=true JPEG_SUPPORT=true CC=cpr-cc CXX=cpr-cxx ./configure --enable-static --disable-shared --enable-old-jpeg --with-jpeg-include-dir="${PWD}/jpeg-8d/build/include" --with-jpeg-lib-dir="${PWD}/jpeg-8d/build/lib"
   OJPEG_SUPPORT=true JPEG_SUPPORT=true CC=cpr-cc CXX=cpr-cxx make CFLAGS="-static -O0 -g -fno-discard-value-names" CXXFLAGS="-static -O0 -g -fno-discard-value-names" -j16

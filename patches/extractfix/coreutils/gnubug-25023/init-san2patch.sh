@@ -16,7 +16,7 @@ pushd san2patch-src
   # Build
   ./bootstrap
   # Patch
-  cp "../${patched_file%.c}.san2patch.c" ${patched_dir}/${patched_file}
+  cp "../${patched_file%.c}.san2patch-cpr.c" ${patched_dir}/${patched_file}
   rm -rf build
   mkdir build
   pushd build

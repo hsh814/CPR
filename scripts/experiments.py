@@ -609,11 +609,34 @@ def get_all_patches(file: str) -> Tuple[Set[int], int]:
       correct_patch = patch_eq_map[correct_patch]      
     return all_patches, correct_patch
 
+def read_conf_file(repair_conf) -> dict:
+  with open(repair_conf, "r") as f:
+    lines = f.readlines()
+  result = dict()
+  for line in lines:
+    line = line.strip()
+    if len(line) == 0:
+      continue
+    if line.startswith("#"):
+      continue
+    key, value = line.split(":", 1)
+    result[key] = value
+  return result
+
+
 def symradar_final_result_v3_poc(meta: dict, result_f: TextIO):
   subject = meta["subject"]
   bug_id = meta["bug_id"]
   subject_dir = os.path.join(ROOT_DIR, "patches", meta["benchmark"], subject, bug_id)
   patched_dir = os.path.join(subject_dir, f"{OTHER_APR_TOOL_MODE}-patched")
+  conf = read_conf_file(os.path.join(subject_dir, "repair.conf"))
+  file_name = conf["loc_patch"].split(":")[0]
+  file_name = os.path.basename(file_name)
+  try:
+    subprocess.run(f"cp {os.path.join(subject_dir, 'concrete', 'uni_klee_runtime_new.c')} {os.path.join(subject_dir, 'concrete', 'uni_klee_runtime_san2patch.c')}", shell=True, cwd=subject_dir)
+  except Exception as e:
+    log_out(f"Failed to copy patched file: {e}")
+  return
   # if not os.path.exists(os.path.join(patched_dir, "snapshot-high-test/snapshot-last.json")):
   #   log_out(f"Snapshot not found: {os.path.join(patched_dir, 'snapshot-high-test/snapshot-last.json')}")
   #   result_f.write("\t\t\t\t\t\t\t\t\t\n")
@@ -656,6 +679,14 @@ def symradar_final_result_v3(meta: dict, result_f: TextIO):
   patched_dir = os.path.join(subject_dir, "patched")
   out_dir_no = find_num(patched_dir, SYMRADAR_PREFIX) - 1
   out_file = os.path.join(patched_dir, f"{SYMRADAR_PREFIX}-{out_dir_no}", "table_v3.sbsv")
+  conf = read_conf_file(os.path.join(subject_dir, "repair.conf"))
+  file_name = conf["loc_patch"].split(":")[0]
+  file_name = os.path.basename(file_name)
+  try:
+    subprocess.run(f"cp {os.path.join(subject_dir, 'concrete', 'uni_klee_runtime_new.c')} {os.path.join(subject_dir, 'concrete', 'uni_klee_runtime_san2patch.c')}", shell=True, cwd=subject_dir)
+  except Exception as e:
+    log_out(f"Failed to copy patched file: {e}")
+  return
   # data_log_file = os.path.join(patched_dir, f"{SYMRADAR_PREFIX}-{out_dir_no}", "data.log")
   # with open(data_log_file, "r") as f:
   #   time_ms = 0
