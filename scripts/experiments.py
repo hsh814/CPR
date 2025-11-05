@@ -630,13 +630,6 @@ def symradar_final_result_v3_poc(meta: dict, result_f: TextIO):
   subject_dir = os.path.join(ROOT_DIR, "patches", meta["benchmark"], subject, bug_id)
   patched_dir = os.path.join(subject_dir, f"{OTHER_APR_TOOL_MODE}-patched")
   conf = read_conf_file(os.path.join(subject_dir, "repair.conf"))
-  file_name = conf["loc_patch"].split(":")[0]
-  file_name = os.path.basename(file_name)
-  try:
-    subprocess.run(f"cp {os.path.join(subject_dir, 'concrete', 'uni_klee_runtime_new.c')} {os.path.join(subject_dir, 'concrete', 'uni_klee_runtime_san2patch.c')}", shell=True, cwd=subject_dir)
-  except Exception as e:
-    log_out(f"Failed to copy patched file: {e}")
-  return
   # if not os.path.exists(os.path.join(patched_dir, "snapshot-high-test/snapshot-last.json")):
   #   log_out(f"Snapshot not found: {os.path.join(patched_dir, 'snapshot-high-test/snapshot-last.json')}")
   #   result_f.write("\t\t\t\t\t\t\t\t\t\n")
@@ -674,19 +667,15 @@ def symradar_final_result_v3_poc(meta: dict, result_f: TextIO):
 def symradar_final_result_v3(meta: dict, result_f: TextIO):
   subject = meta["subject"]
   bug_id = meta["bug_id"]
-  incomplete = meta["correct"]["incomplete"]
+  # incomplete = meta["correct"]["incomplete"]
+  incomplete = False
   subject_dir = os.path.join(ROOT_DIR, "patches", meta["benchmark"], subject, bug_id)
   patched_dir = os.path.join(subject_dir, "patched")
+  if OTHER_APR_TOOL_MODE == "san2patch":
+    patched_dir = os.path.join(subject_dir, "san2patch-patched")
   out_dir_no = find_num(patched_dir, SYMRADAR_PREFIX) - 1
   out_file = os.path.join(patched_dir, f"{SYMRADAR_PREFIX}-{out_dir_no}", "table_v3.sbsv")
   conf = read_conf_file(os.path.join(subject_dir, "repair.conf"))
-  file_name = conf["loc_patch"].split(":")[0]
-  file_name = os.path.basename(file_name)
-  try:
-    subprocess.run(f"cp {os.path.join(subject_dir, 'concrete', 'uni_klee_runtime_new.c')} {os.path.join(subject_dir, 'concrete', 'uni_klee_runtime_san2patch.c')}", shell=True, cwd=subject_dir)
-  except Exception as e:
-    log_out(f"Failed to copy patched file: {e}")
-  return
   # data_log_file = os.path.join(patched_dir, f"{SYMRADAR_PREFIX}-{out_dir_no}", "data.log")
   # with open(data_log_file, "r") as f:
   #   time_ms = 0
@@ -715,8 +704,11 @@ def symradar_final_result_v3(meta: dict, result_f: TextIO):
   # with open(filter_result_file, "r") as f:
   #   data = json.load(f)
   #   filter_result = set(data["remaining"])
-
-  all_patches, correct_patch = get_all_patches(os.path.join(subject_dir, "group-patches-original.json"))
+  if OTHER_APR_TOOL_MODE == "san2patch":
+    all_patches = range(1, meta["san2patch"] + 1)
+    correct_patch = 1
+  else:
+    all_patches, correct_patch = get_all_patches(os.path.join(subject_dir, "group-patches-original.json"))
   
   meta_data_default = result["meta-data"]["default"]
   meta_data_default_remove_crash = result["meta-data"]["remove-crash"]
@@ -746,9 +738,9 @@ def final_analysis(meta_data: List[dict], output: str):
       continue
     if VULMASTER_MODE:
       symradar_final_result_vulmaster_v3(meta, result_f)
-    elif OTHER_APR_TOOL_MODE in ["crashrepair", "poc", "san2patch"]:
+    elif OTHER_APR_TOOL_MODE in ["crashrepair", "poc"]:
       symradar_final_result_v3_poc(meta, result_f)
-    else:
+    else: # "cpr", "san2patch"
       symradar_final_result_v3(meta, result_f)
     # print(f"{meta['subject']}\t{meta['bug_id']}")
     # sub_dir = os.path.join(ROOT_DIR, "patches", meta["benchmark"], meta["subject"], meta['bug_id'], "patched")

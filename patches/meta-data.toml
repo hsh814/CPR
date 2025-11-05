@@ -6,7 +6,7 @@ subject = "libtiff"
 vars = [ "x", "y",]
 target = "readSeparateTilesIntoBuffer"
 vrpilot = 1
-san2patch = 11
+san2patch = 0
 
   [meta_data.buggy]
   code = "(1)"
@@ -98,7 +98,7 @@ subject = "libtiff"
 vars = [ "x", "y",]
 target = "PSDataColorContig"
 vrpilot = 2
-san2patch = 11
+san2patch = 0
 
   [meta_data.buggy]
   code = "(0)"
@@ -117,7 +117,7 @@ subject = "libtiff"
 vars = [ "x", "y",]
 target = "t2p_readwrite_pdf_image_tile"
 vrpilot = 0
-san2patch = 11
+san2patch = 0
 
   [meta_data.buggy]
   code = "(x >= 4)"
@@ -136,7 +136,7 @@ subject = "libtiff"
 vars = [ "x", "y",]
 target = "JPEGSetupEncode"
 vrpilot = 2
-san2patch = 11
+san2patch = 0
 
   [meta_data.buggy]
   code = "(0)"
@@ -173,7 +173,7 @@ subject = "libtiff"
 vars = [ "x", "y",]
 target = "JPEGSetupEncode"
 vrpilot = 2
-san2patch = 11
+san2patch = 0
 
   [meta_data.buggy]
   code = "(0)"
@@ -192,7 +192,7 @@ subject = "libtiff"
 vars = [ "x", "y",]
 target = "OJPEGDecodeRaw"
 vrpilot = 0
-san2patch = 11
+san2patch = 0
 
   [meta_data.buggy]
   code = "(0)"
@@ -229,7 +229,7 @@ subject = "binutils"
 vars = [ "x", "y",]
 target = "decode_line_info"
 vrpilot = 0
-san2patch = 7
+san2patch = 0
 
   [meta_data.buggy]
   code = "(0)"
@@ -266,7 +266,7 @@ subject = "libxml2"
 vars = [ "x", "y", "z",]
 target = "xmlParseEndTag2"
 vrpilot = 2
-san2patch = 11
+san2patch = 0
 
   [meta_data.buggy]
   code = "(1)"
@@ -285,7 +285,7 @@ subject = "libxml2"
 vars = [ "x", "y", "z",]
 target = "htmlParseNameComplex"
 vrpilot = 0
-san2patch = 11
+san2patch = 0
 
   [meta_data.buggy]
   code = "(0)"
@@ -304,7 +304,7 @@ subject = "libxml2"
 vars = [ "x", "y",]
 target = "xmlParseAttValueComplex"
 vrpilot = 1
-san2patch = 11
+san2patch = 0
 
   [meta_data.buggy]
   code = "(1)"
@@ -323,7 +323,7 @@ subject = "libxml2"
 vars = [ "x", "y",]
 target = "xmlDumpElementContent"
 vrpilot = 1
-san2patch = 11
+san2patch = 0
 
   [meta_data.buggy]
   code = "0"
@@ -381,7 +381,7 @@ subject = "libjpeg"
 vars = [ "x", "t",]
 target = "quantize_ord_dither"
 vrpilot = 0
-san2patch = 5
+san2patch = 0
 
   [meta_data.buggy]
   code = "(0)"
@@ -400,7 +400,7 @@ subject = "libjpeg"
 vars = [ "x", "t",]
 target = "get_sos"
 vrpilot = 0
-san2patch = 4
+san2patch = 0
 
   [meta_data.buggy]
   code = "(1)"
@@ -419,7 +419,7 @@ subject = "coreutils"
 vars = [ "size", "i",]
 target = "fillpattern"
 vrpilot = 0
-san2patch = 1
+san2patch = 0
 
   [meta_data.buggy]
   code = "(size / 2 > i)"
@@ -438,7 +438,7 @@ subject = "coreutils"
 vars = [ "start", "initial_read", "bufsize",]
 target = "bytes_chunk_extract"
 vrpilot = 1
-san2patch = 3
+san2patch = 0
   
   [meta_data.buggy]
   code = "(initial_read != 18446744073709551615UL || start < initial_read)"
@@ -457,7 +457,7 @@ subject = "coreutils"
 vars = [ "col_sep_length",]
 target = "init_parameters"
 vrpilot = 0
-san2patch = 3
+san2patch = 0
 
   [meta_data.buggy]
   code = "(1)"
@@ -476,7 +476,7 @@ subject = "coreutils"
 vars = [ "size", "i",]
 target = "main"
 vrpilot = 0
-san2patch = 3
+san2patch = 0
   
     [meta_data.buggy]
     code = "(1)"
@@ -666,7 +666,7 @@ subject = "binutils"
 vars = [ "x", "y", "z", "m" ]
 target = "target_specific_reloc_handling"
 vrpilot = 0
-san2patch = 0
+san2patch = 4
 
   [meta_data.buggy]
   code = "(0)"
@@ -705,7 +705,7 @@ vars = [ "x", "y", "z", "m", "n" ]
 target = "jas_image_create"
 vrpilot = 2
 crashrepair = 4
-san2patch = 6
+san2patch = 14
 
   [meta_data.buggy]
   code = "(0)"
@@ -740,7 +740,7 @@ vars = [ "x", "y", "z", "m", "n" ]
 target = "printMP3Headers"
 vrpilot = 1
 crashrepair = 2
-san2patch = 7
+san2patch = 6
 
   [meta_data.buggy]
   code = "(0)"
@@ -759,7 +759,7 @@ subject = "libtiff"
 vars = [ "x", "y", "z", "m", "n" ]
 target = "writeBufferToSeparateStrips"
 crashrepair = 2
-san2patch = 11
+san2patch = 32
 
   [meta_data.buggy]
   code = "(0)"
@@ -779,7 +779,7 @@ vars = [ "x", "y", "z", "m", "n" ]
 target = "readContigStripsIntoBuffer"
 poc = 8
 crashrepair = 14
-san2patch = 5
+san2patch = 0
 
   [meta_data.buggy]
   code = "(0)"
@@ -810,7 +810,7 @@ vars = [ "x", "y", "z", "m", "n" ]
 target = "cpContig2SeparateByRow"
 poc = 14
 crashrepair = 3
-san2patch = 11
+san2patch = 13
 
   [meta_data.buggy]
   code = "(0)"
@@ -841,7 +841,7 @@ subject = "zziplib"
 vars = [ "x", "y", "z", "m", "n" ]
 target = "zzip_mem_entry_new"
 crashrepair = 3
-san2patch = 10
+san2patch = 3
 
   [meta_data.buggy]
   code = "(0)"
@@ -852,14 +852,15 @@ san2patch = 10
 #   no = 662
 #   incomplete = false
 
-# [[meta_data]]
-# id = 61
-# bug_id = "CVE-2017-5976"
-# benchmark = "vulnloc"
-# subject = "zziplib"
-# vars = [ "x", "y", "z", "m", "n" ]
-# target = "zzip_mem_entry_extra_block"
+[[meta_data]]
+id = 61
+bug_id = "CVE-2017-5976"
+benchmark = "vulnloc"
+subject = "zziplib"
+vars = [ "x", "y", "z", "m", "n" ]
+target = "zzip_mem_entry_extra_block"
 # crashrepair = 13
+san2patch = 7
 
 #   [meta_data.buggy]
 #   code = "(0)"
@@ -892,7 +893,7 @@ subject = "libtiff"
 vars = [ "x", "y", "z", "m", "n" ]
 target = "TIFFWriteDirectoryTagSampleformatArray"
 crashrepair = 3
-san2patch = 11
+san2patch = 2
 
   [meta_data.buggy]
   code = "(0)"
@@ -906,7 +907,7 @@ subject = "libtiff"
 vars = [ "x", "y", "z", "m", "n" ]
 target = "TIFFWriteDirectoryTagSampleformatArray"
 crashrepair = 9
-san2patch = 11
+san2patch = 2
 
   [meta_data.buggy]
   code = "(0)"
@@ -1093,7 +1094,7 @@ subject = "binutils"
 vars = [ "x", "y",]
 target = "parse_die"
 poc = 0
-san2patch = 11
+san2patch = 0
 
   [meta_data.buggy]
   code = "(0)"

@@ -20,7 +20,7 @@ pushd san2patch-src
   rm -rf build
   mkdir build
   pushd build
-    FORCE_UNSAFE_CONFIGURE=1 LD=lld CC=cpr-cc CXX=cpr-cxx ../configure CFLAGS='-g -O0 -fno-discard-value-names -static -fPIE -fPIC' CXXFLAGS="$CFLAGS"
+    FORCE_UNSAFE_CONFIGURE=1 LD=lld CC=wllvm CXX=wllvm++ ../configure CFLAGS='-g -O0 -fno-discard-value-names -static -fPIE -fPIC' CXXFLAGS="$CFLAGS"
     make CFLAGS="-fno-discard-value-names -fPIC -fPIE -L/root/projects/uni-klee/build/lib  -lkleeRuntest -I/root/projects/uni-klee/include" CXXFLAGS=$CFLAGS -j32
   popd
   # cp
