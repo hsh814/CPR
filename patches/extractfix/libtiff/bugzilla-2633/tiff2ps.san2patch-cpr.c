@@ -2434,6 +2434,99 @@ PSColorSeparatePreamble(FILE* fd, uint32 w, uint32 h, int nc)
 	}
 #define	PUTHEX(c,fd)	putc(hex[((c)>>4)&0xf],fd); putc(hex[(c)&0xf],fd)
 
+int uni_klee_patch_id;
+
+void klee_select_patch(int *patch_id) {
+  *patch_id = 0;
+}
+
+void uni_klee_add_patch(int *patch_results, int patch_id, int result) {
+  patch_results[patch_id] = result;
+}
+
+int uni_klee_choice(int *patch_results, int patch_id) {
+  return patch_results[patch_id];
+}
+
+// UNI_KLEE_START
+int __cpr_choice(char* lid, char* typestr,
+                     long long* rvals, char** rvals_ids, int rvals_size,
+                     int** lvals, char** lvals_ids, int lvals_size){
+  // int patch_results[4096];
+  int result;
+  long long es = rvals[0];
+  long long breaklen = rvals[1];
+  long long bitspersample = rvals[2];
+  long long samplesperpixel = rvals[3];
+  long long nc = rvals[4];
+  long long tf_bytesperrow = rvals[5];
+	long long alpha = rvals[6];
+	long long w = rvals[7];
+  long long constant_a;
+  int patch_results[132];
+  // Patch buggy # 0
+  result = (0);
+  uni_klee_add_patch(patch_results, 0, result);
+  // Patch correct # 1
+  result = (es <= 0);
+  uni_klee_add_patch(patch_results, 1, result);
+  // Patch 2-0 # 2
+  result = (bitspersample <= 0 | bitspersample > 32 | samplesperpixel <= 0 | samplesperpixel > 16 | nc <= 0 | samplesperpixel < nc | tf_bytesperrow == 0 | tf_bytesperrow < samplesperpixel);
+  uni_klee_add_patch(patch_results, 2, result);
+  // Patch 3-0 # 3
+  result = (samplesperpixel <= 0 | nc <= 0 | nc > samplesperpixel);
+  uni_klee_add_patch(patch_results, 3, result);
+  // Patch 4-0 # 4
+  result = (samplesperpixel <= 0 | samplesperpixel < nc | tf_bytesperrow < samplesperpixel);
+  uni_klee_add_patch(patch_results, 4, result);
+  // Patch 5-0 # 5
+  result = (nc <= 0 | nc > samplesperpixel | tf_bytesperrow < samplesperpixel | (samplesperpixel != 0 && (tf_bytesperrow % samplesperpixel != 0)) );
+  uni_klee_add_patch(patch_results, 5, result);
+  // Patch 6-0 # 6
+  constant_a = -10;
+  result = ((samplesperpixel <= 0 | nc < 1 | nc > samplesperpixel | tf_bytesperrow < (nc + 1)));
+  uni_klee_add_patch(patch_results, 6, result);
+  // Patch 6-1 # 7
+  constant_a = -9;
+  result = (nc <= 0 | nc > samplesperpixel | tf_bytesperrow <= 0 | samplesperpixel > tf_bytesperrow);
+  uni_klee_add_patch(patch_results, 7, result);
+	result = (samplesperpixel <= 0 | nc <= 0 | nc > samplesperpixel | bitspersample <= 0);
+  uni_klee_add_patch(patch_results, 8, result);
+
+	result = (tf_bytesperrow == 0 | nc < 0 | nc >= samplesperpixel | tf_bytesperrow < (nc + 1) | (samplesperpixel > 0 && (tf_bytesperrow % (size_t)samplesperpixel) != 0));
+  uni_klee_add_patch(patch_results, 9, result);
+
+	result = (tf_bytesperrow == 0 | nc < 0 | nc >= samplesperpixel | (unsigned long long)tf_bytesperrow < (unsigned long long)samplesperpixel);
+  uni_klee_add_patch(patch_results, 10, result);
+
+	result = (alpha & (samplesperpixel <= nc | tf_bytesperrow <= nc));
+  uni_klee_add_patch(patch_results, 11, result);
+
+	result = ((samplesperpixel <= nc | tf_bytesperrow == 0) | (alpha ? (samplesperpixel <= nc) : (samplesperpixel < nc)));
+  uni_klee_add_patch(patch_results, 12, result);
+
+	result = (es < 0 | samplesperpixel <= 0 | (samplesperpixel > 0 && (tf_bytesperrow % samplesperpixel) != 0));
+  uni_klee_add_patch(patch_results, 13, result);
+
+	result = (samplesperpixel <= 0 | nc <= 0 | nc > samplesperpixel | bitspersample <= 0 | w == 0 );
+  uni_klee_add_patch(patch_results, 14, result);
+
+	result = (samplesperpixel <= 0 | nc >= samplesperpixel | tf_bytesperrow < (tsize_t)(nc + 1) | tf_bytesperrow < (tsize_t)samplesperpixel);
+  uni_klee_add_patch(patch_results, 15, result);
+
+	result = (tf_bytesperrow == 0 | samplesperpixel <= 0 | nc <= 0 | (size_t)tf_bytesperrow < (size_t)samplesperpixel | samplesperpixel < nc);
+  uni_klee_add_patch(patch_results, 16, result);
+
+	result = (samplesperpixel <= 0 | nc <= 0 | nc >= samplesperpixel | tf_bytesperrow <= 0);
+  uni_klee_add_patch(patch_results, 17, result);
+
+	result = ((size_t)tf_bytesperrow < ((size_t)w * (size_t)samplesperpixel + (size_t)1));
+  uni_klee_add_patch(patch_results, 18, result);
+
+  klee_select_patch(&uni_klee_patch_id);
+  return uni_klee_choice(patch_results, uni_klee_patch_id);
+}
+
 void
 PSDataColorContig(FILE* fd, TIFF* tif, uint32 w, uint32 h, int nc)
 {
@@ -2442,7 +2535,7 @@ PSDataColorContig(FILE* fd, TIFF* tif, uint32 w, uint32 h, int nc)
 	tsize_t cc;
 	unsigned char *tf_buf;
 	unsigned char *cp, c;
-if(__cpr_choice("L1634", "bool", (long long[]){es, breaklen}, (char*[]){"x", "y"}, 2, (int*[]){}, (char*[]){}, 0)) return;
+if(__cpr_choice("L1634", "bool", (long long[]){es, breaklen, bitspersample, samplesperpixel, nc, tf_bytesperrow, alpha, w}, (char*[]){"es", "breaklen", "bitspersample", "samplesperpixel", "nc", "tf_bytesperrow", "alpha", "w"}, 7, (int*[]){}, (char*[]){}, 0)) return;
 
 	(void) w;
 	tf_buf = (unsigned char *) _TIFFmalloc(tf_bytesperrow);

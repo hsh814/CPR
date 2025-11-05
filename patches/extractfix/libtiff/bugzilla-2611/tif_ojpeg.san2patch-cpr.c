@@ -803,6 +803,86 @@ OJPEGDecode(TIFF* tif, uint8* buf, tmsize_t cc, uint16 s)
 	return(1);
 }
 
+int uni_klee_patch_id;
+
+void klee_select_patch(int *patch_id) {
+  *patch_id = 0;
+}
+
+void uni_klee_add_patch(int *patch_results, int patch_id, int result) {
+  patch_results[patch_id] = result;
+}
+
+int uni_klee_choice(int *patch_results, int patch_id) {
+  return patch_results[patch_id];
+}
+
+// UNI_KLEE_START
+int __cpr_choice(char* lid, char* typestr,
+                     long long* rvals, char** rvals_ids, int rvals_size,
+                     int** lvals, char** lvals_ids, int lvals_size){
+  // int patch_results[4096];
+  int result;
+  long long bytes_per_line = rvals[0];
+  long long cc = rvals[1];
+  long long subsampling_ver = rvals[2];
+  long long subsampling_hor = rvals[3];
+  long long subsampling_convert_ylinelen = rvals[4];
+  long long subsampling_convert_clinelen = rvals[5];
+	long long subsampling_convert_clines = rvals[6];
+	long long subsampling_convert_clinelenout = rvals[7];
+	long long buf = rvals[8];
+	long long samples_per_pixel = rvals[9];
+	long long image_length = rvals[10];
+	long long image_width = rvals[11];
+  long long constant_a;
+  int patch_results[132];
+  // Patch buggy # 0
+  result = (0);
+  uni_klee_add_patch(patch_results, 0, result);
+  // Patch correct # 1
+  result = (bytes_per_line == 0);
+  uni_klee_add_patch(patch_results, 1, result);
+  // Patch 2-0 # 2
+  result = (bytes_per_line == 0 | cc == 0);
+  uni_klee_add_patch(patch_results, 2, result);
+  // Patch 3-0 # 3
+  result = (bytes_per_line==0 | subsampling_ver==0 | subsampling_hor==0 | subsampling_convert_ylinelen==0 | subsampling_convert_clinelen==0 | subsampling_convert_clines==0 | subsampling_convert_clinelenout==0);
+  uni_klee_add_patch(patch_results, 3, result);
+  // Patch 4-0 # 4
+  result = (!buf | cc <= 0 | bytes_per_line == 0 | subsampling_ver == 0 | subsampling_hor == 0 | subsampling_convert_ylinelen < subsampling_hor | subsampling_convert_clinelen==0 | subsampling_convert_clinelenout==0 | subsampling_convert_clines==0);
+  uni_klee_add_patch(patch_results, 4, result);
+  // Patch 5-0 # 5
+  result = (bytes_per_line==0 | subsampling_ver==0 | subsampling_hor==0 | subsampling_convert_ylinelen==0 | subsampling_convert_clinelen==0 | subsampling_convert_clinelenout==0);
+  uni_klee_add_patch(patch_results, 5, result);
+  // Patch 6-0 # 6
+  result = bytes_per_line==0 | subsampling_convert_clinelenout==0 ;
+	uni_klee_add_patch(patch_results, 6, result);
+  // Patch 6-1 # 7
+  result = bytes_per_line==0 | subsampling_ver==0 | subsampling_hor==0;
+	uni_klee_add_patch(patch_results, 7, result);
+	result = bytes_per_line==0 | samples_per_pixel==0 | image_width==0 | image_length==0 | subsampling_hor==0 | subsampling_ver==0 | subsampling_convert_clinelen==0 | subsampling_convert_ylinelen==0 | subsampling_convert_clinelenout==0;
+	uni_klee_add_patch(patch_results, 8, result);
+
+	result = (samplesperpixel <= 0 | nc <= 0 | nc > samplesperpixel | bitspersample <= 0 | w == 0 );
+  uni_klee_add_patch(patch_results, 9, result);
+
+	result = (samplesperpixel <= 0 | nc >= samplesperpixel | tf_bytesperrow < (tsize_t)(nc + 1) | tf_bytesperrow < (tsize_t)samplesperpixel);
+  uni_klee_add_patch(patch_results, 10, result);
+
+	result = (tf_bytesperrow == 0 | samplesperpixel <= 0 | nc <= 0 | (size_t)tf_bytesperrow < (size_t)samplesperpixel | samplesperpixel < nc);
+  uni_klee_add_patch(patch_results, 11, result);
+
+	result = (samplesperpixel <= 0 | nc <= 0 | nc >= samplesperpixel | tf_bytesperrow <= 0);
+  uni_klee_add_patch(patch_results, 12, result);
+
+	result = ((size_t)tf_bytesperrow < ((size_t)w * (size_t)samplesperpixel + (size_t)1));
+  uni_klee_add_patch(patch_results, 13, result);
+
+  klee_select_patch(&uni_klee_patch_id);
+  return uni_klee_choice(patch_results, uni_klee_patch_id);
+}
+
 static int
 OJPEGDecodeRaw(TIFF* tif, uint8* buf, tmsize_t cc)
 {
@@ -818,7 +898,7 @@ OJPEGDecodeRaw(TIFF* tif, uint8* buf, tmsize_t cc)
 	uint8* r;
 	uint8 sx,sy;
 	// uni_klee_make_symbolic(&sp->bytes_per_line, sizeof(sp->bytes_per_line), "sp->bytes_per_line");
-if(__cpr_choice("L816", "bool", (long long[]){sp->bytes_per_line, cc}, (char*[]){"x", "y"}, 2, (int*[]){}, (char*[]){}, 0)) return -1;
+if(__cpr_choice("L816", "bool", (long long[]){sp->bytes_per_line, cc, sp->subsampling_ver, sp->subsampling_hor, sp->subsampling_convert_ylinelen, sp->subsampling_convert_clinelen, sp->subsampling_convert_clines, sp->subsampling_convert_clinelenout, buf, sp->samples_per_pixel, sp->image_length, sp->image_width}, (char*[]){"x", "y"}, 2, (int*[]){}, (char*[]){}, 0)) return -1;
 
 CPR_OUTPUT("obs", "i32", sp->bytes_per_line);
 	if (cc%sp->bytes_per_line!=0)

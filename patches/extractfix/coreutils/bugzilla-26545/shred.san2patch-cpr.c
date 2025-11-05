@@ -275,6 +275,57 @@ periodic_pattern (int type)
   return (r[0] != r[1]) || (r[0] != r[2]);
 }
 
+int uni_klee_patch_id;
+
+void klee_select_patch(int *patch_id) {
+  *patch_id = 0;
+}
+
+void uni_klee_add_patch(int *patch_results, int patch_id, int result) {
+  patch_results[patch_id] = result;
+}
+
+int uni_klee_choice(int *patch_results, int patch_id) {
+  return patch_results[patch_id];
+}
+
+// UNI_KLEE_START
+int __cpr_choice(char* lid, char* typestr,
+                     long long* rvals, char** rvals_ids, int rvals_size,
+                     int** lvals, char** lvals_ids, int lvals_size){
+  // int patch_results[4096];
+  int result;
+  long long size = rvals[0];
+  long long i = rvals[1];
+  long long constant_a;
+  int patch_results[132];
+  // Patch buggy # 0
+  result = (i < size / 2);
+  uni_klee_add_patch(patch_results, 0, result);
+  // Patch correct # 1
+  result = (i <= size / 2);
+  uni_klee_add_patch(patch_results, 1, result);
+  // Patch 2-0 # 2
+  result = (i < size);
+  uni_klee_add_patch(patch_results, 2, result);
+  // Patch 3-0 # 3
+  result = (i < (size + 1) / 2);
+  uni_klee_add_patch(patch_results, 3, result);
+  // Patch 4-0 # 4
+  result = (i < (size - i));
+  uni_klee_add_patch(patch_results, 4, result);
+  // Patch 5-0 # 5
+  result = (i < (size >> 1) + 1);
+  uni_klee_add_patch(patch_results, 5, result);
+  // Patch 6-0 # 6
+  result = (i < (size - i + 1));
+  uni_klee_add_patch(patch_results, 6, result);
+
+  klee_select_patch(&uni_klee_patch_id);
+  return uni_klee_choice(patch_results, uni_klee_patch_id);
+}
+
+
 /*
  * Fill a buffer with a fixed pattern.
  *
@@ -293,7 +344,6 @@ fillpattern (int type, unsigned char *r, size_t size)
   r[2] = bits & 255;
 for(i = 3; (__cpr_choice("L290", "bool", (long long[]){size, i}, (char*[]){"size","i"}, 2, (int*[]){}, (char*[]){}, 0)); i *= 2)
     memcpy (r + i, r, i);
-CPR_OUTPUT("obs", "i32", i - (size/2));
 
 klee_assert(i > size / 2 );
 

@@ -1189,6 +1189,54 @@ getoptarg (char *arg, char switch_char, char *character, int *number)
 }
 
 /* Set parameters related to formatting. */
+int uni_klee_patch_id;
+
+void klee_select_patch(int *patch_id) {
+  *patch_id = 0;
+}
+
+void uni_klee_add_patch(int *patch_results, int patch_id, int result) {
+  patch_results[patch_id] = result;
+}
+
+int uni_klee_choice(int *patch_results, int patch_id) {
+  return patch_results[patch_id];
+}
+
+// UNI_KLEE_START
+int __cpr_choice(char* lid, char* typestr,
+                     long long* rvals, char** rvals_ids, int rvals_size,
+                     int** lvals, char** lvals_ids, int lvals_size){
+  // int patch_results[4096];
+  int result;
+  long long col_sep_length = rvals[0];
+  long col_sep_string_1 = rvals[1];
+  // long long col_sep_length = rvals[2];
+  // long long samplesperpixel = rvals[3];
+  // long long nc = rvals[4];
+  // long long tf_bytesperrow = rvals[5];
+	// long long alpha = rvals[6];
+  long long constant_a;
+  int patch_results[132];
+  // Patch buggy # 0
+  result = (1);
+  uni_klee_add_patch(patch_results, 0, result);
+  // Patch correct # 1
+  result = (col_sep_length == 1);
+  uni_klee_add_patch(patch_results, 1, result);
+  // Patch 2-0 # 2
+  result = (col_sep_length <= 1);
+  uni_klee_add_patch(patch_results, 2, result);
+  // Patch 3-0 # 3
+  result = (col_sep_length > 0);
+  uni_klee_add_patch(patch_results, 3, result);
+
+  result = (col_sep_string_1 == '\0');
+  uni_klee_add_patch(patch_results, 4, result);
+
+  klee_select_patch(&uni_klee_patch_id);
+  return uni_klee_choice(patch_results, uni_klee_patch_id);
+}
 
 static void
 init_parameters (int number_of_files)
@@ -1236,8 +1284,7 @@ init_parameters (int number_of_files)
         }
       /* It's rather pointless to define a TAB separator with column
          alignment */
-else if (!join_lines && *col_sep_string == '\t' && __cpr_choice("L290", "bool", (long long[]){col_sep_length}, (char*[]){"col_sep_length"}, 1, (int*[]){}, (char*[]){}, 0)){
-CPR_OUTPUT("obs", "i32", col_sep_length);
+else if (!join_lines && *col_sep_string == '\t' && __cpr_choice("L290", "bool", (long long[]){col_sep_length, col_sep_string[1]}, (char*[]){"col_sep_length"}, 1, (int*[]){}, (char*[]){}, 0)){
 
         col_sep_string = column_separator;
         if (col_sep_length != 1) klee_abort();
