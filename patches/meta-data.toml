@@ -705,7 +705,7 @@ vars = [ "x", "y", "z", "m", "n" ]
 target = "jas_image_create"
 vrpilot = 2
 crashrepair = 4
-san2patch = 14
+san2patch = 15
 
   [meta_data.buggy]
   code = "(0)"
@@ -759,7 +759,7 @@ subject = "libtiff"
 vars = [ "x", "y", "z", "m", "n" ]
 target = "writeBufferToSeparateStrips"
 crashrepair = 2
-san2patch = 32
+san2patch = 31
 
   [meta_data.buggy]
   code = "(0)"
@@ -810,7 +810,7 @@ vars = [ "x", "y", "z", "m", "n" ]
 target = "cpContig2SeparateByRow"
 poc = 14
 crashrepair = 3
-san2patch = 13
+san2patch = 16
 
   [meta_data.buggy]
   code = "(0)"
@@ -841,7 +841,7 @@ subject = "zziplib"
 vars = [ "x", "y", "z", "m", "n" ]
 target = "zzip_mem_entry_new"
 crashrepair = 3
-san2patch = 3
+san2patch = 6
 
   [meta_data.buggy]
   code = "(0)"
@@ -860,7 +860,7 @@ subject = "zziplib"
 vars = [ "x", "y", "z", "m", "n" ]
 target = "zzip_mem_entry_extra_block"
 # crashrepair = 13
-san2patch = 7
+san2patch = 8
 
 #   [meta_data.buggy]
 #   code = "(0)"
