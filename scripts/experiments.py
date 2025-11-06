@@ -715,6 +715,9 @@ def symradar_final_result_v3(meta: dict, result_f: TextIO):
   meta_data_strict = result["meta-data"]["strict"]
   meta_data_strict_remove_crash = result["meta-data"]["strict-remove-crash"]
   # all_patches = meta_data_default[0]["all-patches"]
+  default_patches = meta_data_default_remove_crash[0]["patches"]
+  if OTHER_APR_TOOL_MODE != "san2patch":
+    default_patches = ""
 
   default_str = symradar_res_to_str(meta_data_default[0])
   default_remove_crash_str = symradar_res_to_str(meta_data_default_remove_crash[0])
@@ -723,7 +726,7 @@ def symradar_final_result_v3(meta: dict, result_f: TextIO):
   
   stat = result["stat"]["states"][0]
   
-  result_f.write(f"{subject}\t{bug_id}\t{correct_patch}\t{len(all_patches)}\t{incomplete}\t{default_str}\t{strict_str}\t{default_remove_crash_str}\t{strict_remove_crash_str}\t{stat['original']}\t{stat['independent']}\n")
+  result_f.write(f"{subject}\t{bug_id}\t{correct_patch}\t{len(all_patches)}\t{incomplete}\t{default_str}\t{strict_str}\t{default_remove_crash_str}\t{strict_remove_crash_str}\t{stat['original']}\t{stat['independent']}\t{default_patches}\n")
   
 
 def final_analysis(meta_data: List[dict], output: str):
