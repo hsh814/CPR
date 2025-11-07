@@ -1169,13 +1169,13 @@ class SymvassAnalyzer:
                 if is_crash:
                     if not crashed:
                         no_reg = True
-                        for i in range(len(base_reg) - 1):
-                            if len(crash_reg) <= i:
-                                no_reg = False
-                                break
-                            if base_reg[i] != crash_reg[i]:
-                                no_reg = False
-                                break # Regression error
+                        # for i in range(len(base_reg) - 1):
+                        #     if len(crash_reg) <= i:
+                        #         no_reg = False
+                        #         break
+                        #     if base_reg[i] != crash_reg[i]:
+                        #         no_reg = False
+                        #         break # Regression error
                         if no_reg:
                             result.append((crash_id, base_meta["state"], crash_meta["state"], crash))
                 else:
@@ -1186,6 +1186,7 @@ class SymvassAnalyzer:
             f.write(f"[stat] [states] [original {original_count}] [independent {independent_count}]\n")
             default_removed = set()
             remaining_inputs = list()
+            remaining_inputs_per_crash = dict()
             for res in result:
                 crash_id, base, test, patches = res
                 res_patches = set(patches)
@@ -1196,6 +1197,7 @@ class SymvassAnalyzer:
                 #     continue
                 default_removed = default_removed | removed
                 remaining_inputs.append(res)
+                remaining_inputs_per_crash.setdefault(crash_id, list()).append(res)
                 f.write(f"[sym-in] [id {crash_id}] [base {base}] [test {test}] [cnt {len(remaining)}] [patches {sorted(list(remaining))}]\n")
             all_patches_default = all_patches - default_removed
             output = list()
@@ -1206,27 +1208,59 @@ class SymvassAnalyzer:
             # Further analysis with exit loc
             new_removed = set()
             new_remaining_inputs = list()
-            for res in remaining_inputs:
-                crash_id, base, test, patches = res
-                res_patches = set(patches)
-                remaining = all_patches & res_patches
-                removed = all_patches - res_patches
-                meta = analyzer.meta_data[test]
-                meta_base = analyzer.meta_data[base]
-                base_exit_loc = meta_base["exitLoc"].split(":")[-1]
-                if meta_base["isCrash"]:
-                    if base_exit_loc != exit_loc:
-                        f.write(f"[remove] [crash] [id {crash_id}] [base {base}] [test {test}] [exit-loc {meta_base['exitLoc']}] [exit-res {meta_base['exit']}] [cnt {len(remaining)}] [patches {sorted(list(remaining))}]\n")
-                    else:
-                        new_removed = new_removed | removed
-                        new_remaining_inputs.append(res)
-                else:
-                    if EXTRACTFIX_MODE:
-                        if not meta["stack-trace"]["passed-crash-loc"]:
+            for crash_id in remaining_inputs_per_crash:
+                remaining_inputs_list = remaining_inputs_per_crash[crash_id]
+                remaining_set = all_patches.copy()
+                for res in remaining_inputs_list:
+                    crash_id, base, test, patches = res
+                    res_patches = set(patches)
+                    meta = analyzer.meta_data[test]
+                    meta_base = analyzer.meta_data[base]
+                    base_exit_loc = meta_base["exitLoc"].split(":")[-1]
+                    base_reg = meta_base["reg"]
+                    if meta_base["isCrash"]:
+                        if base_exit_loc != exit_loc:
                             f.write(f"[remove] [crash] [id {crash_id}] [base {base}] [test {test}] [exit-loc {meta_base['exitLoc']}] [exit-res {meta_base['exit']}] [cnt {len(remaining)}] [patches {sorted(list(remaining))}]\n")
-                            continue
-                    new_removed = new_removed | removed
-                    new_remaining_inputs.append(res)
+                        else:
+                            new_remaining_inputs.append(res)
+                            if len(base_reg) > 0:
+                                remaining_set = remaining_set | (all_patches & res_patches)
+                            else:
+                                removed = all_patches - res_patches
+                                new_removed = new_removed | removed
+                    else:
+                        if EXTRACTFIX_MODE:
+                            if not meta["stack-trace"]["passed-crash-loc"]:
+                                f.write(f"[remove] [crash] [id {crash_id}] [base {base}] [test {test}] [exit-loc {meta_base['exitLoc']}] [exit-res {meta_base['exit']}] [cnt {len(remaining)}] [patches {sorted(list(remaining))}]\n")
+                                continue
+                        new_remaining_inputs.append(res)
+                        removed = all_patches - res_patches
+                        new_removed = new_removed | removed
+                removed = all_patches - remaining_set
+                new_removed = new_removed | removed
+            # new_removed = set()
+            # new_remaining_inputs = list()
+            # for res in remaining_inputs:
+            #     crash_id, base, test, patches = res
+            #     res_patches = set(patches)
+            #     remaining = all_patches & res_patches
+            #     removed = all_patches - res_patches
+            #     meta = analyzer.meta_data[test]
+            #     meta_base = analyzer.meta_data[base]
+            #     base_exit_loc = meta_base["exitLoc"].split(":")[-1]
+            #     if meta_base["isCrash"]:
+            #         if base_exit_loc != exit_loc:
+            #             f.write(f"[remove] [crash] [id {crash_id}] [base {base}] [test {test}] [exit-loc {meta_base['exitLoc']}] [exit-res {meta_base['exit']}] [cnt {len(remaining)}] [patches {sorted(list(remaining))}]\n")
+            #         else:
+            #             new_removed = new_removed | removed
+            #             new_remaining_inputs.append(res)
+            #     else:
+            #         if EXTRACTFIX_MODE:
+            #             if not meta["stack-trace"]["passed-crash-loc"]:
+            #                 f.write(f"[remove] [crash] [id {crash_id}] [base {base}] [test {test}] [exit-loc {meta_base['exitLoc']}] [exit-res {meta_base['exit']}] [cnt {len(remaining)}] [patches {sorted(list(remaining))}]\n")
+            #                 continue
+            #         new_removed = new_removed | removed
+            #         new_remaining_inputs.append(res)
 
             for res in new_remaining_inputs:
                 crash_id, base, test, patches = res
@@ -1363,6 +1397,7 @@ class SymvassAnalyzer:
             f.write(f"[stat] [states] [original {original_count}] [independent {independent_count}]\n")
             default_removed = set()
             remaining_inputs = list()
+            remaining_inputs_per_crash = dict()
             for res in result:
                 crash_id, base, test, patches = res
                 res_patches = set(patches)
@@ -1373,6 +1408,7 @@ class SymvassAnalyzer:
                 #     continue
                 default_removed = default_removed | removed
                 remaining_inputs.append(res)
+                remaining_inputs_per_crash.setdefault(crash_id, list()).append(res)
                 f.write(f"[sym-in] [id {crash_id}] [base {base}] [test {test}] [cnt {len(remaining)}] [patches {sorted(list(remaining))}]\n")
             all_patches_default = all_patches - default_removed
             output = list()
@@ -1383,27 +1419,51 @@ class SymvassAnalyzer:
             # Further analysis with exit loc
             new_removed = set()
             new_remaining_inputs = list()
-            for res in remaining_inputs:
-                crash_id, base, test, patches = res
-                res_patches = set(patches)
-                remaining = all_patches & res_patches
-                removed = all_patches - res_patches
-                meta = analyzer.meta_data[test]
-                meta_base = analyzer.meta_data[base]
-                base_exit_loc = meta_base["exitLoc"].split(":")[-1]
-                if meta_base["isCrash"]:
-                    if base_exit_loc != exit_loc:
-                        f.write(f"[remove] [crash] [id {crash_id}] [base {base}] [test {test}] [exit-loc {meta_base['exitLoc']}] [exit-res {meta_base['exit']}] [cnt {len(remaining)}] [patches {sorted(list(remaining))}]\n")
-                    else:
-                        new_removed = new_removed | removed
-                        new_remaining_inputs.append(res)
-                else:
-                    if EXTRACTFIX_MODE:
-                        if not meta["stack-trace"]["passed-crash-loc"]:
+            for crash_id in remaining_inputs_per_crash:
+                remaining_inputs_list = remaining_inputs_per_crash[crash_id]
+                remaining_set = all_patches.copy()
+                for res in remaining_inputs_list:
+                    crash_id, base, test, patches = res
+                    res_patches = set(patches)
+                    meta = analyzer.meta_data[test]
+                    meta_base = analyzer.meta_data[base]
+                    base_exit_loc = meta_base["exitLoc"].split(":")[-1]
+                    if meta_base["isCrash"]:
+                        if base_exit_loc != exit_loc:
                             f.write(f"[remove] [crash] [id {crash_id}] [base {base}] [test {test}] [exit-loc {meta_base['exitLoc']}] [exit-res {meta_base['exit']}] [cnt {len(remaining)}] [patches {sorted(list(remaining))}]\n")
-                            continue
-                    new_removed = new_removed | removed
-                    new_remaining_inputs.append(res)
+                        else:
+                            remaining_set = remaining_set | (all_patches & res_patches)
+                    else:
+                        if EXTRACTFIX_MODE:
+                            if not meta["stack-trace"]["passed-crash-loc"]:
+                                f.write(f"[remove] [crash] [id {crash_id}] [base {base}] [test {test}] [exit-loc {meta_base['exitLoc']}] [exit-res {meta_base['exit']}] [cnt {len(remaining)}] [patches {sorted(list(remaining))}]\n")
+                                continue
+                        new_remaining_inputs.append(res)
+                        removed = all_patches - res_patches
+                        new_removed = new_removed | removed
+                removed = all_patches - remaining_set
+                new_removed = new_removed | removed
+            # for res in remaining_inputs:
+            #     crash_id, base, test, patches = res
+            #     res_patches = set(patches)
+            #     remaining = all_patches & res_patches
+            #     removed = all_patches - res_patches
+            #     meta = analyzer.meta_data[test]
+            #     meta_base = analyzer.meta_data[base]
+            #     base_exit_loc = meta_base["exitLoc"].split(":")[-1]
+            #     if meta_base["isCrash"]:
+            #         if base_exit_loc != exit_loc:
+            #             f.write(f"[remove] [crash] [id {crash_id}] [base {base}] [test {test}] [exit-loc {meta_base['exitLoc']}] [exit-res {meta_base['exit']}] [cnt {len(remaining)}] [patches {sorted(list(remaining))}]\n")
+            #         else:
+            #             new_removed = new_removed | removed
+            #             new_remaining_inputs.append(res)
+            #     else:
+            #         if EXTRACTFIX_MODE:
+            #             if not meta["stack-trace"]["passed-crash-loc"]:
+            #                 f.write(f"[remove] [crash] [id {crash_id}] [base {base}] [test {test}] [exit-loc {meta_base['exitLoc']}] [exit-res {meta_base['exit']}] [cnt {len(remaining)}] [patches {sorted(list(remaining))}]\n")
+            #                 continue
+            #         new_removed = new_removed | removed
+            #         new_remaining_inputs.append(res)
 
             for res in new_remaining_inputs:
                 crash_id, base, test, patches = res
