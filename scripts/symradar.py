@@ -1210,7 +1210,7 @@ class SymvassAnalyzer:
             new_remaining_inputs = list()
             for crash_id in remaining_inputs_per_crash:
                 remaining_inputs_list = remaining_inputs_per_crash[crash_id]
-                remaining_set = all_patches.copy()
+                remaining_set = set()
                 for res in remaining_inputs_list:
                     crash_id, base, test, patches = res
                     res_patches = set(patches)
@@ -1223,11 +1223,7 @@ class SymvassAnalyzer:
                             f.write(f"[remove] [crash] [id {crash_id}] [base {base}] [test {test}] [exit-loc {meta_base['exitLoc']}] [exit-res {meta_base['exit']}] [cnt {len(remaining)}] [patches {sorted(list(remaining))}]\n")
                         else:
                             new_remaining_inputs.append(res)
-                            if len(base_reg) > 0:
-                                remaining_set = remaining_set | (all_patches & res_patches)
-                            else:
-                                removed = all_patches - res_patches
-                                new_removed = new_removed | removed
+                            remaining_set = remaining_set | (all_patches & res_patches)
                     else:
                         if EXTRACTFIX_MODE:
                             if not meta["stack-trace"]["passed-crash-loc"]:
@@ -1421,7 +1417,7 @@ class SymvassAnalyzer:
             new_remaining_inputs = list()
             for crash_id in remaining_inputs_per_crash:
                 remaining_inputs_list = remaining_inputs_per_crash[crash_id]
-                remaining_set = all_patches.copy()
+                remaining_set = set()
                 for res in remaining_inputs_list:
                     crash_id, base, test, patches = res
                     res_patches = set(patches)
@@ -1432,7 +1428,9 @@ class SymvassAnalyzer:
                         if base_exit_loc != exit_loc:
                             f.write(f"[remove] [crash] [id {crash_id}] [base {base}] [test {test}] [exit-loc {meta_base['exitLoc']}] [exit-res {meta_base['exit']}] [cnt {len(remaining)}] [patches {sorted(list(remaining))}]\n")
                         else:
+                            new_remaining_inputs.append(res)
                             remaining_set = remaining_set | (all_patches & res_patches)
+                            print(res_patches, remaining_set)
                     else:
                         if EXTRACTFIX_MODE:
                             if not meta["stack-trace"]["passed-crash-loc"]:
@@ -1440,9 +1438,12 @@ class SymvassAnalyzer:
                                 continue
                         new_remaining_inputs.append(res)
                         removed = all_patches - res_patches
+                        print(f"nonc removed {removed}")
                         new_removed = new_removed | removed
                 removed = all_patches - remaining_set
-                new_removed = new_removed | removed
+                print(f"removed {removed}")
+                if len(remaining_set) != 0:
+                    new_removed = new_removed | removed
             # for res in remaining_inputs:
             #     crash_id, base, test, patches = res
             #     res_patches = set(patches)
