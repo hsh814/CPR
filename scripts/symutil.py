@@ -195,6 +195,93 @@ def run_val(subject: dict, subject_dir: str, symradar_prefix: str, val_prefix: s
     val_bin = os.path.join(val_runtime, os.path.basename(conf["binary_path"]))
     val_out_no = find_num(val_runtime, val_prefix)
     val_out_dir = os.path.join(val_runtime, f"{val_prefix}-{val_out_no}")
+    if "poc_path" not in conf:
+        print_log(f"No poc_path in conf for {subject_dir}")
+        return
+    poc_path = os.path.join(subject_dir, conf["poc_path"])
+    
+    out_no = find_num(os.path.join(subject_dir, "patched"), symradar_prefix)
+    out_dir = os.path.join(subject_dir, "patched", f"{symradar_prefix}-{out_no - 1}")
+    symin_cluster_json = os.path.join(out_dir, "symin-cluster.json")
+    if not os.path.exists(symin_cluster_json):
+        print_log(f"symin-cluster.json not found in {out_dir}")
+        return
+    with open(symin_cluster_json, "r") as f:
+        data = json.load(f)
+    
+    os.makedirs(val_out_dir, exist_ok=True)
+    cluster = data["mem_cluster"]
+    
+    with open(os.path.join(val_out_dir, "val.json"), "w") as f:
+        save_obj = dict()
+        save_obj["uni_klee_out_dir"] = out_dir
+        save_obj["val_out_dir"] = val_out_dir
+        save_obj["cluster"] = cluster
+        json.dump(save_obj, f, indent=2)
+        
+    conc_inputs_dir = os.path.join(subject_dir, "concrete-inputs")
+    if val_prefix == "cludafl-queue":
+        conc_inputs_dir = os.path.join(val_runtime, "..", "runtime", "cludafl-queue", "queue")
+    elif val_prefix == "cludafl-memory":
+        conc_inputs_dir = os.path.join(val_runtime, "..", "runtime", "cludafl-memory", "input")
+    print_log(f"Conc inputs dir: {conc_inputs_dir}")
+    cinputs = [poc_path]
+    tmp_inputs_dir = os.path.join(val_out_dir, "inputs")
+    os.makedirs(tmp_inputs_dir, exist_ok=True)
+    
+    for i, c in enumerate(cluster):
+        print_log(f"Processing cluster {i}")
+        file = c["file"]
+        nodes = c["nodes"]
+        group_out_dir = os.path.join(val_out_dir, f"group-{i}")
+        os.makedirs(group_out_dir, exist_ok=True)
+        env = os.environ.copy()
+        env["UNI_KLEE_MEM_BASE_FILE"] = os.path.join(out_dir, "base-mem.graph")
+        env["UNI_KLEE_MEM_FILE"] = file
+        for cid, cinput in enumerate(cinputs):
+            original_file = poc_path
+            if os.path.isdir(original_file):
+                continue
+            if cinput == "README.txt":
+                continue
+            c_file = os.path.join(tmp_inputs_dir, f"val{cid}")
+            if os.path.exists(c_file):
+                os.unlink(c_file)
+            os.link(original_file, c_file)
+            env_local = env.copy()
+            local_out_file = os.path.join(group_out_dir, f"val-{cid}.txt")
+            env_local["UNI_KLEE_MEM_RESULT"] = local_out_file
+            env_str = f"UNI_KLEE_MEM_BASE_FILE={env['UNI_KLEE_MEM_BASE_FILE']} UNI_KLEE_MEM_FILE={env['UNI_KLEE_MEM_FILE']} UNI_KLEE_MEM_RESULT={local_out_file}"
+            if "test_input_list" in conf:
+                use_stdin = conf["test_input_list"].find("$POC") == -1
+                target_cmd = conf["test_input_list"].replace("$POC", c_file)
+                if use_stdin:
+                    target_cmd = f"cat {c_file} | {val_bin} {target_cmd}"
+                else:
+                    target_cmd = f"{val_bin} {target_cmd}"
+            else:
+                target_cmd = val_bin
+            try:
+                subprocess.run(target_cmd, shell=True, env=env_local, cwd=val_runtime, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
+            except subprocess.TimeoutExpired:
+                print_log(f"Timeout for {target_cmd}")
+                continue
+            except Exception as e:
+                print_log(f"Error for {target_cmd}: {e}")
+                continue
+            print_log(f"Finished {cid}: {env_str} {target_cmd}")
+            if os.path.exists(local_out_file):
+                with open(local_out_file, "a") as f:
+                    f.write(f"[input] [id {cid}] [symgroup {i}] [file {cinput}]")
+        clear_val(val_runtime)
+
+
+def run_val_old(subject: dict, subject_dir: str, symradar_prefix: str, val_prefix: str, debug: bool = False):
+    conf = get_conf(subject, subject_dir)
+    val_runtime = os.path.join(subject_dir, "val-runtime")
+    val_bin = os.path.join(val_runtime, os.path.basename(conf["binary_path"]))
+    val_out_no = find_num(val_runtime, val_prefix)
+    val_out_dir = os.path.join(val_runtime, f"{val_prefix}-{val_out_no}")
     
     out_no = find_num(os.path.join(subject_dir, "patched"), symradar_prefix)
     out_dir = os.path.join(subject_dir, "patched", f"{symradar_prefix}-{out_no - 1}")
