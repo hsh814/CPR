@@ -317,6 +317,12 @@ def check_correct_exists(meta: dict) -> bool:
     if meta["crashrepair"] == 0:
       return False
     return True
+  elif OTHER_APR_TOOL_MODE == "san2patch":
+    if "san2patch" not in meta:
+      return False
+    if meta["san2patch"] == 0:
+      return False
+    return True
   if "correct" not in meta:
     return False
   if "no" not in meta["correct"]:
@@ -603,11 +609,27 @@ def get_all_patches(file: str) -> Tuple[Set[int], int]:
       correct_patch = patch_eq_map[correct_patch]      
     return all_patches, correct_patch
 
+def read_conf_file(repair_conf) -> dict:
+  with open(repair_conf, "r") as f:
+    lines = f.readlines()
+  result = dict()
+  for line in lines:
+    line = line.strip()
+    if len(line) == 0:
+      continue
+    if line.startswith("#"):
+      continue
+    key, value = line.split(":", 1)
+    result[key] = value
+  return result
+
+
 def symradar_final_result_v3_poc(meta: dict, result_f: TextIO):
   subject = meta["subject"]
   bug_id = meta["bug_id"]
   subject_dir = os.path.join(ROOT_DIR, "patches", meta["benchmark"], subject, bug_id)
-  patched_dir = os.path.join(subject_dir, "poc-patched")
+  patched_dir = os.path.join(subject_dir, f"{OTHER_APR_TOOL_MODE}-patched")
+  conf = read_conf_file(os.path.join(subject_dir, "repair.conf"))
   # if not os.path.exists(os.path.join(patched_dir, "snapshot-high-test/snapshot-last.json")):
   #   log_out(f"Snapshot not found: {os.path.join(patched_dir, 'snapshot-high-test/snapshot-last.json')}")
   #   result_f.write("\t\t\t\t\t\t\t\t\t\n")
@@ -625,7 +647,7 @@ def symradar_final_result_v3_poc(meta: dict, result_f: TextIO):
     result_f.write("\t\t\t\t\t\t\t\t\t\n")
     return
 
-  all_patches = meta["poc"]
+  all_patches = meta[OTHER_APR_TOOL_MODE]
   correct_patch = 1
   
   meta_data_default = result["meta-data"]["default"]
@@ -645,11 +667,15 @@ def symradar_final_result_v3_poc(meta: dict, result_f: TextIO):
 def symradar_final_result_v3(meta: dict, result_f: TextIO):
   subject = meta["subject"]
   bug_id = meta["bug_id"]
-  incomplete = meta["correct"]["incomplete"]
+  # incomplete = meta["correct"]["incomplete"]
+  incomplete = False
   subject_dir = os.path.join(ROOT_DIR, "patches", meta["benchmark"], subject, bug_id)
   patched_dir = os.path.join(subject_dir, "patched")
+  if OTHER_APR_TOOL_MODE == "san2patch":
+    patched_dir = os.path.join(subject_dir, "san2patch-patched")
   out_dir_no = find_num(patched_dir, SYMRADAR_PREFIX) - 1
   out_file = os.path.join(patched_dir, f"{SYMRADAR_PREFIX}-{out_dir_no}", "table_v3.sbsv")
+  conf = read_conf_file(os.path.join(subject_dir, "repair.conf"))
   # data_log_file = os.path.join(patched_dir, f"{SYMRADAR_PREFIX}-{out_dir_no}", "data.log")
   # with open(data_log_file, "r") as f:
   #   time_ms = 0
@@ -678,14 +704,20 @@ def symradar_final_result_v3(meta: dict, result_f: TextIO):
   # with open(filter_result_file, "r") as f:
   #   data = json.load(f)
   #   filter_result = set(data["remaining"])
-
-  all_patches, correct_patch = get_all_patches(os.path.join(subject_dir, "group-patches-original.json"))
+  if OTHER_APR_TOOL_MODE == "san2patch":
+    all_patches = range(1, meta["san2patch"] + 1)
+    correct_patch = 1
+  else:
+    all_patches, correct_patch = get_all_patches(os.path.join(subject_dir, "group-patches-original.json"))
   
   meta_data_default = result["meta-data"]["default"]
   meta_data_default_remove_crash = result["meta-data"]["remove-crash"]
   meta_data_strict = result["meta-data"]["strict"]
   meta_data_strict_remove_crash = result["meta-data"]["strict-remove-crash"]
   # all_patches = meta_data_default[0]["all-patches"]
+  default_patches = meta_data_default_remove_crash[0]["patches"]
+  if OTHER_APR_TOOL_MODE != "san2patch":
+    default_patches = ""
 
   default_str = symradar_res_to_str(meta_data_default[0])
   default_remove_crash_str = symradar_res_to_str(meta_data_default_remove_crash[0])
@@ -694,7 +726,7 @@ def symradar_final_result_v3(meta: dict, result_f: TextIO):
   
   stat = result["stat"]["states"][0]
   
-  result_f.write(f"{subject}\t{bug_id}\t{correct_patch}\t{len(all_patches)}\t{incomplete}\t{default_str}\t{strict_str}\t{default_remove_crash_str}\t{strict_remove_crash_str}\t{stat['original']}\t{stat['independent']}\n")
+  result_f.write(f"{subject}\t{bug_id}\t{correct_patch}\t{len(all_patches)}\t{incomplete}\t{default_str}\t{strict_str}\t{default_remove_crash_str}\t{strict_remove_crash_str}\t{stat['original']}\t{stat['independent']}\t{default_patches}\n")
   
 
 def final_analysis(meta_data: List[dict], output: str):
@@ -711,7 +743,7 @@ def final_analysis(meta_data: List[dict], output: str):
       symradar_final_result_vulmaster_v3(meta, result_f)
     elif OTHER_APR_TOOL_MODE in ["crashrepair", "poc"]:
       symradar_final_result_v3_poc(meta, result_f)
-    else:
+    else: # "cpr", "san2patch"
       symradar_final_result_v3(meta, result_f)
     # print(f"{meta['subject']}\t{meta['bug_id']}")
     # sub_dir = os.path.join(ROOT_DIR, "patches", meta["benchmark"], meta["subject"], meta['bug_id'], "patched")
@@ -818,7 +850,8 @@ def main(argv: List[str]):
   parser.add_argument("-m", "--mode", type=str, help="Mode", choices=["symradar", "extractfix"], default="symradar")
   parser.add_argument("-v", "--vrpilot", action="store_true", help="Run vrpilot", default=False)
   parser.add_argument("--cr", action="store_true", help="Run crashrepair", default=False)
-  parser.add_argument("--poc", action="store_true", help="Run crashrepair", default=False)
+  parser.add_argument("--poc", action="store_true", help="Run vrpilot", default=False)
+  parser.add_argument("--s2p", action="store_true", help="Run san2patch", default=False)
   parser.add_argument("--seq", action="store_true", help="Run sequentially", default=False)
   args = parser.parse_args(argv)
   global OUTPUT_DIR, PREFIX, SYMRADAR_PREFIX, MODE, VULMASTER_MODE, OTHER_APR_TOOL_MODE, SNAPSHOT_PREFIX
@@ -828,6 +861,9 @@ def main(argv: List[str]):
     OTHER_APR_TOOL_MODE = "crashrepair"
   if args.poc:
     OTHER_APR_TOOL_MODE = "poc"
+  if args.s2p:
+    OTHER_APR_TOOL_MODE = "san2patch"
+  
   MODE = args.mode
   SNAPSHOT_PREFIX = args.snapshot_prefix
   OUTPUT_DIR = os.path.join(ROOT_DIR, "out")
