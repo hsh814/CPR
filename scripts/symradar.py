@@ -1136,6 +1136,7 @@ class SymvassAnalyzer:
         analyzer.analyze()
         cluster = self.cluster(analyzer)
         result = list()
+        result_map = dict()
         for crash_state in cluster:
             base_meta = analyzer.meta_data[crash_state]
             if not base_meta["use"]:
@@ -1151,6 +1152,7 @@ class SymvassAnalyzer:
                     if not base_meta["stack-trace"]["passed-crash-loc"]:
                         continue
                 result.append((crash_id, base_meta["state"], base_meta["state"], base))
+                result_map.setdefault(crash_id, list()).append((crash_id, base_meta["state"], base_meta["state"], base))
             for crash_test in cluster[crash_state]:
                 if crash_test not in analyzer.meta_data:
                     continue
@@ -1178,27 +1180,48 @@ class SymvassAnalyzer:
                         #         break # Regression error
                         if no_reg:
                             result.append((crash_id, base_meta["state"], crash_meta["state"], crash))
+                            result_map.setdefault(crash_id, list()).append((crash_id, base_meta["state"], crash_meta["state"], crash))
                 else:
                     if not crashed and base_reg == crash_reg:
                         result.append((crash_id, base_meta["state"], crash_meta["state"], crash))
+                        result_map.setdefault(crash_id, list()).append((crash_id, base_meta["state"], crash_meta["state"], crash))
         original_count, independent_count = analyzer.count_states(all_patches)
         with open(os.path.join(self.dir, "table_v3.sbsv"), "w") as f:
             f.write(f"[stat] [states] [original {original_count}] [independent {independent_count}]\n")
             default_removed = set()
             remaining_inputs = list()
             remaining_inputs_per_crash = dict()
-            for res in result:
-                crash_id, base, test, patches = res
-                res_patches = set(patches)
-                removed = all_patches - res_patches
-                remaining = all_patches & res_patches
-                # if len(remaining) == 0:
-                #     # Skip if all patches are removed -> most likely infeasible input
-                #     continue
-                default_removed = default_removed | removed
-                remaining_inputs.append(res)
-                remaining_inputs_per_crash.setdefault(crash_id, list()).append(res)
-                f.write(f"[sym-in] [id {crash_id}] [base {base}] [test {test}] [cnt {len(remaining)}] [patches {sorted(list(remaining))}]\n")
+            for res_map in result_map:
+                update = False
+                remaining = set()
+                for res in result_map[res_map]:
+                    crash_id, base, test, patches = res
+                    res_patches = set(patches)
+                    base_meta = analyzer.meta_data[base]
+                    remaining_inputs.append(res)
+                    remaining_inputs_per_crash.setdefault(crash_id, list()).append(res)
+                    f.write(f"[sym-in] [id {crash_id}] [base {base}] [test {test}] [cnt {len(remaining)}] [patches {sorted(list(remaining))}]\n")
+                    if base_meta["isCrash"]:
+                        remaining = remaining | (all_patches & res_patches)
+                        update = True
+                    else:
+                        removed = all_patches - res_patches
+                        default_removed = default_removed | removed
+                if update:
+                    removed = all_patches - remaining
+                    default_removed = default_removed | removed
+            # for res in result:
+            #     crash_id, base, test, patches = res
+            #     res_patches = set(patches)
+            #     removed = all_patches - res_patches
+            #     remaining = all_patches & res_patches
+            #     # if len(remaining) == 0:
+            #     #     # Skip if all patches are removed -> most likely infeasible input
+            #     #     continue
+            #     default_removed = default_removed | removed
+            #     remaining_inputs.append(res)
+            #     remaining_inputs_per_crash.setdefault(crash_id, list()).append(res)
+            #     f.write(f"[sym-in] [id {crash_id}] [base {base}] [test {test}] [cnt {len(remaining)}] [patches {sorted(list(remaining))}]\n")
             all_patches_default = all_patches - default_removed
             output = list()
             meta_out = list()
@@ -1355,6 +1378,7 @@ class SymvassAnalyzer:
         analyzer.analyze()
         cluster = self.cluster(analyzer)
         result = list()
+        result_map = dict()
         for crash_state in cluster:
             base_meta = analyzer.meta_data[crash_state]
             if not base_meta["use"]:
@@ -1370,6 +1394,7 @@ class SymvassAnalyzer:
                     if not base_meta["stack-trace"]["passed-crash-loc"]:
                         continue
                 result.append((crash_id, base_meta["state"], base_meta["state"], base))
+                result_map.setdefault(crash_id, list()).append((crash_id, base_meta["state"], base_meta["state"], base))
             for crash_test in cluster[crash_state]:
                 if crash_test not in analyzer.meta_data:
                     continue
@@ -1388,27 +1413,48 @@ class SymvassAnalyzer:
                 if is_crash:
                     if not crashed:
                         result.append((crash_id, base_meta["state"], crash_meta["state"], crash))
+                        result_map.setdefault(crash_id, list()).append((crash_id, base_meta["state"], crash_meta["state"], crash))
                 else:
                     if not crashed and base_reg == crash_reg:
                         result.append((crash_id, base_meta["state"], crash_meta["state"], crash))
+                        result_map.setdefault(crash_id, list()).append((crash_id, base_meta["state"], crash_meta["state"], crash))
         original_count, independent_count = analyzer.count_states(all_patches)
         with open(os.path.join(self.dir, "table_v3.sbsv"), "w") as f:
             f.write(f"[stat] [states] [original {original_count}] [independent {independent_count}]\n")
             default_removed = set()
             remaining_inputs = list()
             remaining_inputs_per_crash = dict()
-            for res in result:
-                crash_id, base, test, patches = res
-                res_patches = set(patches)
-                removed = all_patches - res_patches
-                remaining = all_patches & res_patches
-                # if len(remaining) == 0:
-                #     # Skip if all patches are removed -> most likely infeasible input
-                #     continue
-                default_removed = default_removed | removed
-                remaining_inputs.append(res)
-                remaining_inputs_per_crash.setdefault(crash_id, list()).append(res)
-                f.write(f"[sym-in] [id {crash_id}] [base {base}] [test {test}] [cnt {len(remaining)}] [patches {sorted(list(remaining))}]\n")
+            for crash_id in result_map:
+                update = False
+                remaining = set()
+                for res in result_map[crash_id]:
+                    crash_id, base, test, patches = res
+                    res_patches = set(patches)
+                    base_meta = analyzer.meta_data[base]
+                    remaining_inputs.append(res)
+                    remaining_inputs_per_crash.setdefault(crash_id, list()).append(res)
+                    f.write(f"[sym-in] [id {crash_id}] [base {base}] [test {test}] [cnt {len(remaining)}] [patches {sorted(list(remaining))}]\n")
+                    if base_meta["isCrash"]:
+                        remaining = remaining | (all_patches & res_patches)
+                        update = True
+                    else:
+                        removed = all_patches - res_patches
+                        default_removed = default_removed | removed
+                if update:
+                    removed = all_patches - remaining
+                    default_removed = default_removed | removed
+            # for res in result:
+            #     crash_id, base, test, patches = res
+            #     res_patches = set(patches)
+            #     removed = all_patches - res_patches
+            #     remaining = all_patches & res_patches
+            #     # if len(remaining) == 0:
+            #     #     # Skip if all patches are removed -> most likely infeasible input
+            #     #     continue
+            #     default_removed = default_removed | removed
+            #     remaining_inputs.append(res)
+            #     remaining_inputs_per_crash.setdefault(crash_id, list()).append(res)
+            #     f.write(f"[sym-in] [id {crash_id}] [base {base}] [test {test}] [cnt {len(remaining)}] [patches {sorted(list(remaining))}]\n")
             all_patches_default = all_patches - default_removed
             output = list()
             meta_out = list()
@@ -1434,18 +1480,12 @@ class SymvassAnalyzer:
                         else:
                             new_remaining_inputs.append(res)
                             remaining_set = remaining_set | (all_patches & res_patches)
-                            update = True
                     else:
-                        if EXTRACTFIX_MODE:
-                            if not meta["stack-trace"]["passed-crash-loc"]:
-                                f.write(f"[remove] [crash] [id {crash_id}] [base {base}] [test {test}] [exit-loc {meta_base['exitLoc']}] [exit-res {meta_base['exit']}] [cnt {len(remaining)}] [patches {sorted(list(remaining))}]\n")
-                                continue
                         new_remaining_inputs.append(res)
                         removed = all_patches - res_patches
                         print(f"nonc removed {removed}")
                         new_removed = new_removed | removed
                 removed = all_patches - remaining_set
-                print(f"removed {removed}")
                 if update:
                     new_removed = new_removed | removed
             # for res in remaining_inputs:
